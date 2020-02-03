@@ -1,0 +1,23 @@
+[build-system]
+# requires = ["flit"]
+# build-backend = "flit.buildapi"
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
+
+[tool.poetry]
+name = "muon"
+version = "0.1.0"
+description = "Multimodal omics analysis framework"
+authors = ["Danila Bredikhin <danila.bredikhin@embl.de>"]
+
+[tool.poetry.dependencies]
+python = "*"
+
+[tool.poetry.dev-dependencies]
+pytest = "^3.4"
+
+[tool.flit.metadata]
+module = "muon"
+author = "Danila Bredikhin"
+author-email = "danila.bredikhin@embl.de"
+home-page = "https://github.com/gtca/muon"
