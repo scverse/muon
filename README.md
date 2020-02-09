@@ -12,11 +12,19 @@ In the same vein as [scanpy](https://github.com/theislab/scanpy) and [AnnData](h
 ```
 muon
   .obs -- annotation of observations (cells, samples)
-  .assays
-    "RNA"
+  .var -- annotation of features (genes, genomic loci, etc.)
+  .as
+    "RNA" (e.g.)
       .X   -- data matrix (cells x features)
       .var -- annotation of features (genes, genomics sites or windows)
-      .map -- mapping in the format of the long table (assay->cell->index)
-              to link rows in X (assay and index) to global metadata in .obs (cell)
-      [.obs call would use global .obs and .map of the assay to return assay-specific metadata]
+      .obs_map -- mapping in the format of the long table (cell->index)
+                  to link rows in X (index) to global metadata in .obs (cell)
+                  as well as assay-specific metadata for these cells
+      [.obs call would use global .obs and .obs_map of the assay to return assay-specific metadata]
+      .var_map -- mapping in the format of the long table (feature->index)
+                  to link columns in X (index) to global metadata in .var (feature)
+                  as well as assay-specific feature information
+      [.var call would use global .var and .var_map of the assay to return assay-specific feature information]
 ```
+
+By design, `muon` can incorporate disjoint multimodal experiments, i.e. the ones with different cells having different modalities measured. No redundant empty measurements are stored due to the distinct feature sets per assay as well as distinct cell sets mapped to a global list of observations.
