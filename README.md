@@ -15,8 +15,8 @@ muon
   .var -- annotation of features (genes, genomic loci, etc.)
   .as
     "RNA" (e.g.)
-      .X   -- data matrix (cells x features)
-      .var -- annotation of features (genes, genomics sites or windows)
+      .X       -- data matrix (cells x features)
+      .var     -- annotation of features (genes, genomics sites or windows)
       .obs_map -- mapping in the format of the long table (cell->index)
                   to link rows in X (index) to global metadata in .obs (cell)
                   as well as assay-specific metadata for these cells
@@ -27,4 +27,4 @@ muon
       [.var call would use global .var and .var_map of the assay to return assay-specific feature information]
 ```
 
-By design, `muon` can incorporate disjoint multimodal experiments, i.e. the ones with different cells having different modalities measured. No redundant empty measurements are stored due to the distinct feature sets per assay as well as distinct cell sets mapped to a global list of observations.
+By design, `muon` can incorporate disjoint multimodal experiments, i.e. the ones with different cells having different modalities measured. No redundant empty measurements are stored due to the distinct feature sets per assay as well as distinct cell sets mapped to a global set of observations.
