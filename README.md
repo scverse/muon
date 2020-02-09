@@ -13,7 +13,7 @@ In the same vein as [scanpy](https://github.com/theislab/scanpy) and [AnnData](h
 muon
   .obs -- annotation of observations (cells, samples)
   .var -- annotation of features (genes, genomic loci, etc.)
-  .as
+  .mod
     "RNA" (e.g.)
       .X       -- data matrix (cells x features)
       .var     -- annotation of features (genes, genomics sites or windows)
