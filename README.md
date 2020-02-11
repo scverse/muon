@@ -13,19 +13,21 @@ In the same vein as [scanpy](https://github.com/theislab/scanpy) and [AnnData](h
 muon
   .obs     -- annotation of observations (cells, samples)
   .var     -- annotation of features (genes, genomic loci, etc.)
-  .obs_map -- mapping in the format of the long table (modality->cell->index)
-              to link rows in X (index) to global metadata in .obs (cell)
-              as well as assay-specific metadata for these cells
-  .var_map -- mapping in the format of the long table (modality->feature->index)
-              to link columns in X (column) to global metadata in .var (feature)
-              as well as assay-specific feature information
   .mod
     AnnData
-      .X       -- data matrix (cells x features)
-      .var     -- annotation of features (genes, genomics sites or windows)
-      [.obs call would use global .obs and .obs_map of the assay 
+      .X         -- data matrix (cells x features)
+      .var       -- annotation of features (genes, genomics sites or windows)
+      .obs (map) -- mapping in the format of the long table (modality->cell->index)
+                    to link rows in X (index) to global metadata in .obs (cell)
+                    as well as assay-specific metadata for these cells
+                    (stored in the .obs slot of the AnnData)
+      [.obs call would use global .obs and .obs map of the assay 
             to return assay-specific metadata]
-      [.var call would use global .var and .var_map of the assay 
+      .var (map) -- mapping in the format of the long table (modality->feature->index)
+                    to link columns in X (column) to global metadata in .var (feature)
+                    as well as assay-specific feature information
+                    (stored in the .var slot of the AnnData)
+      [.var call would use global .var and .var map of the assay 
             to return assay-specific feature information]
       .uns
   .uns
