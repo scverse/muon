@@ -1,4 +1,4 @@
-from typing import Union, Mapping
+from typing import Tuple, Union, Mapping
 import numpy as np
 import pandas as pd
 from anndata import AnnData
@@ -41,6 +41,11 @@ class AmmData():
 
     def __getitem__(self, modality: str) -> AnnData:
         return self.mod[modality]
+
+    @property
+    def shape(self) -> Tuple[int, int]:
+        """Shape of data, all variables and observations combined (:attr:`n_obs`, :attr:`n_var`)."""
+        return self.n_obs, self.n_var
 
     def _gen_repr(self, n_obs, n_vars, extensive: bool = False) -> str:
         if self.isbacked:
