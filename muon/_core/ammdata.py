@@ -1,4 +1,4 @@
-from typing import Tuple, Union, Mapping
+from typing import Tuple, Union, Mapping, MutableMapping
 import numpy as np
 import pandas as pd
 from anndata import AnnData
@@ -36,6 +36,10 @@ class AmmData():
             global_var_indices = [self.var.index.get_loc(i) for i in v.var.index.values]
             self.mod[k].varm["ammdata_map"] = np.array(global_var_indices)
 
+        # Unstructured annotations
+        # NOTE: this is dict in contract to OrderedDict in anndata
+        #       due to favourable performance and lack of need to preserve the insertion order
+        self.uns = dict()
 
         print(self)
 
