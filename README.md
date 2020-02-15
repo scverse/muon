@@ -15,20 +15,13 @@ muon
   .var     -- annotation of features (genes, genomic loci, etc.)
   .mod
     AnnData
-      .X         -- data matrix (cells x features)
-      .var       -- annotation of features (genes, genomics sites or windows)
-      .obs (map) -- mapping in the format of the long table (modality->cell->index)
-                    to link rows in X (index) to global metadata in .obs (cell)
-                    as well as assay-specific metadata for these cells
-                    (stored in the .obs slot of the AnnData)
-      [.obs call would use global .obs and .obs map of the assay 
-            to return assay-specific metadata]
-      .var (map) -- mapping in the format of the long table (modality->feature->index)
-                    to link columns in X (column) to global metadata in .var (feature)
-                    as well as assay-specific feature information
-                    (stored in the .var slot of the AnnData)
-      [.var call would use global .var and .var map of the assay 
-            to return assay-specific feature information]
+      .X    -- data matrix (cells x features)
+      .var  -- annotation of features (genes, genomics sites or windows)
+      .obs  -- cells metadata (assay-specific)
+      .obsm -- multidimensional cell annotation, incl. "ammdata_map",
+               which links cells from the assay to the global .obs 
+      .varm -- multidimensional feature annotation, incl. "ammdata_map",
+               which links features from the assay to the global .var 
       .uns
   .uns
 ```
