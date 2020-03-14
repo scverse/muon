@@ -27,3 +27,13 @@ muon
 ```
 
 By design, `muon` can incorporate disjoint multimodal experiments, i.e. the ones with different cells having different modalities measured. No redundant empty measurements are stored due to the distinct feature sets per assay as well as distinct cell sets mapped to a global set of observations.
+
+### Individual assays
+
+Individual assays are stored as AnnData object, which enables the use of all the default `scanpy` functionality per assay:
+
+```py
+import scanpy as sc
+
+sc.pl.umap(mdata.mod["rna"])
+```
