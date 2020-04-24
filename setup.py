@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="muon-gtca",
-    version="0.0.1",
+    version="0.1.0",
     author="Danila Bredikhin",
     author_email="danila.bredikhin@embl.de",
     description="Multimodal omics analysis framework",
