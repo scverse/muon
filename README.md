@@ -1,6 +1,6 @@
 > Please note the project is experimental and no stable API is being provided as this point.
 
-# <img src="./docs/img/muon_logo.png" data-canonical-src="./docs/img/muon_logo.png" width="200"/>
+# <img src="./docs/img/muon_logo_coloured.png" data-canonical-src="./docs/img/muon_logo_coloured.png" width="200"/>
 
 `muon` is a multimodal omics Python framework.
 
