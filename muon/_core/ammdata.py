@@ -5,7 +5,7 @@ from anndata import AnnData
 
 class AmmData():
     def __init__(self,
-                 mod: Union[Mapping[str, AnnData], AnnData] = None):
+                 mod: Mapping[str, AnnData] = None):
 
         # Add all modalities to the AmmData object
         self.mod = dict()
@@ -21,20 +21,22 @@ class AmmData():
         self.n_obs = self.obs.shape[0]
 
         # Make obs map for each modality
+        self.obsm = dict()
         for k, v in self.mod.items():
             global_obs_indices = [self.obs.index.get_loc(i) for i in v.obs.index.values]
-            self.mod[k].obsm["ammdata_map"] = np.array(global_obs_indices)
+            self.obsm[k] = np.array(global_obs_indices)
 
         # Initialise global variables
-        self.var = pd.concat([a.var.add_suffix(f"_{m}") for m, a in mod.items()], join='outer', axis=1)
+        self.var = pd.concat([a.var.add_suffix(f"_{m}") for m, a in mod.items()], join='outer', axis=1, sort=False)
         self.n_var = self.var.shape[0]
         # API legacy from AnnData
         self.n_vars = self.n_var
 
         # Make var map for each modality
+        self.varm = dict()
         for k, v in self.mod.items():
             global_var_indices = [self.var.index.get_loc(i) for i in v.var.index.values]
-            self.mod[k].varm["ammdata_map"] = np.array(global_var_indices)
+            self.varm[k] = np.array(global_var_indices)
 
         # Unstructured annotations
         # NOTE: this is dict in contract to OrderedDict in anndata
