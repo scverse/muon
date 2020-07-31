@@ -1,23 +1,37 @@
 from typing import Tuple, Union, Mapping, MutableMapping
+import collections
 import numpy as np
 import pandas as pd
 from anndata import AnnData
 
 class AmmData():
     def __init__(self,
-                 mod: Mapping[str, AnnData] = None):
+                 data: Union[AnnData, Mapping[str, AnnData]] = None):
 
         # Add all modalities to the AmmData object
         self.mod = dict()
-        for k, v in mod.items():
-            self.mod[k] = v
+        if isinstance(data, collections.Mapping):
+            for k, v in data.items():
+                self.mod[k] = v
+        elif isinstance(data, AnnData):
+            # Get the list of modalities
+            if "feature_types" in data.var.columns:
+                if data.var.feature_types.dtype.name == "category:":
+                    mod_names = data.var.feature_types.cat.categories.values
+                else:
+                    mod_names = data.var.feature_types.unique()
+
+                for k in mod_names:
+                    self.mod[k] = data[:,data.var.feature_types == k]
+        else:
+            raise TypeError("Expected AnnData object or dictionary with AnnData objects as values")
 
         self.n_obs = 0
         self.n_vars = 0
         self.isbacked = False
         
         # Initialise global observations
-        self.obs = pd.concat([a.obs.add_suffix(f"_{m}") for m, a in mod.items()], join='outer', axis=1)
+        self.obs = pd.concat([a.obs.add_suffix(f"_{m}") for m, a in self.mod.items()], join='outer', axis=1)
         self.n_obs = self.obs.shape[0]
 
         # Make obs map for each modality
@@ -27,7 +41,7 @@ class AmmData():
             self.obsm[k] = np.array(global_obs_indices)
 
         # Initialise global variables
-        self.var = pd.concat([a.var.add_suffix(f"_{m}") for m, a in mod.items()], join='outer', axis=1, sort=False)
+        self.var = pd.concat([a.var.add_suffix(f"_{m}") for m, a in self.mod.items()], join='outer', axis=1, sort=False)
         self.n_var = self.var.shape[0]
         # API legacy from AnnData
         self.n_vars = self.n_var
@@ -58,7 +72,7 @@ class AmmData():
             backed_at = f"backed at {str(self.filename)!r}"
         else:
             backed_at = ""
-        descr = f"AnnData object with n_obs × n_vars = {n_obs} × {n_vars} {backed_at}"
+        descr = f"AmmData object with n_obs × n_vars = {n_obs} × {n_vars} {backed_at}"
         descr += f"\n  {len(self.mod)} modalities"
         for k, v in self.mod.items():
             descr += f"\n    {k}:\t{v.n_obs} x {v.n_vars}"
