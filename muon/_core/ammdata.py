@@ -1,3 +1,4 @@
+from functools import reduce
 from typing import Tuple, Union, Mapping, MutableMapping
 import collections
 import numpy as np
@@ -41,7 +42,7 @@ class AmmData():
             self.obsm[k] = np.array(global_obs_indices)
 
         # Initialise global variables
-        self.var = pd.concat([a.var.add_suffix(f"_{m}") for m, a in self.mod.items()], join='outer', axis=1, sort=False)
+        self.var = pd.concat([a.var for a in self.mod.values()], join="outer", axis=0, sort=False)
         self.n_var = self.var.shape[0]
         # API legacy from AnnData
         self.n_vars = self.n_var
