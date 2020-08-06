@@ -36,7 +36,7 @@ def tfidf(data: Union[AnnData, AmmData], log_tf=True, log_idf=True, scale_factor
 		raise TypeError("Expected AnnData or AmmData object with 'atac' modality")
 
 	n_peaks = adata.X.sum(axis=1)
-	tf = np.asarray(adata.X / n_peaks)
+	tf = np.asarray(adata.X / n_peaks[:,np.newaxis])
 	if scale_factor is not None and scale_factor != 0 and scale_factor != 1:
 		tf = tf * scale_factor
 	if log_tf:
