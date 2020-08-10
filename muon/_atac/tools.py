@@ -3,19 +3,19 @@ import logging
 import numpy as np
 from scipy.sparse.linalg import svds
 from anndata import AnnData
-from .._core.ammdata import AmmData
+from .._core.mudata import MuData
 
 
-def lsi(data: Union[AnnData, AmmData], scale_embeddings=True, n_comps=50):
+def lsi(data: Union[AnnData, MuData], scale_embeddings=True, n_comps=50):
 	"""
 	Run Latent Semantic Indexing
 	"""
 	if isinstance(data, AnnData):
 		adata = data
-	elif isinstance(data, AmmData):
+	elif isinstance(data, MuData):
 		adata = data.mod['atac']
 	else:
-		raise TypeError("Expected AnnData or AmmData object with 'atac' modality")
+		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
 	# In an unlikely scnenario when there are less 50 features, set n_comps to that value
 	n_comps = min(n_comps, adata.X.shape[1])

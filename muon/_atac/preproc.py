@@ -4,9 +4,9 @@ import numpy as np
 from scipy.sparse import csr_matrix
 
 from anndata import AnnData
-from .._core.ammdata import AmmData
+from .._core.mudata import MuData
 
-def tfidf(data: Union[AnnData, AmmData], log_tf=True, log_idf=True, scale_factor=1e4):
+def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, scale_factor=1e4):
 	"""
 	Transform peak counts with TF-IDF (Term Frequency - Inverse Document Frequency).
 
@@ -19,7 +19,7 @@ def tfidf(data: Union[AnnData, AmmData], log_tf=True, log_idf=True, scale_factor
 	Parameters
 	----------
 	data
-		AnnData object with peak counts or multimodal AmmData object with 'atac' modality.
+		AnnData object with peak counts or multimodal MuData object with 'atac' modality.
 	log_idf
 		Log-transform IDF term (True by default)
 	log_tf
@@ -29,11 +29,11 @@ def tfidf(data: Union[AnnData, AmmData], log_tf=True, log_idf=True, scale_factor
 	"""
 	if isinstance(data, AnnData):
 		adata = data
-	elif isinstance(data, AmmData):
+	elif isinstance(data, MuData):
 		adata = data.mod['atac']
 		# TODO: check that ATAC-seq slot is present with this name
 	else:
-		raise TypeError("Expected AnnData or AmmData object with 'atac' modality")
+		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
 	n_peaks = adata.X.sum(axis=1).reshape(-1, 1)
 	tf = np.asarray(adata.X / n_peaks)

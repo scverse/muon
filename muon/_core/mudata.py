@@ -5,11 +5,11 @@ import numpy as np
 import pandas as pd
 from anndata import AnnData
 
-class AmmData():
+class MuData():
     def __init__(self,
                  data: Union[AnnData, Mapping[str, AnnData]] = None):
 
-        # Add all modalities to the AmmData object
+        # Add all modalities to a MuData object
         self.mod = dict()
         if isinstance(data, collections.Mapping):
             for k, v in data.items():
@@ -29,10 +29,11 @@ class AmmData():
 
         self.n_obs = 0
         self.n_vars = 0
+        self.n_mod = len(self.mod)
         self.isbacked = False
         
         # Initialise global observations
-        self.obs = pd.concat([a.obs.add_suffix(f"_{m}") for m, a in self.mod.items()], join='outer', axis=1)
+        self.obs = pd.concat([a.obs for m, a in self.mod.items()], join='outer', axis=0)
         self.n_obs = self.obs.shape[0]
 
         # Make obs map for each modality
@@ -68,12 +69,19 @@ class AmmData():
         """Shape of data, all variables and observations combined (:attr:`n_obs`, :attr:`n_var`)."""
         return self.n_obs, self.n_var
 
+    def update_obs(self):
+        """
+        Update global observations from observations for each modality
+        """
+        self.obs = pd.concat([a.obs for m, a in self.mod.items()], join='outer', axis=0)
+        self.n_obs = self.obs.shape[0]
+
     def _gen_repr(self, n_obs, n_vars, extensive: bool = False) -> str:
         if self.isbacked:
             backed_at = f"backed at {str(self.filename)!r}"
         else:
             backed_at = ""
-        descr = f"AmmData object with n_obs × n_vars = {n_obs} × {n_vars} {backed_at}"
+        descr = f"MuData object with n_obs × n_vars = {n_obs} × {n_vars} {backed_at}"
         descr += f"\n  {len(self.mod)} modalities"
         for k, v in self.mod.items():
             descr += f"\n    {k}:\t{v.n_obs} x {v.n_vars}"
