@@ -6,10 +6,6 @@ import numpy as np
 from anndata import AnnData
 from .mudata import MuData
 
-from mofapy2.run.entry_point import entry_point
-from mofapy2.build_model.utils import process_data
-from mofapy2.build_model.utils import guess_likelihoods
-
 def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, use_layer=None, likelihoods=None, features_subset=None, save_metadata=None):
 	""" Method to input the data in AnnData format
 
@@ -186,6 +182,15 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 	quiet (optional): silence messages during training procedure
 	copy (optional): return a copy of AnnData instead of writing to the provided object
 	"""
+
+	try:
+		from mofapy2.run.entry_point import entry_point
+		from mofapy2.build_model.utils import process_data
+		from mofapy2.build_model.utils import guess_likelihoods
+    except ImportError:
+    	raise ImportError(
+    		"MOFA+ is not available. Install MOFA+ from PyPI (`pip install mofapy2`) or from GitHub (`pip install git+https://github.com/bioFAM/MOFA2`)'
+    		)
 	
 	if isinstance(data, AnnData):
 		logging.info("Wrapping an AnnData object into an MuData container")
