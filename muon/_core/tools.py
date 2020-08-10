@@ -1,5 +1,5 @@
 import sys
-from typing import Union, Optional, List
+from typing import Union, Optional, List, Iterable
 import logging
 
 import numpy as np
