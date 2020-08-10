@@ -20,6 +20,14 @@ def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, u
 	features_subset (optional): .var column with a boolean value to select genes (e.g. "highly_variable"), None by default
 	"""
 
+	try:
+		from mofapy2.build_model.utils import process_data
+		from mofapy2.build_model.utils import guess_likelihoods
+	except ImportError:
+		raise ImportError(
+			"MOFA+ is not available. Install MOFA+ from PyPI (`pip install mofapy2`) or from GitHub (`pip install git+https://github.com/bioFAM/MOFA2`)"
+			)
+
 	# Sanity checks
 	if not hasattr(model, 'data_opts'): 
 		# print("Data options not defined before setting the data, using default values...")
@@ -185,8 +193,6 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 
 	try:
 		from mofapy2.run.entry_point import entry_point
-		from mofapy2.build_model.utils import process_data
-		from mofapy2.build_model.utils import guess_likelihoods
 	except ImportError:
 		raise ImportError(
 			"MOFA+ is not available. Install MOFA+ from PyPI (`pip install mofapy2`) or from GitHub (`pip install git+https://github.com/bioFAM/MOFA2`)"
