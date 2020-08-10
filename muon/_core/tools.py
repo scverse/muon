@@ -56,9 +56,9 @@ def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, u
 		for m in mdata.mod.keys():
 			adata = mdata.mod[m]
 			if callable(getattr(adata.X, "todense", None)):
-			    data.append(np.array(adata.X.todense()))
+				data.append(np.array(adata.X.todense()))
 			else:
-			    data.append(adata.X)
+				data.append(adata.X)
 	
 	# Subset features if required
 	if features_subset is not None:
@@ -187,10 +187,10 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 		from mofapy2.run.entry_point import entry_point
 		from mofapy2.build_model.utils import process_data
 		from mofapy2.build_model.utils import guess_likelihoods
-    except ImportError:
-    	raise ImportError(
-    		"MOFA+ is not available. Install MOFA+ from PyPI (`pip install mofapy2`) or from GitHub (`pip install git+https://github.com/bioFAM/MOFA2`)'
-    		)
+	except ImportError:
+		raise ImportError(
+			"MOFA+ is not available. Install MOFA+ from PyPI (`pip install mofapy2`) or from GitHub (`pip install git+https://github.com/bioFAM/MOFA2`)'
+			)
 	
 	if isinstance(data, AnnData):
 		logging.info("Wrapping an AnnData object into an MuData container")
@@ -210,7 +210,7 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 
 	ent.set_data_options(scale_views=scale_views, scale_groups=scale_groups)
 	_set_mofa_data_from_mudata(model=ent, mdata=mdata, groups_label=groups_label, use_raw=use_raw, use_layer=use_layer,
-			          		  likelihoods=lik, features_subset=features_subset, save_metadata=save_metadata)
+							  likelihoods=lik, features_subset=features_subset, save_metadata=save_metadata)
 	ent.set_model_options(ard_factors=ard_factors, ard_weights=ard_weights, 
 						  spikeslab_weights=spikeslab_weights, spikeslab_factors=spikeslab_factors, 
 						  factors=n_factors)
