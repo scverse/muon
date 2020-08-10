@@ -33,7 +33,7 @@ class MuData():
         self.isbacked = False
         
         # Initialise global observations
-        self.obs = pd.concat([a.obs for m, a in self.mod.items()], join='outer', axis=0)
+        self.obs = pd.concat([a.obs for m, a in self.mod.items()], join='outer', axis=1, sort=False)
         self.n_obs = self.obs.shape[0]
 
         # Make obs map for each modality
@@ -73,7 +73,7 @@ class MuData():
         """
         Update global observations from observations for each modality
         """
-        self.obs = pd.concat([a.obs for m, a in self.mod.items()], join='outer', axis=0)
+        self.obs = pd.concat([a.obs for m, a in self.mod.items()], join='outer', axis=1, sort=False)
         self.n_obs = self.obs.shape[0]
 
     def _gen_repr(self, n_obs, n_vars, extensive: bool = False) -> str:
