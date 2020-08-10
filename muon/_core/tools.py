@@ -189,7 +189,7 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 		from mofapy2.build_model.utils import guess_likelihoods
 	except ImportError:
 		raise ImportError(
-			"MOFA+ is not available. Install MOFA+ from PyPI (`pip install mofapy2`) or from GitHub (`pip install git+https://github.com/bioFAM/MOFA2`)'
+			"MOFA+ is not available. Install MOFA+ from PyPI (`pip install mofapy2`) or from GitHub (`pip install git+https://github.com/bioFAM/MOFA2`)"
 			)
 	
 	if isinstance(data, AnnData):
