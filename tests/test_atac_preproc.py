@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 from anndata import AnnData
-import muon as mu
+from muon import atac as ac
 
 
 class TestTFIDF(unittest.TestCase):
@@ -13,7 +13,7 @@ class TestTFIDF(unittest.TestCase):
         self.adata = AnnData(x)
 
     def test_tfidf(self):
-        mu.pp.tfidf(self.adata, log_tf=True, log_idf=True)
+        ac.pp.tfidf(self.adata, log_tf=True, log_idf=True)
         self.assertEqual(str("%.3f" % self.adata.X[0,0]), '-11.726')
         self.assertEqual(str("%.3f" % self.adata.X[3,0]), '-12.452')
 
