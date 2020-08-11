@@ -51,3 +51,28 @@ def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, scale_factor=
 	adata.X = np.nan_to_num(tf_idf, 0)
 
 	return None
+
+def binarize(data: Union[AnnData, MuData]):
+	"""
+	Transform peak counts to the binary matrix (all the non-zero values become 1).
+
+	Parameters
+	----------
+	data
+		AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+	"""
+	if isinstance(data, AnnData):
+		adata = data
+	elif isinstance(data, MuData):
+		adata = data.mod['atac']
+		# TODO: check that ATAC-seq slot is present with this name
+	else:
+		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+	if callable(getattr(adata.X, "todense", None)):
+		# Sparse matrix
+		adata.X.data = np.where(adata.X.data > 0, 1, 0)
+	else:
+		adata.X = np.where(adata.X > 0, 1, 0)
+
+	
