@@ -76,6 +76,13 @@ class MuData():
         self.obs = pd.concat([a.obs for m, a in self.mod.items()], join='outer', axis=1, sort=False)
         self.n_obs = self.obs.shape[0]
 
+    def update_var(self):
+        """
+        Update global variables from variables for each modality
+        """
+        self.var = pd.concat([a.var for a in self.mod.values()], join="outer", axis=0, sort=False)
+        self.n_vars = self.var.shape[0]
+
     def _gen_repr(self, n_obs, n_vars, extensive: bool = False) -> str:
         if self.isbacked:
             backed_at = f"backed at {str(self.filename)!r}"

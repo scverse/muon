@@ -92,7 +92,7 @@ def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, u
 		if features_subset is not None:
 			model.data_opts['features_metadata'] = [adata.var[adata.var[features_subset].values] for adata in mdata.mod.values()]
 		else:
-			model.data_opts['features_metadata'] = [adata.var]
+			model.data_opts['features_metadata'] = [adata.var for adata in mdata.mod.values()]
 
 	# Define groups and samples names and metadata
 	if groups_label is None:
