@@ -7,5 +7,4 @@ from .mudata import MuData
 def read_10x_h5(filename: Union[str, Path],
 				*args, **kwargs) -> MuData:
 	adata = sc.read_10x_h5(filename, gex_only=False, *args, **kwargs)
-	adata.var_names_make_unique()
 	return MuData(adata)

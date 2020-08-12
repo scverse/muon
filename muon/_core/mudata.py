@@ -1,5 +1,5 @@
 from functools import reduce
-from typing import Tuple, Union, Mapping, MutableMapping
+from typing import Tuple, Union, Optional, Mapping, MutableMapping
 import collections
 import numpy as np
 import pandas as pd
@@ -7,7 +7,9 @@ from anndata import AnnData
 
 class MuData():
     def __init__(self,
-                 data: Union[AnnData, Mapping[str, AnnData]] = None):
+                 data: Union[AnnData, Mapping[str, AnnData]] = None,
+                 feature_types_names: Optional[dict] = {"Gene Expression": "rna",
+                                                        "Peaks": "atac"}):
 
         # Add all modalities to a MuData object
         self.mod = dict()
@@ -23,6 +25,9 @@ class MuData():
                     mod_names = data.var.feature_types.unique()
 
                 for k in mod_names:
+                    if feature_types_names is not None:
+                        if k in feature_types_names.keys():
+                            k = feature_types_names[k]
                     self.mod[k] = data[:,data.var.feature_types == k]
         else:
             raise TypeError("Expected AnnData object or dictionary with AnnData objects as values")
@@ -38,9 +43,9 @@ class MuData():
 
         # Make obs map for each modality
         self.obsm = dict()
+        self.obs['ix'] = range(len(self.obs))
         for k, v in self.mod.items():
-            global_obs_indices = [self.obs.index.get_loc(i) for i in v.obs.index.values]
-            self.obsm[k] = np.array(global_obs_indices)
+            self.obsm[k] = self.obs.loc[v.obs.index.values].ix.values
 
         # Initialise global variables
         self.var = pd.concat([a.var for a in self.mod.values()], join="outer", axis=0, sort=False)
@@ -50,9 +55,9 @@ class MuData():
 
         # Make var map for each modality
         self.varm = dict()
+        self.var['ix'] = range(len(self.var))
         for k, v in self.mod.items():
-            global_var_indices = [self.var.index.get_loc(i) for i in v.var.index.values]
-            self.varm[k] = np.array(global_var_indices)
+            self.varm[k] = self.var.loc[v.var.index.values].ix.values
 
         # Unstructured annotations
         # NOTE: this is dict in contract to OrderedDict in anndata
@@ -82,6 +87,13 @@ class MuData():
         """
         self.var = pd.concat([a.var for a in self.mod.values()], join="outer", axis=0, sort=False)
         self.n_vars = self.var.shape[0]
+
+    def var_names_make_unique(self):
+        """
+        Call .var_names_make_unique() method on each AnnData object
+        """
+        for k in self.mod:
+            self.mod[k].var_names_make_unique()
 
     def _gen_repr(self, n_obs, n_vars, extensive: bool = False) -> str:
         if self.isbacked:

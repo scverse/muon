@@ -125,7 +125,7 @@ def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, u
 
 
 	# Store intercepts (it is for one view only)
-	model.intercepts = [[]]
+	model.intercepts = [[] for _ in range(M)]
 
 	# Define likelihoods
 	if likelihoods is None:
@@ -135,9 +135,10 @@ def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, u
 	model.likelihoods = likelihoods
 
 	# Process the data (center, scaling, etc.)
-	for g in model.data_opts['groups_names']:
-		samples_idx = np.where(np.array(model.data_opts['samples_groups']) == g)[0]
-		model.intercepts[0].append(np.nanmean(data[0][samples_idx,:], axis=0))
+	for m in range(M):
+		for g in model.data_opts['groups_names']:
+			samples_idx = np.where(np.array(model.data_opts['samples_groups']) == g)[0]
+			model.intercepts[m].append(np.nanmean(data[m][samples_idx,:], axis=0))
 	model.data = process_data(data, likelihoods, model.data_opts, model.data_opts['samples_groups'])
 
 
@@ -229,6 +230,10 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 
 	ent.save(outfile, save_data=save_data, save_parameters=save_parameters, expectations=expectations)
 
+	if outfile is None:
+		return None
+
+	# If outfile is not None, get embeddings and weights from the trained model
 	try:
 		import h5py
 	except ImportError:
