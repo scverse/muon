@@ -24,11 +24,12 @@ class MuData():
                 else:
                     mod_names = data.var.feature_types.unique()
 
-                for k in mod_names:
+                for name in mod_names:
+                    alias = name
                     if feature_types_names is not None:
-                        if k in feature_types_names.keys():
-                            k = feature_types_names[k]
-                    self.mod[k] = data[:,data.var.feature_types == k]
+                        if name in feature_types_names.keys():
+                            alias = feature_types_names[name]
+                    self.mod[alias] = data[:,data.var.feature_types == name]
         else:
             raise TypeError("Expected AnnData object or dictionary with AnnData objects as values")
 
