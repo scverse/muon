@@ -14,10 +14,10 @@ muon
   .obs     -- annotation of observations (cells, samples)
   .var     -- annotation of features (genes, genomic loci, etc.)
   .obsm    -- multidimensional cell annotation, 
-              incl. a indices list for each modality
+              incl. indices list for each modality
               that links .obs to the cells of that modality
   .varm    -- multidimensional feature annotation, 
-              incl. a indices list for each modality
+              incl. indices list for each modality
               that links .var to the features of that modality
   .mod
     AnnData
@@ -29,6 +29,28 @@ muon
 ```
 
 By design, `muon` can incorporate disjoint multimodal experiments, i.e. the ones with different cells having different modalities measured. No redundant empty measurements are stored due to the distinct feature sets per assay as well as distinct cell sets mapped to a global set of observations.
+
+### Input
+
+For reading multimodal omics data, `muon` relies on the functionality available in scanpy. `muon` comes with `MuData` — a multimodal container, in which every modality is an AnnData object:
+
+```py
+from muon import MuData
+
+mdata = MuData({'rna': adata_rna, 'atac': adata_atac})
+```
+
+If multimodal data from 10X Genomics is to be read, `muon` provides a reader that returns a `MuData` object with AnnData objects inside, each corresponding to its own modality:
+
+```py
+mu.read_10x_h5("filtered_feature_bc_matrix.h5")
+# MuData object with n_obs × n_vars = 10000 × 80000 
+# 2 modalities
+#   rna:	10000 x 30000
+#     var:	'gene_ids', 'feature_types', 'genome'
+#   atac:	10000 x 50000
+#     var:	'gene_ids', 'feature_types', 'genome'
+```
 
 ### Individual assays
 
