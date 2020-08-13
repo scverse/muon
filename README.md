@@ -13,15 +13,17 @@ In the same vein as [scanpy](https://github.com/theislab/scanpy) and [AnnData](h
 muon
   .obs     -- annotation of observations (cells, samples)
   .var     -- annotation of features (genes, genomic loci, etc.)
+  .obsm    -- multidimensional cell annotation, 
+              incl. a indices list for each modality
+              that links .obs to the cells of that modality
+  .varm    -- multidimensional feature annotation, 
+              incl. a indices list for each modality
+              that links .var to the features of that modality
   .mod
     AnnData
       .X    -- data matrix (cells x features)
       .var  -- annotation of features (genes, genomics sites or windows)
       .obs  -- cells metadata (assay-specific)
-      .obsm -- multidimensional cell annotation, incl. "ammdata_map",
-               which links cells from the assay to the global .obs 
-      .varm -- multidimensional feature annotation, incl. "ammdata_map",
-               which links features from the assay to the global .var 
       .uns
   .uns
 ```
