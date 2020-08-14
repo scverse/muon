@@ -65,7 +65,14 @@ class MuData():
         #       due to favourable performance and lack of need to preserve the insertion order
         self.uns = dict()
 
-        print(self)
+        # For compatibility with calls requiring .raw slot
+        self.raw = None
+
+    def _sanitize(self, df: Optional[pd.DataFrame]=None):
+        """
+        Empty method to increase compatibility with scanpy methods
+        """
+        pass
 
     def __getitem__(self, modality: str) -> AnnData:
         return self.mod[modality]
