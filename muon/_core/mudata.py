@@ -89,12 +89,34 @@ class MuData():
         self.obs = pd.concat([a.obs for m, a in self.mod.items()], join='outer', axis=1, sort=False)
         self.n_obs = self.obs.shape[0]
 
+    def obs_vector(self, key: str, layer: Optional[str] = None) -> np.ndarray:
+        """
+        Return an array of values for the requested key of length n_obs
+        """
+        if key not in self.obs.columns:
+            for m, a in self.mod.items():
+                if key in a.obs.columns:
+                    raise KeyError(f"There is no {key} in MuData .obs but there is one in {m} .obs. Consider running `mu.update_obs()` to update global .obs.")
+            raise KeyError(f"There is no key {key} in MuData .obs or in .obs of any modalities.")
+        return self.obs[key].values
+
     def update_var(self):
         """
         Update global variables from variables for each modality
         """
         self.var = pd.concat([a.var for a in self.mod.values()], join="outer", axis=0, sort=False)
         self.n_vars = self.var.shape[0]
+
+    def var_vector(self, key: str, layer: Optional[str] = None) -> np.ndarray:
+        """
+        Return an array of values for the requested key of length n_var
+        """
+        if key not in self.var.columns:
+            for m, a in self.mod.items():
+                if key in a.var.columns:
+                    raise KeyError(f"There is no {key} in MuData .var but there is one in {m} .var. Consider running `mu.update_var()` to update global .var.")
+            raise KeyError(f"There is no key {key} in MuData .var or in .var of any modalities.")
+        return self.var[key].values
 
     def var_names_make_unique(self):
         """
