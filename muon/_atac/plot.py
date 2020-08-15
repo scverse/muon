@@ -98,13 +98,23 @@ def embedding(data: Union[AnnData, MuData],
 
 	return None
 
+
 def pca(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None]:
 	"""
-	Scatter plot in PCA coordinates
+	Scatter plot for principle components
 
 	See sc.pl.embedding for details.
 	"""
 	return embedding(data, basis='pca', **kwargs)
+
+
+def umap(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None]:
+	"""
+	Scatter plot in UMAP space
+
+	See sc.pl.embedding for details.
+	"""
+	return embedding(data, basis='umap', **kwargs)
 
 
 def mofa(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
