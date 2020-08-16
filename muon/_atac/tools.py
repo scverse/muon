@@ -8,6 +8,7 @@ import logging
 
 import numpy as np
 import pandas as pd
+import scanpy as sc
 from scipy.sparse.linalg import svds
 from anndata import AnnData
 from .._core.mudata import MuData
@@ -239,7 +240,11 @@ def add_genes_peaks_groups(data: Union[AnnData, MuData],
 	adata.uns['rank_genes_groups']['genes'] = pd.DataFrame(adata.uns['rank_genes_groups']['genes']).to_records()
 
 
-def rank_peaks_groups(data: Union[AnnData, MuData], **kwargs):
+def rank_peaks_groups(data: Union[AnnData, MuData],
+					  groupby: str, 
+					  peak_type: Optional[str] = None, 
+				      distance_filter: Optional[Callable[[int], bool]] = None,
+					  **kwargs):
 	"""
 	Rank peaks in clusters groups.
 
@@ -256,9 +261,9 @@ def rank_peaks_groups(data: Union[AnnData, MuData], **kwargs):
 	else:
 		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
-	sc.tl.rank_genes_groups(adata, **kwargs)
+	sc.tl.rank_genes_groups(adata, groupby, **kwargs)
 
-	add_genes_peaks_groups(adata)
+	add_genes_peaks_groups(adata, peak_type=peak_type, distance_filter=distance_filter)
 
 
 
