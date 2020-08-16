@@ -48,6 +48,9 @@ def embedding(data: Union[AnnData, MuData],
 				peak_sel = peak_sel[peak_sel.peak.isin(adata.var_names.values)]
 
 				peaks = peak_sel.peak
+
+				if len(peaks) == 0:
+					warnings.warn(f"Peaks for {key} are not found.")
 				
 				if average == 'total' or average == 'all':
 					attr_name = f"{key} (all peaks)"
@@ -79,7 +82,7 @@ def embedding(data: Union[AnnData, MuData],
 				else:
 					# No averaging, one plot per peak
 					if average is not None and average != False and average != -1:
-						wargnings.warn(f"Plotting individual peaks since {average} was not recognised. Try using 'total' or 'peak_type'.")
+						warnings.warn(f"Plotting individual peaks since {average} was not recognised. Try using 'total' or 'peak_type'.")
 					attr_names += peak_sel.peak.values
 			
 			else:
