@@ -169,7 +169,7 @@ def add_peak_annotation_gene_names(data: Union[AnnData, MuData],
 	adata.uns['atac']['peak_annotation'] = ann
 
 	if return_annotation:
-		return pa_long
+		return ann
 
 
 # Gene names for peaks
