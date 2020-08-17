@@ -6,8 +6,13 @@ import numpy as np
 from anndata import AnnData
 from .mudata import MuData
 
+#
+# Multi-omics factor analysis (MOFA)
+# 
+
 def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, use_layer=None, likelihoods=None, features_subset=None, save_metadata=None):
-	""" Method to input the data in AnnData format
+	""" 
+	Input the data in MuData format
 
 	PARAMETERS
 	----------

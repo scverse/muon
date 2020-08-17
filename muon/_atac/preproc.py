@@ -8,6 +8,8 @@ from scipy.sparse import csr_matrix
 from anndata import AnnData
 from .._core.mudata import MuData
 
+# Computational methods for preprocessing
+
 def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, scale_factor=1e4):
 	"""
 	Transform peak counts with TF-IDF (Term Frequency - Inverse Document Frequency).
