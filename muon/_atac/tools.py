@@ -13,6 +13,9 @@ from scipy.sparse.linalg import svds
 from anndata import AnnData
 from .._core.mudata import MuData
 
+#
+# Computational methods for transforming and analysing count data
+#
 
 def lsi(data: Union[AnnData, MuData], scale_embeddings=True, n_comps=50):
 	"""
@@ -20,7 +23,7 @@ def lsi(data: Union[AnnData, MuData], scale_embeddings=True, n_comps=50):
 	"""
 	if isinstance(data, AnnData):
 		adata = data
-	elif isinstance(data, MuData):
+	elif isinstance(data, MuData) and 'atac' in data.mod:
 		adata = data.mod['atac']
 	else:
 		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
@@ -48,8 +51,13 @@ def lsi(data: Union[AnnData, MuData], scale_embeddings=True, n_comps=50):
 
 	return None
 
-
+#
 # Peak annotation
+# 
+# Peak annotation can include peak type (e.g. promoter, distal, intergenic),
+# genes that the peak can be linked to (by proximity),
+# as well as distances to these genes.
+# 
 
 def add_peak_annotation(data: Union[AnnData, MuData],
 						annotation: Union[str, pd.DataFrame],
@@ -73,7 +81,7 @@ def add_peak_annotation(data: Union[AnnData, MuData],
 	"""
 	if isinstance(data, AnnData):
 		adata = data
-	elif isinstance(data, MuData):
+	elif isinstance(data, MuData) and 'atac' in data.mod:
 		adata = data.mod['atac']
 		# TODO: check that ATAC-seq slot is present with this name
 	else:
@@ -96,8 +104,8 @@ def add_peak_annotation(data: Union[AnnData, MuData],
 
 	# Make a long dataframe indexed by gene
 	pa_long = pd.concat([pa_g.reset_index()[["peak", 0]],
-	                     pa_d.reset_index()[[0]],
-	                     pa_p.reset_index()[[0]]], axis=1)
+						 pa_d.reset_index()[[0]],
+						 pa_p.reset_index()[[0]]], axis=1)
 	pa_long.columns = ["peak", "gene", "distance", "peak_type"]
 	pa_long = pa_long.set_index("gene")
 
@@ -111,7 +119,7 @@ def add_peak_annotation(data: Union[AnnData, MuData],
 	pa_long.distance = pa_long.distance.astype(int).astype("Int64")
 	pa_long.distance[null_distance] = np.nan
 
-	if 'atac' not in data.uns:
+	if 'atac' not in adata.uns:
 		adata.uns["atac"] = OrderedDict()
 	adata.uns['atac']['peak_annotation'] = pa_long
 
@@ -120,9 +128,9 @@ def add_peak_annotation(data: Union[AnnData, MuData],
 
 
 def add_peak_annotation_gene_names(data: Union[AnnData, MuData],
-						  		   gene_names: Optional[pd.DataFrame] = None,
-						  		   join_on: str = "gene_ids",
-						  		   return_annotation: bool = False):
+								   gene_names: Optional[pd.DataFrame] = None,
+								   join_on: str = "gene_ids",
+								   return_annotation: bool = False):
 	"""
 	Add gene names to peak annotation table in .uns["atac"]["peak_annotation"]
 
@@ -139,7 +147,7 @@ def add_peak_annotation_gene_names(data: Union[AnnData, MuData],
 	"""
 	if isinstance(data, AnnData):
 		adata = data
-	elif isinstance(data, MuData):
+	elif isinstance(data, MuData) and 'atac' in data.mod
 		adata = data.mod['atac']
 		# TODO: check that ATAC-seq slot is present with this name
 
@@ -189,7 +197,7 @@ def add_genes_peaks_groups(data: Union[AnnData, MuData],
 	"""
 	if isinstance(data, AnnData):
 		adata = data
-	elif isinstance(data, MuData):
+	elif isinstance(data, MuData) and 'atac' in data.mod:
 		adata = data.mod['atac']
 	else:
 		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
@@ -232,9 +240,9 @@ def add_genes_peaks_groups(data: Union[AnnData, MuData],
 
 	adata.uns['rank_genes_groups']['genes'] = {}
 	for i in adata.uns['rank_genes_groups']['names'].dtype.names:
-	    group = adata.uns['rank_genes_groups']['names'][i]
-	    genes = [', '.join(choose_peak_annotations(annotation, value, peak_type, distance_filter).index.values) for value in group]
-	    adata.uns['rank_genes_groups']['genes'][i] = genes
+		group = adata.uns['rank_genes_groups']['names'][i]
+		genes = [', '.join(choose_peak_annotations(annotation, value, peak_type, distance_filter).index.values) for value in group]
+		adata.uns['rank_genes_groups']['genes'][i] = genes
 
 	# Convert to rec.array to match 'names', 'scores', and 'pvals'
 	adata.uns['rank_genes_groups']['genes'] = pd.DataFrame(adata.uns['rank_genes_groups']['genes']).to_records()
@@ -243,7 +251,7 @@ def add_genes_peaks_groups(data: Union[AnnData, MuData],
 def rank_peaks_groups(data: Union[AnnData, MuData],
 					  groupby: str, 
 					  peak_type: Optional[str] = None, 
-				      distance_filter: Optional[Callable[[int], bool]] = None,
+					  distance_filter: Optional[Callable[[int], bool]] = None,
 					  **kwargs):
 	"""
 	Rank peaks in clusters groups.
@@ -266,8 +274,9 @@ def rank_peaks_groups(data: Union[AnnData, MuData],
 	add_genes_peaks_groups(adata, peak_type=peak_type, distance_filter=distance_filter)
 
 
-
+#
 # Sequences and motifs
+#
 
 def _parse_motif_ids(filename: Optional[str] = None):
 	if filename is None:
@@ -376,7 +385,6 @@ def scan_sequences(sequences,
 	return matches
 
 
-
 def get_sequences(bed: str,
 				  fasta_file: str,
 				  bed_file: str = None):
@@ -396,8 +404,9 @@ def get_sequences(bed: str,
 	scanner = scanner.sequence(fi=fasta_file)
 	sequences = []
 	with open(scanner.seqfn, 'rb') as f:
-	    for line in f:
-	        if not line.startswith(str.encode(">")):
-	            sequences.append(line.decode().strip())
+		for line in f:
+			if not line.startswith(str.encode(">")):
+				sequences.append(line.decode().strip())
 
 	return sequences
+
