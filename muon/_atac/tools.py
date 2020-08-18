@@ -628,6 +628,7 @@ def count_fragments_genes(data: Union[AnnData, MuData],
 
 		logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {genes.shape[0]} genes...")
 		# Gene order is determined
+		sparse_columns = []
 		for i in range(genes.shape[0]):  # iterate over features (genes)
 			gene = genes.iloc[i]
 			barcodes = []
@@ -648,12 +649,12 @@ def count_fragments_genes(data: Union[AnnData, MuData],
 								 shape=(n, 1),
 								 dtype=np.int8)
 
-			mx = hstack([mx, gene_mx])
+			sparse_columns.append(gene_mx)
 			
 			if i > 0 and i % 1000 == 0:
-				logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Processed {i} features")
+				logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Processed {i} genes")
 
-		mx = mx.tocsr()
+		mx = hstack(sparse_columns).tocsr()
 
 		return AnnData(X=mx, obs=adata.obs, var=genes)
 
