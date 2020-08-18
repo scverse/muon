@@ -5,11 +5,14 @@ import pkgutil
 from collections import OrderedDict
 from typing import Union, Optional, Callable
 import logging
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
 import scanpy as sc
 from scipy.sparse.linalg import svds
+from scipy.sparse import csr_matrix
+from scipy.sparse import hstack
 from anndata import AnnData
 from .._core.mudata import MuData
 
@@ -147,7 +150,7 @@ def add_peak_annotation_gene_names(data: Union[AnnData, MuData],
 	"""
 	if isinstance(data, AnnData):
 		adata = data
-	elif isinstance(data, MuData) and 'atac' in data.mod
+	elif isinstance(data, MuData) and 'atac' in data.mod:
 		adata = data.mod['atac']
 		# TODO: check that ATAC-seq slot is present with this name
 
@@ -385,7 +388,8 @@ def scan_sequences(sequences,
 	return matches
 
 
-def get_sequences(bed: str,
+def get_sequences(data: Union[AnnData, MuData],
+				  bed: str,
 				  fasta_file: str,
 				  bed_file: str = None):
 
@@ -395,6 +399,22 @@ def get_sequences(bed: str,
 		raise ImportError(
 			"Pybedtools is not available. Install pybedtools from PyPI (`pip install pybedtools`) or from GitHub (`pip install git+https://github.com/daler/pybedtools`)"
 			)
+
+	if isinstance(data, AnnData):
+		adata = data
+	elif isinstance(data, MuData) and 'atac' in data.mod:
+		adata = data.mod['atac']
+	else:
+		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+	if 'files' not in adata.uns or 'genome' not in adata.uns['files']:
+		if fasta_file is not None:
+			locate_genome(adata, fasta_file)
+		else:
+			raise FileNotFoundError(f"Genome file has to be provided with `fasta_file` or located using `muon.atac.tl.locate_genome`.")
+	else:
+		# TODO: have a function to check validity of the file
+		fasta_file = adata.uns['files']['genome']
 
 	if bed_file is not None:
 		assert bed is None
@@ -409,4 +429,233 @@ def get_sequences(bed: str,
 				sequences.append(line.decode().strip())
 
 	return sequences
+
+
+def locate_file(data: Union[AnnData, MuData],
+				key: str,
+				file: str):
+	"""
+	Add path to the file to .uns["files"][key]
+
+	The file to be added has to exist.
+
+	Parameters
+	----------
+	data
+		AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+	key
+		A key to store the file (e.g. 'fragments')
+	file
+		A path to the file (e.g. ./atac_fragments.tsv.gz).
+	"""
+	if isinstance(data, AnnData):
+		adata = data
+	elif isinstance(data, MuData) and 'atac' in data.mod:
+		adata = data.mod['atac']
+	else:
+		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+	if not os.path.exists(file_name):
+		raise FileNotFoundError(f"File {file} does not exist")
+
+	if 'files' not in adata.uns:
+		adata.uns["files"] = OrderedDict()
+	adata.uns['files'][key] = file
+
+
+def locate_genome(data: Union[AnnData, MuData],
+				  fasta_file: str):
+	"""
+	Add path to the FASTA file with genome to .uns["files"]["genome"]
+
+	Genome sequences can be downloaded from GENCODE:
+
+	- GRCh38: ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_34/GRCh38.p13.genome.fa.gz
+	- GRCm38: ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M25/GRCm38.p6.genome.fa.gz
+
+	Parameters
+	----------
+	data
+		AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+	fasta_file
+		A path to the file (e.g. ./atac_fragments.tsv.gz).
+	"""
+	if isinstance(data, AnnData):
+		adata = data
+	elif isinstance(data, MuData) and 'atac' in data.mod:
+		adata = data.mod['atac']
+	else:
+		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+	locate_file(data, "genome", fasta_file)
+
+	
+
+
+# 
+# Fragments
+# 
+# Fragments file is a BED-like file describing individual fragments.
+# A single record in such a file typically includes 5 tab-separated fields: 
+# 
+# chr1 10000 11000 GTCAGTCAGTCAGTCA-1 1
+# ^    ^     ^     ^                  ^
+# |    |     |     |                  |
+# |    |     |     4: name (cell barcode)
+# |    |     3: end (3' fragment position)
+# |    2: start (5' fragment position)|
+# 1: contig (chromosome)              5: score (number of cuts per fragment)
+# 
+# Fragments file is compressed (.gz) and has to be indexed 
+# with Tabix in order to be used (.gz.tbi).
+# 
+
+
+def locate_fragments(data: Union[AnnData, MuData],
+					 fragments: str,
+					 return_fragments: bool = False):
+	"""
+	Parse fragments file and add a variable to access it to the .uns["files"]["fragments"]
+
+	Fragments file is never read to memory, and connection to the file is closed
+	upon function completion.
+
+	Parameters
+	----------
+	data
+		AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+	fragments
+		A path to the compressed tab-separated fragments file (e.g. atac_fragments.tsv.gz).
+	return_fragments
+		If return the Tabix connection the fragments file. False by default.
+	"""
+	try:
+		if isinstance(data, AnnData):
+			adata = data
+		elif isinstance(data, MuData) and 'atac' in data.mod:
+			adata = data.mod['atac']
+		else:
+			raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+		try:
+			import pysam
+		except ImportError:
+			raise ImportError(
+				"pysam is not available. It is required to work with the fragments file. Install pysam from PyPI (`pip install pysam`) or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
+				)
+
+		# Here we make sure we can create a connection to the fragments file
+		frag = pysam.TabixFile(fragments, parser=pysam.asBed())
+
+		if 'files' not in adata.uns:
+			adata.uns["files"] = OrderedDict()
+		adata.uns['files']['fragments'] = fragments
+
+		if return_fragments:
+			return frag
+
+	except Exception as e:
+		print(e)
+
+	finally:
+		if not return_fragments:
+			# The connection has to be closed
+			frag.close()
+
+
+def count_fragments_genes(data: Union[AnnData, MuData],
+						  genes: Optional[pd.DataFrame] = None,
+						  extend_upstream: int = 2e3,
+						  extend_downstream: int = 0,
+						  average: str = 'sum') -> AnnData:
+	"""
+	Parse peak annotation file and add it to the .uns["atac"]["peak_annotation"]
+
+	Parameters
+	----------
+	data
+		AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+	genes
+		A DataFrame with gene annotation.
+		Annotation has to contain columns: Chromosome, Start, End.
+	extend_upsteam
+		Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
+	extend_downstream
+		Number of nucleotides to extend every gene downstream (0 by default)
+	average
+		Name of the function to aggregate fragments per gene ('sum' by default to sum scores, 'count' to calculate number of fragments)
+	"""
+	if isinstance(data, AnnData):
+		adata = data
+	elif isinstance(data, MuData) and 'atac' in data.mod:
+		adata = data.mod['atac']
+		# TODO: check that ATAC-seq slot is present with this name
+	else:
+		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+	if genes is None:
+		if isinstance(data, MuData) and 'rna' in data.mod:
+			# TODO: try to find gene annotation in the data.mod['rna']
+			pass
+		else:
+			raise ValueError("Argument `genes` is required. It should be a BED-like DataFrame with gene coordinates and names.")
+	
+	if 'files' not in adata.uns or 'fragments' not in adata.uns['files']:
+		raise KeyError("There is no fragments file located yet. Run muon.atac.pp.add_peak_annotation first.")
+
+	try:
+		import pysam
+	except ImportError:
+		raise ImportError(
+			"pysam is not available. It is required to work with the fragments file. Install pysam from PyPI (`pip install pysam`) or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
+			)
+
+	n = adata.n_obs
+	cells = adata.obs_names.values
+	cells_df = pd.DataFrame(index=adata.obs.index)
+	cells_df["cell_index"] = range(n)
+
+	fragments = pysam.TabixFile(adata.uns['files']['fragments'], parser=pysam.asBed())
+	try:
+		# Construct an empty sparse matrix with the right amount of cells
+		mx = csr_matrix(([], ([], [])), shape=(n, 0), dtype=np.int8)
+
+		logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {genes.shape[0]} genes...")
+		# Gene order is determined
+		for i in range(genes.shape[0]):  # iterate over features (genes)
+			gene = genes.iloc[i]
+			barcodes = []
+			scores = []
+			for fr in fragments.fetch(gene.Chromosome, gene.Start - extend_upstream, gene.End + extend_downstream):
+				barcodes.append(fr.name)      # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
+				scores.append(int(fr.score))  # number of cuts per fragment (e.g. 2)
+
+			# Note: This will also discard barcodes not present in the original data
+			gene_df = pd.DataFrame({"score": scores}, index=barcodes, dtype=int)\
+						.join(cells_df, how="inner")\
+						.groupby("cell_index")\
+						.agg({"score": average})
+
+			gene_mx = csr_matrix((gene_df.score.values,
+								 (gene_df.index.values,
+								  [0] * gene_df.shape[0])),
+								 shape=(n, 1),
+								 dtype=np.int8)
+
+			mx = hstack([mx, gene_mx])
+			
+			if i > 0 and i % 1000 == 0:
+				logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Processed {i} features")
+
+		mx = mx.tocsr()
+
+		return AnnData(X=mx, obs=adata.obs, var=genes)
+
+	except Exception as e:
+		logging.error(e)
+		raise e
+
+	finally:
+		# The connection has to be closed
+		fragments.close()
 
