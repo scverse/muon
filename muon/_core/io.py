@@ -8,10 +8,11 @@ from .mudata import MuData
 
 from .._atac.tools import add_peak_annotation, locate_fragments, add_peak_annotation_gene_names
 
+
 def read_10x_h5(filename: Union[str, Path],
 				extended: bool = True,
 				*args, **kwargs) -> MuData:
-	
+
 	adata = sc.read_10x_h5(filename, gex_only=False, *args, **kwargs)
 
 	# Patches sc.read_10x_h5 behaviour to:
@@ -55,8 +56,8 @@ def read_10x_h5(filename: Union[str, Path],
 
 			try:
 				add_peak_annotation_gene_names(mdata)
-				print(f"Added gene names to peak annotation in .uns['atac']['peak_annotation']")
-			except Exception as e:
+				print("Added gene names to peak annotation in .uns['atac']['peak_annotation']")
+			except Exception:
 				pass
 
 			# 3) Locate fragments file

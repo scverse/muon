@@ -29,5 +29,6 @@ setuptools.setup(
         'scanpy',
         'loompy',
         'protobuf'
-    ]
+    ],
+    include_package_data=True
 )

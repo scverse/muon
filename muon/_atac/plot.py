@@ -10,9 +10,9 @@ import scanpy as sc
 from anndata import AnnData
 from .._core.mudata import MuData
 
-def embedding(data: Union[AnnData, MuData], 
-			  basis: str, 
-			  color: Optional[Union[str, List[str]]] = None, 
+def embedding(data: Union[AnnData, MuData],
+			  basis: str,
+			  color: Optional[Union[str, List[str]]] = None,
 			  average: Optional[str] = 'total',
 			  **kwargs):
 	"""
@@ -51,7 +51,7 @@ def embedding(data: Union[AnnData, MuData],
 
 				if len(peaks) == 0:
 					warnings.warn(f"Peaks for {key} are not found.")
-				
+
 				if average == 'total' or average == 'all':
 					attr_name = f"{key} (all peaks)"
 					attr_names.append(attr_name)
@@ -81,7 +81,7 @@ def embedding(data: Union[AnnData, MuData],
 
 				else:
 					# No averaging, one plot per peak
-					if average is not None and average != False and average != -1:
+					if average is not None and average is not False and average != -1:
 						warnings.warn(f"Plotting individual peaks since {average} was not recognised. Try using 'total' or 'peak_type'.")
 					attr_names += peak_sel.peak.values
 			

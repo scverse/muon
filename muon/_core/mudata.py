@@ -1,9 +1,9 @@
-from functools import reduce
-from typing import Tuple, Union, Optional, Mapping, MutableMapping
+from typing import Tuple, Union, Optional, Mapping
 import collections
 import numpy as np
 import pandas as pd
 from anndata import AnnData
+
 
 class MuData():
     def __init__(self,
@@ -37,7 +37,7 @@ class MuData():
         self.n_vars = 0
         self.n_mod = len(self.mod)
         self.isbacked = False
-        
+    
         # Initialise global observations
         self.obs = pd.concat([a.obs for m, a in self.mod.items()], join='outer', axis=1, sort=False)
         self.n_obs = self.obs.shape[0]
@@ -68,7 +68,7 @@ class MuData():
         # For compatibility with calls requiring .raw slot
         self.raw = None
 
-    def _sanitize(self, df: Optional[pd.DataFrame]=None):
+    def _sanitize(self, df: Optional[pd.DataFrame] = None):
         """
         Empty method to increase compatibility with scanpy methods
         """
@@ -150,4 +150,4 @@ class MuData():
         return descr
 
     def __repr__(self) -> str:
-        return self._gen_repr(self.n_obs, self.n_vars, extensive = True)
+        return self._gen_repr(self.n_obs, self.n_vars, extensive=True)

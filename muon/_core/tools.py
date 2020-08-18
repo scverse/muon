@@ -11,7 +11,7 @@ from .mudata import MuData
 # 
 
 def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, use_layer=None, likelihoods=None, features_subset=None, save_metadata=None):
-	""" 
+	"""
 	Input the data in MuData format
 
 	PARAMETERS
@@ -34,7 +34,7 @@ def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, u
 			)
 
 	# Sanity checks
-	if not hasattr(model, 'data_opts'): 
+	if not hasattr(model, 'data_opts'):
 		# print("Data options not defined before setting the data, using default values...")
 		model.set_data_options()
 
@@ -72,7 +72,7 @@ def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, u
 				data.append(np.array(adata.X.todense()))
 			else:
 				data.append(adata.X)
-	
+
 	# Subset features if required
 	if features_subset is not None:
 		for i, m in enumerate(mdata.mod.keys()):
@@ -87,7 +87,7 @@ def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, u
 
 	# Define views names and features names and metadata
 	model.data_opts['views_names'] = list(mdata.mod.keys())
-	
+
 	if features_subset is not None:
 		model.data_opts['features_names'] = [adata.var_names[adata.var[features_subset].values] for adata in mdata.mod.values()]
 	else:
@@ -128,7 +128,6 @@ def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, u
 			print("Loaded view='%s' group='%s' with N=%d samples and D=%d features..." % (model.data_opts['views_names'][m], model.data_opts['groups_names'][g], n_grouped[g], D[m]))
 	print("\n")
 
-
 	# Store intercepts (it is for one view only)
 	model.intercepts = [[] for _ in range(M)]
 
@@ -148,14 +147,14 @@ def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, u
 
 
 def mofa(data: Union[AnnData, MuData], groups_label: bool = None, 
-		 use_raw: bool = False, use_layer: bool = None, 
+		 use_raw: bool = False, use_layer: bool = None,
 		 features_subset: Optional[str] = None,
 		 likelihoods: Optional[Union[str, List[str]]] = None, n_factors: int = 10,
 		 scale_views: bool = False, scale_groups: bool = False,
 		 ard_weights: bool = True, ard_factors: bool = True,
 		 spikeslab_weights: bool = True, spikeslab_factors: bool = False,
 		 n_iterations: int = 1000, convergence_mode: str = "fast",
-		 gpu_mode: bool = False, Y_ELBO_TauTrick: bool = True, 
+		 gpu_mode: bool = False, Y_ELBO_TauTrick: bool = True,
 		 save_parameters: bool = False, save_data: bool = True, save_metadata: bool = True,
 		 seed: int = 1, outfile: Optional[str] = None,
 		 expectations: Optional[List[str]] = None,
@@ -203,7 +202,7 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 		raise ImportError(
 			"MOFA+ is not available. Install MOFA+ from PyPI (`pip install mofapy2`) or from GitHub (`pip install git+https://github.com/bioFAM/MOFA2`)"
 			)
-	
+
 	if isinstance(data, AnnData):
 		logging.info("Wrapping an AnnData object into an MuData container")
 		mdata = MuData(data)
@@ -211,7 +210,6 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 		mdata = data
 	else:
 		raise TypeError("Expected an MuData object")
-
 
 	ent = entry_point()
 
@@ -223,10 +221,10 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 	ent.set_data_options(scale_views=scale_views, scale_groups=scale_groups)
 	_set_mofa_data_from_mudata(model=ent, mdata=mdata, groups_label=groups_label, use_raw=use_raw, use_layer=use_layer,
 							  likelihoods=lik, features_subset=features_subset, save_metadata=save_metadata)
-	ent.set_model_options(ard_factors=ard_factors, ard_weights=ard_weights, 
-						  spikeslab_weights=spikeslab_weights, spikeslab_factors=spikeslab_factors, 
+	ent.set_model_options(ard_factors=ard_factors, ard_weights=ard_weights,
+						  spikeslab_weights=spikeslab_weights, spikeslab_factors=spikeslab_factors,
 						  factors=n_factors)
-	ent.set_train_options(iter=n_iterations, convergence_mode=convergence_mode, 
+	ent.set_train_options(iter=n_iterations, convergence_mode=convergence_mode,
 						  gpu_mode=gpu_mode, Y_ELBO_TauTrick=Y_ELBO_TauTrick,
 						  seed=seed, verbose=verbose, quiet=quiet, outfile=outfile, save_interrupted=save_interrupted)
 

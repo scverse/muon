@@ -1,14 +1,13 @@
 from typing import Union
-import logging
 
 import numpy as np
-import pandas as pd
 from scipy.sparse import csr_matrix
 
 from anndata import AnnData
 from .._core.mudata import MuData
 
 # Computational methods for preprocessing
+
 
 def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, scale_factor=1e4):
 	"""
@@ -29,7 +28,7 @@ def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, scale_factor=
 	log_tf
 		Log-transform TF term (True by default)
 	scale_factor
-	    Scale factor to multiply the TF-IDF matrix by (1e4 by default)
+		Scale factor to multiply the TF-IDF matrix by (1e4 by default)
 	"""
 	if isinstance(data, AnnData):
 		adata = data
@@ -54,7 +53,6 @@ def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, scale_factor=
 
 	adata.X = np.nan_to_num(tf_idf, 0)
 
-	return None
 
 def binarize(data: Union[AnnData, MuData]):
 	"""
@@ -77,7 +75,6 @@ def binarize(data: Union[AnnData, MuData]):
 		adata.X.data = np.where(adata.X.data > 0, 1, 0)
 	else:
 		adata.X = np.where(adata.X > 0, 1, 0)
-
 
 
 def scopen(data: Union[AnnData, MuData],
@@ -111,13 +108,11 @@ def scopen(data: Union[AnnData, MuData],
 		from scopen.MF import non_negative_factorization
 	except ImportError:
 		raise ImportError(
-			"scOpen is not available. Install scOpen from PyPI (`pip install scopen`) or from GitHub (`pip install git+https://github.com/CostaLab/scopen`)"
+			"scOpen is not available. Install scOpen from PyPI (`pip install scopen`) \
+			or from GitHub (`pip install git+https://github.com/CostaLab/scopen`)"
 			)
 
 	start = time.time()
-
-	barcodes = adata.obs_names.values
-	peaks = adata.var_names.values
 
 	data = adata.X.T
 	# Make a dense matrix if it's sparse
@@ -136,16 +131,17 @@ def scopen(data: Union[AnnData, MuData],
 	print(f"Number of non-zeros before imputation: {np.count_nonzero(data)}")
 
 	rho = min_rho + (max_rho - min_rho) * \
-      (max_n_open_regions - n_open_regions) / (max_n_open_regions - min_n_open_regions)
+	  (max_n_open_regions - n_open_regions) / \
+	  (max_n_open_regions - min_n_open_regions)
 
 	data = data[:, :] * (1 / (1 - rho))
 
 	# Run bounded non-negative matrix factorisation
 	w_hat, h_hat, _ = non_negative_factorization(X=data,
-	                                             n_components=n_components,
-	                                             alpha=alpha,
-	                                             max_iter=max_iter,
-	                                             verbose=int(verbose))
+												 n_components=n_components,
+												 alpha=alpha,
+												 max_iter=max_iter,
+												 verbose=int(verbose))
 
 	del data
 

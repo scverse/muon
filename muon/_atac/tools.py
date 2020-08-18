@@ -35,7 +35,7 @@ def lsi(data: Union[AnnData, MuData], scale_embeddings=True, n_comps=50):
 	n_comps = min(n_comps, adata.X.shape[1])
 
 	logging.info("Performing SVD")
-	cell_embeddings, svalues, peaks_loadings = svds(adata.X, k = n_comps)
+	cell_embeddings, svalues, peaks_loadings = svds(adata.X, k=n_comps)
 
 	# Re-order components in the descending order
 	cell_embeddings = cell_embeddings[:,::-1]
@@ -172,7 +172,7 @@ def add_peak_annotation_gene_names(data: Union[AnnData, MuData],
 	ann = adata.uns['atac']['peak_annotation']
 	ann = ann.join(gene_id_name).rename_axis("gene").reset_index(drop=False)
 
-	# Use empty strings for intergenic peaks when there is no gene 
+	# Use empty strings for intergenic peaks when there is no gene
 	ann.loc[ann.gene_name.isnull(),"gene_name"] = ""
 
 	# Finally, set the index to gene name
@@ -184,8 +184,8 @@ def add_peak_annotation_gene_names(data: Union[AnnData, MuData],
 
 
 # Gene names for peaks
-def add_genes_peaks_groups(data: Union[AnnData, MuData], 
-						   peak_type: Optional[str] = None, 
+def add_genes_peaks_groups(data: Union[AnnData, MuData],
+						   peak_type: Optional[str] = None,
 						   distance_filter: Optional[Callable[[int], bool]] = None):
 	"""
 	Add gene names to peaks ranked by clustering group
@@ -195,7 +195,7 @@ def add_genes_peaks_groups(data: Union[AnnData, MuData],
 
 	Gene names are picked as indices of the peak annotation table.
 	To create annotation table, first run `muon.atac.tl.add_peak_annotation`.
-	To add gene names instead of gene IDs, consider 
+	To add gene names instead of gene IDs, consider
 	running `muon.atac.tl.add_peak_annotation_gene_names` then.
 	"""
 	if isinstance(data, AnnData):
@@ -291,6 +291,7 @@ def _parse_motif_ids(filename: Optional[str] = None):
 
 	return motifs
 
+
 def _parse_motif_matrices(files: Optional[str] = None,
 						  background: int = 4,
 						  pseudocount: float = 0.0001,
@@ -306,14 +307,15 @@ def _parse_motif_matrices(files: Optional[str] = None,
 	if files is None:
 		# Use pfm files from the embedded JASPAR database
 		files = glob(os.path.join(os.path.dirname(__file__), "_ref/jaspar/*.pfm"))
-	
+
 	bg = MOODS.tools.flat_bg(background)
 	matrices = [MOODS.parsers.pfm_to_log_odds(pfm_file, bg, pseudocount) for pfm_file in files]
 
 	return {'motifs': [os.path.basename(f).rstrip(".pfm") for f in files],
 			'matrices': matrices}
 
-def _prepare_motif_scanner(matrices = None,
+
+def _prepare_motif_scanner(matrices=None,
 						   background: int = 4,
 						   pvalue: float = 0.0001,
 						   max_hits: int = 10):
@@ -337,10 +339,11 @@ def _prepare_motif_scanner(matrices = None,
 
 	return scanner
 
+
 def scan_sequences(sequences,
-				   motif_scanner = None,
-				   matrices = None,
-				   motifs = None,
+				   motif_scanner=None,
+				   matrices=None,
+				   motifs=None,
 				   motif_meta: pd.DataFrame = None,
 				   background: int = 4,
 				   pvalue: float = 0.0001,
@@ -362,8 +365,8 @@ def scan_sequences(sequences,
 		else:
 			assert motifs is not None, "A list of motif IDs should be provided if building a scanner from matrices"
 		
-		motif_scanner = _prepare_motif_scanner(matrices = matrices,
-			background = background, pvalue = pvalue, max_hits = max_hits)
+		motif_scanner = _prepare_motif_scanner(matrices=matrices,
+			background=background, pvalue=pvalue, max_hits=max_hits)
 
 		if motif_meta is None:
 			# For the default scanner, use the default metadata
@@ -411,7 +414,8 @@ def get_sequences(data: Union[AnnData, MuData],
 		if fasta_file is not None:
 			locate_genome(adata, fasta_file)
 		else:
-			raise FileNotFoundError(f"Genome file has to be provided with `fasta_file` or located using `muon.atac.tl.locate_genome`.")
+			raise FileNotFoundError("Genome file has to be provided with `fasta_file` \
+				or located using `muon.atac.tl.locate_genome`.")
 	else:
 		# TODO: have a function to check validity of the file
 		fasta_file = adata.uns['files']['genome']
@@ -455,7 +459,7 @@ def locate_file(data: Union[AnnData, MuData],
 	else:
 		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
-	if not os.path.exists(file_name):
+	if not os.path.exists(file):
 		raise FileNotFoundError(f"File {file} does not exist")
 
 	if 'files' not in adata.uns:
@@ -480,16 +484,10 @@ def locate_genome(data: Union[AnnData, MuData],
 	fasta_file
 		A path to the file (e.g. ./atac_fragments.tsv.gz).
 	"""
-	if isinstance(data, AnnData):
-		adata = data
-	elif isinstance(data, MuData) and 'atac' in data.mod:
-		adata = data.mod['atac']
-	else:
+	if not isinstance(data, AnnData) and not (isinstance(data, MuData) and 'atac' in data.mod):
 		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
 	locate_file(data, "genome", fasta_file)
-
-	
 
 
 # 
@@ -541,7 +539,9 @@ def locate_fragments(data: Union[AnnData, MuData],
 			import pysam
 		except ImportError:
 			raise ImportError(
-				"pysam is not available. It is required to work with the fragments file. Install pysam from PyPI (`pip install pysam`) or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
+				"pysam is not available. It is required to work with the fragments file. \
+				Install pysam from PyPI (`pip install pysam`) \
+				or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
 				)
 
 		# Here we make sure we can create a connection to the fragments file
@@ -605,7 +605,7 @@ def count_fragments_genes(data: Union[AnnData, MuData],
 			genes.End = genes.End.astype(int)
 		else:
 			raise ValueError("Argument `genes` is required. It should be a BED-like DataFrame with gene coordinates and names.")
-	
+
 	if 'files' not in adata.uns or 'fragments' not in adata.uns['files']:
 		raise KeyError("There is no fragments file located yet. Run muon.atac.tl.locate_fragments first.")
 
@@ -617,7 +617,6 @@ def count_fragments_genes(data: Union[AnnData, MuData],
 			)
 
 	n = adata.n_obs
-	cells = adata.obs_names.values
 	cells_df = pd.DataFrame(index=adata.obs.index)
 	cells_df["cell_index"] = range(n)
 
@@ -650,7 +649,7 @@ def count_fragments_genes(data: Union[AnnData, MuData],
 								 dtype=np.int8)
 
 			sparse_columns.append(gene_mx)
-			
+
 			if i > 0 and i % 1000 == 0:
 				logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Processed {i} genes")
 
@@ -665,4 +664,3 @@ def count_fragments_genes(data: Union[AnnData, MuData],
 	finally:
 		# The connection has to be closed
 		fragments.close()
-
