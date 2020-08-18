@@ -49,9 +49,10 @@ mu.read_10x_h5("filtered_feature_bc_matrix.h5")
 # MuData object with n_obs × n_vars = 10000 × 80000 
 # 2 modalities
 #   rna:	10000 x 30000
-#     var:	'gene_ids', 'feature_types', 'genome'
+#     var:	'gene_ids', 'feature_types', 'genome', 'interval'
 #   atac:	10000 x 50000
-#     var:	'gene_ids', 'feature_types', 'genome'
+#     var:	'gene_ids', 'feature_types', 'genome', 'interval'
+#     uns:	'atac', 'files'
 ```
 
 ### Individual assays
@@ -61,7 +62,7 @@ Individual assays are stored as AnnData object, which enables the use of all the
 ```py
 import scanpy as sc
 
-sc.pl.umap(mdata.mod["rna"])
+sc.tl.umap(mdata.mod["rna"])
 ```
 
 Typically, a modality inside a container can be referred to with a variable to make the code more concise:
