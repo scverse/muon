@@ -67,9 +67,8 @@ def binarize(data: Union[AnnData, MuData]):
 	"""
 	if isinstance(data, AnnData):
 		adata = data
-	elif isinstance(data, MuData):
+	elif isinstance(data, MuData) and 'atac' in data.mod:
 		adata = data.mod['atac']
-		# TODO: check that ATAC-seq slot is present with this name
 	else:
 		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
@@ -79,3 +78,88 @@ def binarize(data: Union[AnnData, MuData]):
 	else:
 		adata.X = np.where(adata.X > 0, 1, 0)
 
+
+
+def scopen(data: Union[AnnData, MuData],
+		   n_components: int = 30,
+		   max_iter: int = 500,
+		   min_rho: float = 0.0,
+		   max_rho: float = 0.5,
+		   alpha: int = 1,
+		   verbose: bool = False):
+	"""
+	Run scOpen (Li et al., 2019, https://doi.org/10.1101/865931) on the count matrix
+
+	This function follows the original implementation of the main method
+	(https://github.com/CostaLab/scopen/blob/master/scopen/Main.py)
+	adapting it for AnnDaata and MuData formats.
+
+	Parameters
+	----------
+	data
+		AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+	"""
+	if isinstance(data, AnnData):
+		adata = data
+	elif isinstance(data, MuData) and 'atac' in data.mod:
+		adata = data.mod['atac']
+	else:
+		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+	try:
+		import time
+		from scopen.MF import non_negative_factorization
+	except ImportError:
+		raise ImportError(
+			"scOpen is not available. Install scOpen from PyPI (`pip install scopen`) or from GitHub (`pip install git+https://github.com/CostaLab/scopen`)"
+			)
+
+	start = time.time()
+
+	barcodes = adata.obs_names.values
+	peaks = adata.var_names.values
+
+	data = adata.X.T
+	# Make a dense matrix if it's sparse
+	if callable(getattr(data, "toarray", None)):
+		data = data.toarray()
+
+	data = np.greater(data, 0)
+
+	(m, n) = data.shape
+
+	n_open_regions = np.log10(data.sum(axis=0))
+	max_n_open_regions = np.max(n_open_regions)
+	min_n_open_regions = np.min(n_open_regions)
+
+	print(f"Number of peaks: {m}\nNumber of cells: {n}")
+	print(f"Number of non-zeros before imputation: {np.count_nonzero(data)}")
+
+	rho = min_rho + (max_rho - min_rho) * \
+      (max_n_open_regions - n_open_regions) / (max_n_open_regions - min_n_open_regions)
+
+	data = data[:, :] * (1 / (1 - rho))
+
+	# Run bounded non-negative matrix factorisation
+	w_hat, h_hat, _ = non_negative_factorization(X=data,
+	                                             n_components=n_components,
+	                                             alpha=alpha,
+	                                             max_iter=max_iter,
+	                                             verbose=int(verbose))
+
+	del data
+
+	# Calculate imputed matrix
+	m_hat = np.dot(w_hat, h_hat)
+	np.clip(m_hat, 0, 1, out=m_hat)
+
+	# Save results in the AnnData object
+	adata.obsm["X_scopen"] = h_hat.T
+	adata.varm["scopen"] = w_hat
+	adata.X = m_hat.T
+
+	# Output time stats
+	secs = time.time() - start
+	m, s = divmod(secs, 60)
+	h, m = divmod(m, 60)
+	print("[total time: ", "%dh %dm %ds" % (h, m, s), "]")
