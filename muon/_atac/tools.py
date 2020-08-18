@@ -163,7 +163,7 @@ def add_peak_annotation_gene_names(data: Union[AnnData, MuData],
 		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
 	if 'atac' not in adata.uns or 'peak_annotation' not in adata.uns['atac']:
-		raise KeyError("There is no peak annotation yet. Run muon.atac.pp.add_peak_annotation first.")
+		raise KeyError("There is no peak annotation yet. Run muon.atac.tl.add_peak_annotation first.")
 
 	# Extract a table with gene IDs and gene names only
 	gene_id_name = gene_names.loc[:,[join_on]].rename_axis("gene_name").reset_index(drop=False).set_index(join_on)
@@ -589,19 +589,25 @@ def count_fragments_genes(data: Union[AnnData, MuData],
 		adata = data
 	elif isinstance(data, MuData) and 'atac' in data.mod:
 		adata = data.mod['atac']
-		# TODO: check that ATAC-seq slot is present with this name
 	else:
 		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
 	if genes is None:
-		if isinstance(data, MuData) and 'rna' in data.mod:
-			# TODO: try to find gene annotation in the data.mod['rna']
-			pass
+		# Try to gene gene annotation in the data.mod['rna']
+		if isinstance(data, MuData) and 'rna' in data.mod and 'interval' in data.mod['rna'].var.columns:
+			genes = pd.DataFrame([s.replace(":", "-", 1).split("-") for s in data.mod['rna'].var.interval])
+			genes.columns = ["Chromosome", "Start", "End"]
+			genes['gene_id'] = data.mod['rna'].var.gene_ids
+			genes['gene_name'] = data.mod['rna'].var.index
+			# Remove genes with no coordinated indicated
+			genes = genes.loc[~genes.Start.isnull()]
+			genes.Start = genes.Start.astype(int)
+			genes.End = genes.End.astype(int)
 		else:
 			raise ValueError("Argument `genes` is required. It should be a BED-like DataFrame with gene coordinates and names.")
 	
 	if 'files' not in adata.uns or 'fragments' not in adata.uns['files']:
-		raise KeyError("There is no fragments file located yet. Run muon.atac.pp.add_peak_annotation first.")
+		raise KeyError("There is no fragments file located yet. Run muon.atac.tl.locate_fragments first.")
 
 	try:
 		import pysam
