@@ -3,7 +3,7 @@ import os
 from glob import glob
 import pkgutil
 from collections import OrderedDict
-from typing import Union, Optional, Callable
+from typing import List, Union, Optional, Callable, Iterable
 import logging
 from datetime import datetime
 
@@ -293,7 +293,7 @@ def _parse_motif_ids(filename: Optional[str] = None):
 
 
 def _parse_motif_matrices(files: Optional[str] = None,
-						  background: int = 4,
+						  background: Union[int, List] = 4,
 						  pseudocount: float = 0.0001,
 						  ):
 	try:
@@ -301,14 +301,18 @@ def _parse_motif_matrices(files: Optional[str] = None,
 		import MOODS.parsers
 	except ImportError:
 		raise ImportError(
-			"MOODS is not available. Install MOODS from PyPI (`pip install MOODS-python`) or from GitHub (`pip install git+https://github.com/jhkorhonen/MOODS`)"
+			"MOODS is not available. Install MOODS from PyPI (`pip install MOODS-python`) \
+			or from GitHub (`pip install git+https://github.com/jhkorhonen/MOODS`)"
 			)
 
 	if files is None:
 		# Use pfm files from the embedded JASPAR database
 		files = glob(os.path.join(os.path.dirname(__file__), "_ref/jaspar/*.pfm"))
 
-	bg = MOODS.tools.flat_bg(background)
+	if not isinstance(background, Iterable):
+		bg = MOODS.tools.flat_bg(background)
+	else:
+		bg = background
 	matrices = [MOODS.parsers.pfm_to_log_odds(pfm_file, bg, pseudocount) for pfm_file in files]
 
 	return {'motifs': [os.path.basename(f).rstrip(".pfm") for f in files],
@@ -316,7 +320,7 @@ def _parse_motif_matrices(files: Optional[str] = None,
 
 
 def _prepare_motif_scanner(matrices=None,
-						   background: int = 4,
+						   background: Union[int, Iterable] = 4,
 						   pvalue: float = 0.0001,
 						   max_hits: int = 10):
 	try:
@@ -331,7 +335,10 @@ def _prepare_motif_scanner(matrices=None,
 		motifs_matrices = _parse_motif_matrices(files=None, background=background)
 		matrices = motifs_matrices['matrices']
 
-	bg = MOODS.tools.flat_bg(background)
+	if not isinstance(background, Iterable):
+		bg = MOODS.tools.flat_bg(background)
+	else:
+		bg = background
 	thresholds = [MOODS.tools.threshold_from_p(m, bg, pvalue) for m in matrices]
 
 	scanner = MOODS.scan.Scanner(max_hits)
