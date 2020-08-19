@@ -9,7 +9,7 @@ from .._core.mudata import MuData
 # Computational methods for preprocessing
 
 
-def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, scale_factor=1e4):
+def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, log_tfidf=False, scale_factor=1e4):
 	"""
 	Transform peak counts with TF-IDF (Term Frequency - Inverse Document Frequency).
 
@@ -27,6 +27,9 @@ def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, scale_factor=
 		Log-transform IDF term (True by default)
 	log_tf
 		Log-transform TF term (True by default)
+	log_tfidf
+		Log-transform TF*IDF term (False by default)
+		Can only be used when log_tf and log_idf are False
 	scale_factor
 		Scale factor to multiply the TF-IDF matrix by (1e4 by default)
 	"""
@@ -37,6 +40,10 @@ def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, scale_factor=
 		# TODO: check that ATAC-seq slot is present with this name
 	else:
 		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+	if log_tfidf and (log_tf or log_idf):
+		raise AttributeError("When returning log(TF*IDF), \
+			applying neither log(TF) nor log(IDF) is possible.")
 
 	n_peaks = adata.X.sum(axis=1).reshape(-1, 1)
 	tf = np.asarray(adata.X / n_peaks)
@@ -50,6 +57,9 @@ def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, scale_factor=
 		idf = np.log1p(idf)
 
 	tf_idf = np.dot(csr_matrix(tf), csr_matrix(np.diag(idf)))
+
+	if log_tfidf:
+		tf_idf = np.log1p(tf_idf)
 
 	adata.X = np.nan_to_num(tf_idf, 0)
 
