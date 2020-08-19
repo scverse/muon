@@ -82,7 +82,7 @@ def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, u
 	M = model.dimensionalities["M"] = len(mdata.mod)
 	G = model.dimensionalities["G"] = n_groups
 	N = model.dimensionalities["N"] = mdata.shape[0]
-	D = model.dimensionalities["D"] = [mdata[m].shape[1] for m in mdata.mod]  # Feature may have been filtered
+	D = model.dimensionalities["D"] = [data[m].shape[1] for m in range(M)]  # Feature may have been filtered
 	n_grouped = [mdata.shape[0]] if n_groups == 1 else mdata.obs.groupby(groups_label).size().values
 
 	# Define views names and features names and metadata
