@@ -1,7 +1,5 @@
-import sys
 from collections import defaultdict
 from typing import Union, Optional, List, Iterable
-import logging
 import warnings
 
 import numpy as np
@@ -14,6 +12,7 @@ def embedding(data: Union[AnnData, MuData],
 			  basis: str,
 			  color: Optional[Union[str, List[str]]] = None,
 			  average: Optional[str] = 'total',
+			  use_raw: bool = True,
 			  **kwargs):
 	"""
 	Scatter plot in the define basis
@@ -39,7 +38,7 @@ def embedding(data: Union[AnnData, MuData],
 		attr_names = []
 		tmp_names = []
 		for key in keys:
-			if key not in adata.var_names and key not in adata.var.columns:
+			if key not in adata.obs_names and key not in adata.obs.columns:
 				if 'atac' not in adata.uns or 'peak_annotation' not in adata.uns['atac']:
 					raise KeyError(f"There is no feature or feature annotation {key}. If it is a gene name, load peak annotation with muon.atac.pp.add_peak_annotation first.")
 				peak_sel = adata.uns["atac"]["peak_annotation"].loc[[key]]
@@ -51,6 +50,7 @@ def embedding(data: Union[AnnData, MuData],
 
 				if len(peaks) == 0:
 					warnings.warn(f"Peaks for {key} are not found.")
+					continue
 
 				if average == 'total' or average == 'all':
 					attr_name = f"{key} (all peaks)"
@@ -58,8 +58,10 @@ def embedding(data: Union[AnnData, MuData],
 					tmp_names.append(attr_name)
 
 					if attr_name not in adata.obs.columns:
-						# TODO: raw and layer options
-						adata.obs[attr_name] = np.asarray(adata.raw[:,peaks].X.mean(axis=1)).reshape(-1)
+						if use_raw:
+							adata.obs[attr_name] = np.asarray(adata.raw[:,peaks].X.mean(axis=1)).reshape(-1)
+						else:
+							adata.obs[attr_name] = np.asarray(adata[:,peaks].X.mean(axis=1)).reshape(-1)
 
 				elif average == 'peak_type':
 					peak_types = peak_sel.peak_type
@@ -76,8 +78,10 @@ def embedding(data: Union[AnnData, MuData],
 						tmp_names.append(attr_name)
 
 						if attr_name not in adata.obs.columns:
-							# TODO: raw and layer options
-							adata.obs[attr_name] = np.asarray(adata.raw[:,p].X.mean(axis=1)).reshape(-1)
+							if use_raw:
+								adata.obs[attr_name] = np.asarray(adata.raw[:,p].X.mean(axis=1)).reshape(-1)
+							else:
+								adata.obs[attr_name] = np.asarray(adata[:,p].X.mean(axis=1)).reshape(-1)
 
 				else:
 					# No averaging, one plot per peak
@@ -97,7 +101,7 @@ def embedding(data: Union[AnnData, MuData],
 		return None
 
 	else:
-		return sc.pl.embedding(adata, basis=basis, color=peak_sel.peak.values, **kwargs)
+		return sc.pl.embedding(adata, basis=basis, color=peak_sel.peak.values, use_raw=use_raw, **kwargs)
 
 	return None
 
@@ -126,4 +130,4 @@ def mofa(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
 
 	See sc.pl.embedding for details.
 	"""
-	return sc.pl.embedding(mdata, 'mofa', **kwargs)
+	return embedding(mdata, 'mofa', **kwargs)
