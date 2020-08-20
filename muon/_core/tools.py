@@ -245,18 +245,18 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 	if h5py:
 		f = h5py.File(outfile)
 		if copy:
-			mdata = mdata.copy()
-		mdata.obsm['X_mofa'] = np.concatenate([v[:,:] for k, v in f['expectations']['Z'].items()], axis=1).T
+			data = data.copy()
+		data.obsm['X_mofa'] = np.concatenate([v[:,:] for k, v in f['expectations']['Z'].items()], axis=1).T
 		if features_subset is None:
 			# Loadings can be saved only if all the features were used in training
-			mdata.varm['LFs'] = np.concatenate([v[:,:] for k, v in f['expectations']['W'].items()], axis=1).T
+			data.varm['LFs'] = np.concatenate([v[:,:] for k, v in f['expectations']['W'].items()], axis=1).T
 		if copy:
-			return mdata
+			return data
 		else:
 			if features_subset is None:
-				print("Saved MOFA embeddings in mdata.obsm['X_mofa'] slot and their loadings in mdata.varm['LFs'].")
+				print("Saved MOFA embeddings in .obsm['X_mofa'] slot and their loadings in .varm['LFs'].")
 			else:
-				print("Saved MOFA embeddings in mdata.obsm['X_mofa'] slot.")
+				print("Saved MOFA embeddings in .obsm['X_mofa'] slot.")
 	else:
 		print("Can not add embeddings and loadings to MuData object since h5py is not installed.")
 
