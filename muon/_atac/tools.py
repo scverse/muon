@@ -115,12 +115,15 @@ def add_peak_annotation(data: Union[AnnData, MuData],
 	# chrX_NNNNN_NNNNN -> chrX:NNNNN-NNNNN
 	pa_long.peak = [peak.replace("_", ":", 1).replace("_", "-", 1) for peak in pa_long.peak]
 
-	# Make distance values nullable integers
+	# Make distance values integers with 0 for intergenic peaks
+	# DEPRECATED: Make distance values nullable integers
 	# See https://pandas.pydata.org/pandas-docs/stable/user_guide/integer_na.html
 	null_distance = pa_long.distance == ""
 	pa_long.distance[null_distance] = 0
-	pa_long.distance = pa_long.distance.astype(int).astype("Int64")
-	pa_long.distance[null_distance] = np.nan
+	pa_long.distance = pa_long.distance.astype(int)
+	# DEPRECATED: Int64 is not recognized when saving HDF5 files with scanpy.write
+	# pa_long.distance = pa_long.distance.astype(int).astype("Int64")
+	# pa_long.distance[null_distance] = np.nan
 
 	if 'atac' not in adata.uns:
 		adata.uns["atac"] = OrderedDict()

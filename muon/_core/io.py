@@ -36,11 +36,15 @@ def read_10x_h5(filename: Union[str, Path],
 		if 'interval' in h5file["matrix"]["features"]:
 			intervals = np.array(h5file["matrix"]["features"]["interval"]).astype(str)
 
-		h5file.close()
+			h5file.close()
 
-		adata.var["interval"] = intervals
+			adata.var["interval"] = intervals
 
-		print(f"Added `interval` annotation for features from {filename}")
+			print(f"Added `interval` annotation for features from {filename}")
+
+		else:
+			# Make sure the file is closed
+			h5file.close()
 
 	mdata = MuData(adata)
 
