@@ -46,7 +46,7 @@ class MuData():
         self.obsm = dict()
         self.obs['ix'] = range(len(self.obs))
         for k, v in self.mod.items():
-            self.obsm[k] = self.obs.loc[v.obs.index.values].ix.values
+            self.obsm[k] = self.obs.index.isin(v.obs.index)
 
         # Initialise global variables
         self.var = pd.concat([a.var for a in self.mod.values()], join="outer", axis=0, sort=False)
@@ -58,7 +58,7 @@ class MuData():
         self.varm = dict()
         self.var['ix'] = range(len(self.var))
         for k, v in self.mod.items():
-            self.varm[k] = self.var.loc[v.var.index.values].ix.values
+            self.varm[k] = self.var.index.isin(v.var.index)
 
         # Unstructured annotations
         # NOTE: this is dict in contract to OrderedDict in anndata
@@ -67,12 +67,22 @@ class MuData():
 
         # For compatibility with calls requiring .raw slot
         self.raw = None
+        self.X = None
+        self.layers = None
 
-    def _sanitize(self, df: Optional[pd.DataFrame] = None):
+        # TODO
+        self.obsp = None
+        self.varp = None
+
+    def strings_to_categoricals(self, df: Optional[pd.DataFrame] = None):
         """
-        Empty method to increase compatibility with scanpy methods
+        Call .strings_to_categoricals() method on each AnnData object
         """
-        pass
+        for k in self.mod:
+            self.mod[k].strings_to_categoricals()
+
+    # To increase compatibility with scanpy methods
+    _sanitize = strings_to_categoricals
 
     def __getitem__(self, modality: str) -> AnnData:
         return self.mod[modality]
@@ -86,6 +96,7 @@ class MuData():
         """
         Update global observations from observations for each modality
         """
+        # TODO: preserve columns unique to global obs
         self.obs = pd.concat([a.obs for m, a in self.mod.items()], join='outer', axis=1, sort=False)
         self.n_obs = self.obs.shape[0]
 
@@ -104,6 +115,7 @@ class MuData():
         """
         Update global variables from variables for each modality
         """
+        # TODO: preserve columns unique to global var
         self.var = pd.concat([a.var for a in self.mod.values()], join="outer", axis=0, sort=False)
         self.n_vars = self.var.shape[0]
 
