@@ -1,4 +1,4 @@
-from typing import Union, Literal
+from typing import Union
 from pathlib import Path
 import os
 
@@ -283,7 +283,7 @@ def read_h5mu(filename: Union[str, Path]):
 def read_h5ad(
 	filename: Union[str, Path],
 	mod: str,
-	backed: Union[Literal["r", "r+"], bool, None] = None,
+	backed: Union[str, bool, None] = None,
 	) -> AnnData:
 	"""
 	Read AnnData object from inside a .h5mu file 
@@ -301,6 +301,8 @@ def read_h5ad(
 			"h5py is not available but is required to read .h5mu files. Install h5py from PyPI (`pip install h5py`) \
 			or from GitHub (`pip install git+https://github.com/h5py/h5py`)"
 			)
+
+	assert backed in [None, True, False, "r", "r+"], "Argument `backed` should be boolean, or r/r+, or None"
 
 	from anndata._io.utils import read_attribute
 	from anndata._io.h5ad import read_dataframe, _read_raw, _clean_uns
