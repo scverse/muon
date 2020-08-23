@@ -55,6 +55,22 @@ mu.read_10x_h5("filtered_feature_bc_matrix.h5")
 #     uns:	'atac', 'files'
 ```
 
+### I/O with `.h5mu` files
+
+Muon operates on multimodal data (MuData) that represents modalities as collections of AnnData objects. These collections can be saved to disk and retrieved using HDF5-based `.h5mu` files, which design is based on `.h5ad` file structure.
+
+```py
+mdata.write("pbmc_10k.h5mu")
+mdata = mu.read("pbmc_10k.h5mu")
+```
+
+It allows to effectively use the hierarchical nature of HDF5 files and to read/write AnnData object directly from/to `.h5mu` files:
+
+```py
+adata = mu.read("pbmc10k_10k.h5mu/rna")
+adata.write("pbmc_10k.h5mu/rna")
+```
+
 ### Individual assays
 
 Individual assays are stored as AnnData object, which enables the use of all the default `scanpy` functionality per assay:
