@@ -7,6 +7,15 @@ from anndata import AnnData
 
 
 class MuData():
+    """
+    Multimodal data object
+
+    MuData represents modalities as collections of AnnData objects
+    as well as includes multimodal annotations 
+    such as embeddings and neighbours graphs learned jointly 
+    on multiple modalities and generalised sample 
+    and feature metadata tables.
+    """
     def __init__(self,
                  data: Union[AnnData, Mapping[str, AnnData]] = None,
                  feature_types_names: Optional[dict] = {"Gene Expression": "rna",

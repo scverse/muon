@@ -18,6 +18,25 @@ from .._atac.tools import add_peak_annotation, locate_fragments, add_peak_annota
 def read_10x_h5(filename: Union[str, Path],
 				extended: bool = True,
 				*args, **kwargs) -> MuData:
+	"""
+	Read data from 10X Genomics-formatted HDF5 file
+
+	This function uses scanpy.read_10x_h5() internally 
+	and patches its behaviour to:
+	- attempt to read `interval` field for features;
+	- attempt to locate peak annotation file and add peak annotation;
+	- attempt to locate fragments file.
+
+	Ideally it is merged later to scanpy.read_10x_h5().
+
+	Parameters
+	----------
+	filename : str
+		Path to 10X HDF5 file (.h5)
+	extended : bool, optional (default: True)
+		Perform extended functionality automatically such as
+		locating peak annotation and fragments files.
+	"""
 
 	adata = sc.read_10x_h5(filename, gex_only=False, *args, **kwargs)
 
