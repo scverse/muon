@@ -20,6 +20,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python setup.py install
+        python -m pip install mofapy2
     - name: Lint with flake8
       run: |
         pip install flake8
