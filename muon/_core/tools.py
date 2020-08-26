@@ -261,3 +261,68 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 		print("Can not add embeddings and loadings to MuData object since h5py is not installed.")
 
 	return None
+
+
+#
+# Similarity network fusion (SNF)
+# 
+
+def snf(mdata: MuData,
+		key: str = 'connectivities',
+		k: int = 20,
+		t: int = 20):
+	"""
+	Similarity network fusion (SNF)
+
+	See Wang et al., 2014 (DOI: 10.1038/nmeth.2810).
+
+	Reference implementation can be found in the SNFtool R package:
+	https://github.com/cran/SNFtool/blob/master/R/SNF.R
+	"""
+	wall = []
+	for mod in mdata.mod:
+		# TODO: check the key exists in every modality
+		wall.append(mdata.mod[mod].obsp[key])
+    
+    def _normalize(x):
+        row_sum_mdiag = x.sum(axis=1) - x.diagonal()
+        #row_sum_mdiag = x.sum(axis=1) - np.diag(x)
+        row_sum_mdiag[row_sum_mdiag == 0] = 1
+        x = x / (2 * row_sum_mdiag)
+        np.fill_diagonal(x, .5)
+        x = (x + x.T) / 2
+        return x
+    def _dominateset(x, k=20):
+        def _zero(arr):
+            arr[np.argsort(arr)[:(len(arr) - k)]] = 0
+            return arr
+
+        x = np.apply_along_axis(_zero, 0, wall[0])
+        return x / x.sum(axis=1)
+    
+    for i in range(len(wall)):
+        wall[i] = _normalize(wall[i])
+    
+    new = []
+    for i in range(len(wall)):
+        new.append(_dominateset(wall[i], k))
+        
+    nextW = [None] * len(wall)
+
+    for ti in range(t):
+        for j in range(len(wall)):
+            sumWJ = np.zeros(shape=(wall[j].shape[0], wall[j].shape[1]))
+            for ki in range(len(wall)):
+                if ki != j:
+                    sumWJ = sumWJ + wall[ki]
+            nextW[j] = new[j] * (sumWJ / (len(wall) - 1)) * new[j].T
+        for j in range(len(wall)):
+            wall[j] = _normalize(nextW[j])
+            # wall[i] = (wall[i] + wall[i].T) / 2
+
+    # Sum diffused matrices
+    w = np.sum(wall, axis=0)
+    w = w / len(wall)
+    w = _normalize(w)
+    
+    mdata.obsp[key] = w
