@@ -270,7 +270,7 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 def snf(mdata: MuData,
 		key: str = 'connectivities',
 		k: int = 20,
-		t: int = 20):
+		iterations: int = 20):
 	"""
 	Similarity network fusion (SNF)
 
@@ -278,6 +278,18 @@ def snf(mdata: MuData,
 
 	Reference implementation can be found in the SNFtool R package:
 	https://github.com/cran/SNFtool/blob/master/R/SNF.R
+
+	PARAMETERS
+	----------
+	mdata: 
+		MuData object
+	key: str (default: 'connectivities')
+		Key in .obsp to be used as SNF algorithm input.
+		Has to exist in all modalities.
+	k: int (default: 20)
+		Number of neighbours to be used in the K-nearest neighbours step
+	iterations: int (default: 20)
+		Number of iterations for the diffusion process
 	"""
 	wall = []
 	for mod in mdata.mod:
@@ -309,7 +321,7 @@ def snf(mdata: MuData,
 
 	nextW = [None] * len(wall)
 
-	for ti in range(t):
+	for ti in range(iterations):
 		for j in range(len(wall)):
 			sumWJ = np.zeros(shape=(wall[j].shape[0], wall[j].shape[1]))
 			for ki in range(len(wall)):
