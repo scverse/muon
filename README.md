@@ -14,10 +14,10 @@ muon
   .obs     -- annotation of observations (cells, samples)
   .var     -- annotation of features (genes, genomic loci, etc.)
   .obsm    -- multidimensional cell annotation, 
-              incl. indices list for each modality
+              incl. a boolean for each modality
               that links .obs to the cells of that modality
   .varm    -- multidimensional feature annotation, 
-              incl. indices list for each modality
+              incl. a boolean vector for each modality
               that links .var to the features of that modality
   .mod
     AnnData
@@ -67,8 +67,8 @@ mdata = mu.read("pbmc_10k.h5mu")
 It allows to effectively use the hierarchical nature of HDF5 files and to read/write AnnData object directly from/to `.h5mu` files:
 
 ```py
-adata = mu.read("pbmc10k_10k.h5mu/rna")
-adata.write("pbmc_10k.h5mu/rna")
+adata = mu.read("pbmc_10k.h5mu/rna")
+mu.write("pbmc_10k.h5mu/rna", adata)
 ```
 
 ## Multimodal omics analysis
