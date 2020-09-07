@@ -1,6 +1,7 @@
 import sys
 from typing import Union, Optional, List, Iterable
 import logging
+from datetime import datetime
 
 import numpy as np
 from anndata import AnnData
@@ -10,7 +11,9 @@ from .mudata import MuData
 # Multi-omics factor analysis (MOFA)
 # 
 
-def _set_mofa_data_from_mudata(model, mdata, groups_label=None, use_raw=False, use_layer=None, likelihoods=None, features_subset=None, save_metadata=None):
+def _set_mofa_data_from_mudata(model, mdata, groups_label=None, 
+							   use_raw=False, use_layer=None, likelihoods=None, 
+							   features_subset=None, save_metadata=None):
 	"""
 	Input the data in MuData format
 
@@ -219,6 +222,7 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 			lik = [lik for _ in range(len(mdata.mod))]
 
 	ent.set_data_options(scale_views=scale_views, scale_groups=scale_groups)
+	logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting data from MuData object...")
 	_set_mofa_data_from_mudata(model=ent, mdata=mdata, groups_label=groups_label, use_raw=use_raw, use_layer=use_layer,
 							  likelihoods=lik, features_subset=features_subset, save_metadata=save_metadata)
 	ent.set_model_options(ard_factors=ard_factors, ard_weights=ard_weights,
@@ -228,9 +232,12 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 						  gpu_mode=gpu_mode, Y_ELBO_TauTrick=Y_ELBO_TauTrick,
 						  seed=seed, verbose=verbose, quiet=quiet, outfile=outfile, save_interrupted=save_interrupted)
 
+	logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Building the model...")
 	ent.build()
+	logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Running the model...")
 	ent.run()
 
+	logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Saving the model...")
 	ent.save(outfile, save_data=save_data, save_parameters=save_parameters, expectations=expectations)
 
 	if outfile is None:
@@ -298,12 +305,12 @@ def snf(mdata: MuData,
 
 	def _normalize(x):
 		row_sum_mdiag = x.sum(axis=1) - x.diagonal()
-		#row_sum_mdiag = x.sum(axis=1) - np.diag(x)
 		row_sum_mdiag[row_sum_mdiag == 0] = 1
 		x = x / (2 * row_sum_mdiag)
 		np.fill_diagonal(x, .5)
 		x = (x + x.T) / 2
 		return x
+
 	def _dominateset(x, k=20):
 		def _zero(arr):
 			arr[np.argsort(arr)[:(len(arr) - k)]] = 0
@@ -321,6 +328,7 @@ def snf(mdata: MuData,
 
 	nextW = [None] * len(wall)
 
+	logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting {iterations} iterations...")
 	for ti in range(iterations):
 		for j in range(len(wall)):
 			sumWJ = np.zeros(shape=(wall[j].shape[0], wall[j].shape[1]))
@@ -330,7 +338,7 @@ def snf(mdata: MuData,
 			nextW[j] = new[j] * (sumWJ / (len(wall) - 1)) * new[j].T
 		for j in range(len(wall)):
 			wall[j] = _normalize(nextW[j])
-			# wall[i] = (wall[i] + wall[i].T) / 2
+		logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Done: iteration {ti} of {iterations}.")
 
 	# Sum diffused matrices
 	w = np.sum(wall, axis=0)
