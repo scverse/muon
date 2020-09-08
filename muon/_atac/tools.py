@@ -573,11 +573,11 @@ def locate_fragments(data: Union[AnnData, MuData],
 			frag.close()
 
 
-def count_fragments_genes(data: Union[AnnData, MuData],
-						  genes: Optional[pd.DataFrame] = None,
-						  extend_upstream: int = 2e3,
-						  extend_downstream: int = 0,
-						  average: str = 'sum') -> AnnData:
+def count_fragments_features(data: Union[AnnData, MuData],
+						     features: Optional[pd.DataFrame] = None,
+						     extend_upstream: int = 2e3,
+						     extend_downstream: int = 0,
+						     average: str = 'sum') -> AnnData:
 	"""
 	Parse peak annotation file and add it to the .uns["atac"]["peak_annotation"]
 
@@ -585,8 +585,8 @@ def count_fragments_genes(data: Union[AnnData, MuData],
 	----------
 	data
 		AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-	genes
-		A DataFrame with gene annotation.
+	features
+		A DataFrame with feature annotation, e.g. genes.
 		Annotation has to contain columns: Chromosome, Start, End.
 	extend_upsteam
 		Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
@@ -602,19 +602,19 @@ def count_fragments_genes(data: Union[AnnData, MuData],
 	else:
 		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
-	if genes is None:
+	if features is None:
 		# Try to gene gene annotation in the data.mod['rna']
 		if isinstance(data, MuData) and 'rna' in data.mod and 'interval' in data.mod['rna'].var.columns:
-			genes = pd.DataFrame([s.replace(":", "-", 1).split("-") for s in data.mod['rna'].var.interval])
-			genes.columns = ["Chromosome", "Start", "End"]
-			genes['gene_id'] = data.mod['rna'].var.gene_ids
-			genes['gene_name'] = data.mod['rna'].var.index
-			# Remove genes with no coordinated indicated
-			genes = genes.loc[~genes.Start.isnull()]
-			genes.Start = genes.Start.astype(int)
-			genes.End = genes.End.astype(int)
+			features = pd.DataFrame([s.replace(":", "-", 1).split("-") for s in data.mod['rna'].var.interval])
+			features.columns = ["Chromosome", "Start", "End"]
+			features['gene_id'] = data.mod['rna'].var.gene_ids
+			features['gene_name'] = data.mod['rna'].var.index
+			# Remove genes with no coordinates indicated
+			features = features.loc[~features.Start.isnull()]
+			features.Start = features.Start.astype(int)
+			features.End = features.End.astype(int)
 		else:
-			raise ValueError("Argument `genes` is required. It should be a BED-like DataFrame with gene coordinates and names.")
+			raise ValueError("Argument `features` is required. It should be a BED-like DataFrame with gene coordinates and names.")
 
 	if 'files' not in adata.uns or 'fragments' not in adata.uns['files']:
 		raise KeyError("There is no fragments file located yet. Run muon.atac.tl.locate_fragments first.")
@@ -635,37 +635,37 @@ def count_fragments_genes(data: Union[AnnData, MuData],
 		# Construct an empty sparse matrix with the right amount of cells
 		mx = csr_matrix(([], ([], [])), shape=(n, 0), dtype=np.int8)
 
-		logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {genes.shape[0]} genes...")
+		logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {features.shape[0]} features...")
 		# Gene order is determined
 		sparse_columns = []
-		for i in range(genes.shape[0]):  # iterate over features (genes)
-			gene = genes.iloc[i]
+		for i in range(features.shape[0]):  # iterate over features (e.g. genes)
+			f = features.iloc[i]
 			barcodes = []
 			scores = []
-			for fr in fragments.fetch(gene.Chromosome, gene.Start - extend_upstream, gene.End + extend_downstream):
+			for fr in fragments.fetch(f.Chromosome, f.Start - extend_upstream, f.End + extend_downstream):
 				barcodes.append(fr.name)      # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
 				scores.append(int(fr.score))  # number of cuts per fragment (e.g. 2)
 
 			# Note: This will also discard barcodes not present in the original data
-			gene_df = pd.DataFrame({"score": scores}, index=barcodes, dtype=int)\
-						.join(cells_df, how="inner")\
-						.groupby("cell_index")\
-						.agg({"score": average})
+			feature_df = pd.DataFrame({"score": scores}, index=barcodes, dtype=int)\
+						   .join(cells_df, how="inner")\
+						   .groupby("cell_index")\
+						   .agg({"score": average})
 
-			gene_mx = csr_matrix((gene_df.score.values,
-								 (gene_df.index.values,
-								  [0] * gene_df.shape[0])),
-								 shape=(n, 1),
-								 dtype=np.int8)
+			feature_mx = csr_matrix((feature_df.score.values,
+								    (feature_df.index.values,
+								     [0] * feature_df.shape[0])),
+								    shape=(n, 1),
+								    dtype=np.int8)
 
-			sparse_columns.append(gene_mx)
+			sparse_columns.append(feature_mx)
 
 			if i > 0 and i % 1000 == 0:
-				logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Processed {i} genes")
+				logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Processed {i} features")
 
 		mx = hstack(sparse_columns).tocsr()
 
-		return AnnData(X=mx, obs=adata.obs, var=genes)
+		return AnnData(X=mx, obs=adata.obs, var=features)
 
 	except Exception as e:
 		logging.error(e)
