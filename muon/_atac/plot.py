@@ -101,7 +101,7 @@ def embedding(data: Union[AnnData, MuData],
 		return None
 
 	else:
-		return sc.pl.embedding(adata, basis=basis, color=peak_sel.peak.values, use_raw=use_raw, **kwargs)
+		return sc.pl.embedding(adata, basis=basis, use_raw=use_raw, **kwargs)
 
 	return None
 
