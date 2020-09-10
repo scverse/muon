@@ -23,6 +23,15 @@ from .._core.mudata import MuData
 def lsi(data: Union[AnnData, MuData], scale_embeddings=True, n_comps=50):
 	"""
 	Run Latent Semantic Indexing
+
+	PARAMETERS
+	----------
+	data: 
+		AnnData object or MuData object with 'atac' modality
+	scale_embeddings: bool (default: True)
+		Scale embeddings to zero mean and unit variance 
+	n_comps: int (default: 50)
+		Number of components to calculate with SVD
 	"""
 	if isinstance(data, AnnData):
 		adata = data
