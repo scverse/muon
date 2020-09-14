@@ -91,7 +91,7 @@ class MuData():
             self.obsm[k] = self.obs.index.isin(v.obs.index)
 
         # Initialise global variables
-        self._var = pd.concat([a.var.add_prefix(m+'/') for a in self.mod.values()], join="outer", axis=0, sort=False)
+        self._var = pd.concat([a.var.add_prefix(m+'/') for m, a in self.mod.items()], join="outer", axis=0, sort=False)
         # API legacy from AnnData
         self.n_vars = self.n_var
 
