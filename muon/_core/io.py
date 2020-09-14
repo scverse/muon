@@ -4,6 +4,7 @@ import os
 from os.path import basename
 
 import numpy as np
+import h5py
 import anndata as ad
 from anndata import AnnData
 from pathlib import Path
@@ -51,14 +52,6 @@ def read_10x_h5(filename: Union[str, Path],
 	if extended:
 
 		# 1) Read interval field from the HDF5 file
-
-		try:
-			import h5py
-		except ImportError:
-			raise ImportError(
-				"h5py is not available. Install h5py from PyPI (`pip install pypi`) or from GitHub (`pip install git+https://github.com/h5py/h5py`)"
-				)
-
 		h5file = h5py.File(filename, 'r')
 
 		if 'interval' in h5file["matrix"]["features"]:
@@ -117,15 +110,6 @@ def write_h5mu(filename: Union[str, Path],
 
 	Ideally this is merged later to anndata._io.h5ad.write_h5ad.
 	"""
-
-	try:
-		import h5py
-	except ImportError:
-		raise ImportError(
-			"h5py is not available but is required to write .h5mu files. Install h5py from PyPI (`pip install h5py`) \
-			or from GitHub (`pip install git+https://github.com/h5py/h5py`)"
-			)
-
 	from anndata._io.utils import write_attribute
 	from anndata._io.h5ad import write_h5ad
 
@@ -169,15 +153,6 @@ def write_h5ad(filename: Union[str, Path],
 
 	Ideally this is merged later to anndata._io.h5ad.write_h5ad.
 	"""
-
-	try:
-		import h5py
-	except ImportError:
-		raise ImportError(
-			"h5py is not available but is required to write .h5mu files. Install h5py from PyPI (`pip install h5py`) \
-			or from GitHub (`pip install git+https://github.com/h5py/h5py`)"
-			)
-
 	from anndata._io.utils import write_attribute
 	from anndata._io.h5ad import write_h5ad
 
@@ -281,14 +256,6 @@ def read_h5mu(filename: Union[str, Path], backed: Union[str, bool, None] = None)
 	"""
 	Read MuData object from HDF5 file
 	"""
-	try:
-		import h5py
-	except ImportError:
-		raise ImportError(
-			"h5py is not available but is required to read .h5mu files. Install h5py from PyPI (`pip install h5py`) \
-			or from GitHub (`pip install git+https://github.com/h5py/h5py`)"
-			)
-
 	assert backed in [None, True, False, "r", "r+"], "Argument `backed` should be boolean, or r/r+, or None"
 
 	from anndata._io.utils import read_attribute
@@ -311,14 +278,6 @@ def read_h5mu(filename: Union[str, Path], backed: Union[str, bool, None] = None)
 	return MuData._init_from_dict_(**d)
 
 def read_h5mu_mod_backed(g: "h5py.Group") -> dict:
-	try:
-		import h5py
-	except ImportError:
-		raise ImportError(
-			"h5py is not available but is required to read .h5mu files. Install h5py from PyPI (`pip install h5py`) \
-			or from GitHub (`pip install git+https://github.com/h5py/h5py`)"
-			)
-
 	from anndata._io.utils import read_attribute
 	from anndata._io.h5ad import read_dataframe, _clean_uns
 
@@ -356,14 +315,6 @@ def read_h5ad(
 
 	Ideally this is merged later to anndata._io.h5ad.read_h5ad.
 	"""
-	try:
-		import h5py
-	except ImportError:
-		raise ImportError(
-			"h5py is not available but is required to read .h5mu files. Install h5py from PyPI (`pip install h5py`) \
-			or from GitHub (`pip install git+https://github.com/h5py/h5py`)"
-			)
-
 	assert backed in [None, True, False, "r", "r+"], "Argument `backed` should be boolean, or r/r+, or None"
 
 	from anndata._io.utils import read_attribute
@@ -418,14 +369,6 @@ def read(filename: Union[str, Path]) -> Union[MuData, AnnData]:
 	  - FILE.h5mu/mod/MODALITY
 	  - FILE.h5ad
 	"""
-	try:
-		import h5py
-	except ImportError:
-		raise ImportError(
-			"h5py is not available but is required to read .h5mu files. Install h5py from PyPI (`pip install h5py`) \
-			or from GitHub (`pip install git+https://github.com/h5py/h5py`)"
-			)
-
 	import re
 
 	m = re.search("^(.+)\.(h5mu)[/]?([A-Za-z]*)[/]?([/A-Za-z]*)$", filename)
