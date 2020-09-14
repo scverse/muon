@@ -1,19 +1,22 @@
 from typing import Union
 from pathlib import Path
 import os
+from os.path import basename
 
 import numpy as np
 import anndata as ad
 from anndata import AnnData
 from pathlib import Path
 import scanpy as sc
+
 from .mudata import MuData
+from .file_backing import MuDataFileManager
 
 from .._atac.tools import add_peak_annotation, locate_fragments, add_peak_annotation_gene_names
 
-# 
+#
 # Reading data
-# 
+#
 
 def read_10x_h5(filename: Union[str, Path],
 				extended: bool = True,
@@ -21,7 +24,7 @@ def read_10x_h5(filename: Union[str, Path],
 	"""
 	Read data from 10X Genomics-formatted HDF5 file
 
-	This function uses scanpy.read_10x_h5() internally 
+	This function uses scanpy.read_10x_h5() internally
 	and patches its behaviour to:
 	- attempt to read `interval` field for features;
 	- attempt to locate peak annotation file and add peak annotation;
@@ -75,7 +78,7 @@ def read_10x_h5(filename: Union[str, Path],
 
 	if extended:
 		if 'atac' in mdata.mod:
-		
+
 			# 2) Add peak annotation
 
 			default_annotation = os.path.join(os.path.dirname(filename), "atac_peak_annotation.tsv")
@@ -99,9 +102,9 @@ def read_10x_h5(filename: Union[str, Path],
 	return mdata
 
 
-# 
-# Saving multimodal data objects 
-# 
+#
+# Saving multimodal data objects
+#
 
 def write_h5mu(filename: Union[str, Path],
 			   mdata: MuData,
@@ -114,7 +117,7 @@ def write_h5mu(filename: Union[str, Path],
 
 	Ideally this is merged later to anndata._io.h5ad.write_h5ad.
 	"""
-	
+
 	try:
 		import h5py
 	except ImportError:
@@ -144,7 +147,7 @@ def write_h5mu(filename: Union[str, Path],
 
 			write_attribute(f, f"mod/{k}/X", adata.X)
 			write_attribute(f, f"mod/{k}/raw", adata.raw)
-  
+
 			write_attribute(f, f"mod/{k}/obs", adata.obs)
 			write_attribute(f, f"mod/{k}/var", adata.var)
 			write_attribute(f, f"mod/{k}/obsm", adata.obsm)
@@ -166,7 +169,7 @@ def write_h5ad(filename: Union[str, Path],
 
 	Ideally this is merged later to anndata._io.h5ad.write_h5ad.
 	"""
-	
+
 	try:
 		import h5py
 	except ImportError:
@@ -200,7 +203,7 @@ def write_h5ad(filename: Union[str, Path],
 		adata.strings_to_categoricals()
 		if adata.raw is not None:
 			adata.strings_to_categoricals(adata.raw.var)
-		
+
 		filepath = Path(filename)
 
 		if not (adata.isbacked and Path(adata.filename) == Path(filepath)):
@@ -270,11 +273,11 @@ def write(filename: Union[str, Path],
 		else:
 			raise ValueError()
 
-# 
+#
 # Reading from multimodal data objects
-# 
+#
 
-def read_h5mu(filename: Union[str, Path]):
+def read_h5mu(filename: Union[str, Path], backed: Union[str, bool, None] = None):
 	"""
 	Read MuData object from HDF5 file
 	"""
@@ -286,6 +289,8 @@ def read_h5mu(filename: Union[str, Path]):
 			or from GitHub (`pip install git+https://github.com/h5py/h5py`)"
 			)
 
+	assert backed in [None, True, False, "r", "r+"], "Argument `backed` should be boolean, or r/r+, or None"
+
 	from anndata._io.utils import read_attribute
 	from anndata._io.h5ad import read_dataframe
 
@@ -294,10 +299,48 @@ def read_h5mu(filename: Union[str, Path]):
 		for k in f.keys():
 			if k in ["obs", "var"]:
 				d[k] = read_dataframe(f[k])
+			elif backed and k == "mod":
+				mods = {}
+				gmods = f[k]
+				for m in gmods.keys():
+					mods[m] = read_h5mu_mod_backed(gmods[m])
+				d[k] = mods
 			else:
 				d[k] = read_attribute(f[k])
 
 	return MuData._init_from_dict_(**d)
+
+def read_h5mu_mod_backed(g: "h5py.Group") -> dict:
+	try:
+		import h5py
+	except ImportError:
+		raise ImportError(
+			"h5py is not available but is required to read .h5mu files. Install h5py from PyPI (`pip install h5py`) \
+			or from GitHub (`pip install git+https://github.com/h5py/h5py`)"
+			)
+
+	from anndata._io.utils import read_attribute
+	from anndata._io.h5ad import read_dataframe, _clean_uns
+
+	d = {}
+
+	for k in g.keys():
+		if k in ("obs", "var"):
+			d[k] = read_dataframe(g[k])
+		elif k == "X":
+			X = g["X"]
+			if isinstance(X, h5py.Group):
+				dtype = X["data"].dtype
+			elif hasattr(X, "dtype"):
+				dtype = X.dtype
+			else:
+				raise ValueError()
+			d["dtype"] = dtype
+		else:
+			d[k] = read_attribute(g[k])
+	ad = AnnData(**d)
+	ad.file = MuDataFileManager(ad, basename(g.name), g.file)
+	return ad
 
 def read_h5ad(
 	filename: Union[str, Path],
@@ -305,7 +348,7 @@ def read_h5ad(
 	backed: Union[str, bool, None] = None,
 	) -> AnnData:
 	"""
-	Read AnnData object from inside a .h5mu file 
+	Read AnnData object from inside a .h5mu file
 	or from a standalone .h5ad file
 
 	Currently replicates and modifies anndata._io.h5ad.read_h5ad.
@@ -365,7 +408,7 @@ read_anndata = read_h5ad
 
 def read(filename: Union[str, Path]) -> Union[MuData, AnnData]:
 	"""
-	Read MuData object from HDF5 file 
+	Read MuData object from HDF5 file
 	or AnnData object (a single modality) inside it
 
 	This function is designed to enhance I/O ease of use.
