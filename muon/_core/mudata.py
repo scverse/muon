@@ -3,6 +3,7 @@ import collections
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_string_dtype, is_categorical_dtype
+import anndata
 from anndata import AnnData
 
 
@@ -49,8 +50,8 @@ class MuData():
         # When creating from a dictionary with _init_from_dict_
         if len(kwargs) > 0:
             # Get global observations
-            self.obs = kwargs.get("obs", None)
-            self.n_obs = self.obs.shape[0] if self.obs is not None else None
+            self._obs = kwargs.get("obs", None)
+            self._n_obs = self.obs.shape[0] if self.obs is not None else None
 
             # Get global obsm
             self.obsm = kwargs.get("obsm", {})
@@ -59,8 +60,7 @@ class MuData():
             self.obsp = kwargs.get("obsp", None)
 
             # Get global variables
-            self.var = kwargs.get("var", None)
-            self.n_var = self.var.shape[0] if self.var is not None else None
+            self._var = kwargs.get("var", None)
             # API legacy from AnnData
             self.n_vars = self.n_var
 
@@ -82,28 +82,21 @@ class MuData():
 
             return
 
-        self.n_obs = 0
-        self.n_vars = 0
-    
         # Initialise global observations
-        self.obs = pd.concat([a.obs for m, a in self.mod.items()], join='outer', axis=1, sort=False)
-        self.n_obs = self.obs.shape[0]
+        self._obs = pd.concat([a.obs.add_prefix(m+'/') for m, a in self.mod.items()], join='outer', axis=1, sort=False)
 
         # Make obs map for each modality
         self.obsm = dict()
-        self.obs['ix'] = range(len(self.obs))
         for k, v in self.mod.items():
             self.obsm[k] = self.obs.index.isin(v.obs.index)
 
         # Initialise global variables
-        self.var = pd.concat([a.var for a in self.mod.values()], join="outer", axis=0, sort=False)
-        self.n_var = self.var.shape[0]
+        self._var = pd.concat([a.var.add_prefix(m+'/') for a in self.mod.values()], join="outer", axis=0, sort=False)
         # API legacy from AnnData
         self.n_vars = self.n_var
 
         # Make var map for each modality
         self.varm = dict()
-        self.var['ix'] = range(len(self.var))
         for k, v in self.mod.items():
             self.varm[k] = self.var.index.isin(v.var.index)
 
@@ -162,21 +155,65 @@ class MuData():
     # To increase compatibility with scanpy methods
     _sanitize = strings_to_categoricals
 
-    def __getitem__(self, modality: str) -> AnnData:
-        return self.mod[modality]
+    def __getitem__(self, index) -> Union["MuData", AnnData]:
+        if isinstance(index, str):
+            return self.mod[index]
+        raise NotImplementedError("MuData slicing is not implemented yet")
 
     @property
     def shape(self) -> Tuple[int, int]:
         """Shape of data, all variables and observations combined (:attr:`n_obs`, :attr:`n_var`)."""
-        return self.n_obs, self.n_var
+        return self.n_obs, self.n_vars
 
-    def update_obs(self):
+    # # Currently rely on AnnData's interface for setting .obs / .var
+    # # This code implements AnnData._set_dim_df for another namespace
+    # def _set_dim_df(self, value: pd.DataFrame, attr: str):
+    #     if not isinstance(value, pd.DataFrame):
+    #         raise ValueError(f"Can only assign pd.DataFrame to {attr}.")
+    #     value_idx = AnnData._prep_dim_index(self, value.index, attr)
+    #     setattr(self, f"_{attr}", value)
+    #     AnnData._set_dim_index(self, value_idx, attr)
+
+
+    def _update_attr(self, attr: str):
         """
-        Update global observations from observations for each modality
+        Update global observations/variables with observations/variables for each modality
         """
-        # TODO: preserve columns unique to global obs
-        self.obs = pd.concat([a.obs for m, a in self.mod.items()], join='outer', axis=1, sort=False)
-        self.n_obs = self.obs.shape[0]
+        # Figure out which global columns exist
+        columns_global = list(map(all, zip(*list([[not col.startswith(mod+"/") for col in getattr(self, attr).columns] for mod in self.mod]))))
+        # Keep data from global .obs/.var columns
+        data_global = getattr(self, attr).loc[:,columns_global]
+        # Join modality .obs/.var tables
+        setattr(self, attr, pd.concat([getattr(a, attr).add_prefix(m + '/') for m, a in self.mod.items()], join='outer', axis=1, sort=False))
+        # Add data from global obs columns
+        setattr(self, attr, getattr(self, attr).join(data_global, how='left'))
+        
+        # Update .obsm / .varm
+        for k, v in self.mod.items():
+            getattr(self, attr+'m')[k] = getattr(self, attr).index.isin(v.obs.index)
+
+        # TODO: update .obsp/.varp (size might have changed)
+
+    @property
+    def obs(self) -> pd.DataFrame:
+        """
+        Annotation of observation
+        """
+        return self._obs
+
+    @obs.setter
+    def obs(self, value: pd.DataFrame):
+        # self._set_dim_df(value, "obs")
+        if len(value) != self.shape[0]:
+            raise ValueError(f"The length of provided annotation {len(value)} does not match the length {self.shape[0]} of MuData.obs.")
+        self._obs = value
+
+    @property
+    def n_obs(self) -> int:
+        """
+        Total number of observations
+        """
+        return self._obs.shape[0]
 
     def obs_vector(self, key: str, layer: Optional[str] = None) -> np.ndarray:
         """
@@ -189,13 +226,31 @@ class MuData():
             raise KeyError(f"There is no key {key} in MuData .obs or in .obs of any modalities.")
         return self.obs[key].values
 
-    def update_var(self):
+    def update_obs(self):
         """
-        Update global variables from variables for each modality
+        Update .obs slot of MuData with the newest .obs data from all the modalities
         """
-        # TODO: preserve columns unique to global var
-        self.var = pd.concat([a.var for a in self.mod.values()], join="outer", axis=0, sort=False)
-        self.n_vars = self.var.shape[0]
+        self._update_attr('obs')
+
+    @property
+    def var(self) -> pd.DataFrame:
+        """
+        Annotation of variables
+        """
+        return self._var
+
+    @var.setter
+    def var(self, value: pd.DataFrame):
+        if len(value) != self.shape[0]:
+            raise ValueError(f"The length of provided annotation {len(value)} does not match the length {self.shape[0]} of MuData.var.")
+        self._var = value
+
+    @property
+    def n_var(self) -> int:
+        """
+        Total number of variables
+        """
+        return self._var.shape[0]
 
     def var_vector(self, key: str, layer: Optional[str] = None) -> np.ndarray:
         """
@@ -227,10 +282,17 @@ class MuData():
 
     def _gen_repr(self, n_obs, n_vars, extensive: bool = False) -> str:
         if self.isbacked:
-            backed_at = f"backed at {str(self.filename)!r}"
+            backed_at = f" backed at {str(self.filename)!r}"
         else:
             backed_at = ""
-        descr = f"MuData object with n_obs × n_vars = {n_obs} × {n_vars} {backed_at}"
+        descr = f"MuData object with n_obs × n_vars = {n_obs} × {n_vars}{backed_at}"
+        for attr in [
+            "obs",
+            "var"
+        ]:
+            keys = getattr(self, attr).keys()
+            if len(keys) > 0:
+                descr += f"\n  {attr}:\t{str(list(keys))[1:-1]}"
         descr += f"\n  {len(self.mod)} modalities"
         for k, v in self.mod.items():
             descr += f"\n    {k}:\t{v.n_obs} x {v.n_vars}"
