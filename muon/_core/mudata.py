@@ -119,7 +119,7 @@ class MuData():
 
     @classmethod
     def _init_from_dict_(cls,
-        mod: Optional[Mapping[str, Mapping]] = None,
+        mod: Optional[Mapping[str, Union[Mapping, AnnData]]] = None,
         obs: Optional[Union[pd.DataFrame, Mapping[str, Iterable[Any]]]] = None,
         var: Optional[Union[pd.DataFrame, Mapping[str, Iterable[Any]]]] = None,
         uns: Optional[Mapping[str, Any]] = None,
@@ -129,7 +129,7 @@ class MuData():
         varp: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
         ):
 
-        return cls(data = {k:AnnData(**v) for k, v in mod.items()},
+        return cls(data = {k:(v if isinstance(v, AnnData) else AnnData(**v)) for k, v in mod.items()},
                    obs=obs,
                    var=var,
                    uns=uns,
