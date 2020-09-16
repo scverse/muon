@@ -20,7 +20,8 @@ class MuData():
     def __init__(self,
                  data: Union[AnnData, Mapping[str, AnnData]] = None,
                  feature_types_names: Optional[dict] = {"Gene Expression": "rna",
-                                                        "Peaks": "atac"},
+                                                        "Peaks": "atac",
+                                                        "Antibody Capture": "cite"},
                  **kwargs):
 
         # Add all modalities to a MuData object
