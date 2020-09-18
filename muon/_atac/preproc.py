@@ -1,7 +1,7 @@
 from typing import Union
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, dia_matrix
 
 from anndata import AnnData
 from .._core.mudata import MuData
@@ -35,9 +35,8 @@ def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, log_tfidf=Fal
 	"""
 	if isinstance(data, AnnData):
 		adata = data
-	elif isinstance(data, MuData):
+	elif isinstance(data, MuData) and 'atac' in data.mod:
 		adata = data.mod['atac']
-		# TODO: check that ATAC-seq slot is present with this name
 	else:
 		raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
@@ -45,8 +44,9 @@ def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, log_tfidf=Fal
 		raise AttributeError("When returning log(TF*IDF), \
 			applying neither log(TF) nor log(IDF) is possible.")
 
-	n_peaks = adata.X.sum(axis=1).reshape(-1, 1)
-	tf = np.asarray(adata.X / n_peaks)
+	n_peaks = np.asarray(adata.X.sum(axis=1)).reshape(-1)
+	n_peaks = dia_matrix((1.0 / n_peaks, 0), shape=(n_peaks.size, n_peaks.size))
+	tf = np.dot(n_peaks, adata.X)
 	if scale_factor is not None and scale_factor != 0 and scale_factor != 1:
 		tf = tf * scale_factor
 	if log_tf:
@@ -56,7 +56,8 @@ def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, log_tfidf=Fal
 	if log_idf:
 		idf = np.log1p(idf)
 
-	tf_idf = np.dot(csr_matrix(tf), csr_matrix(np.diag(idf)))
+	idf = dia_matrix((idf, 0), shape=(idf.size, idf.size))
+	tf_idf = np.dot(tf, idf)
 
 	if log_tfidf:
 		tf_idf = np.log1p(tf_idf)
