@@ -1,7 +1,7 @@
 from typing import Union
 
 import numpy as np
-from scipy.sparse import csr_matrix, dia_matrix
+from scipy.sparse import csr_matrix, dia_matrix, issparse
 
 from anndata import AnnData
 from .._core.mudata import MuData
@@ -44,9 +44,14 @@ def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, log_tfidf=Fal
 		raise AttributeError("When returning log(TF*IDF), \
 			applying neither log(TF) nor log(IDF) is possible.")
 
-	n_peaks = np.asarray(adata.X.sum(axis=1)).reshape(-1)
-	n_peaks = dia_matrix((1.0 / n_peaks, 0), shape=(n_peaks.size, n_peaks.size))
-	tf = np.dot(n_peaks, adata.X)
+	if issparse(adata.X):
+		n_peaks = np.asarray(adata.X.sum(axis=1)).reshape(-1)
+		n_peaks = dia_matrix((1.0 / n_peaks, 0), shape=(n_peaks.size, n_peaks.size))
+		# This prevents making TF dense
+		tf = np.dot(n_peaks, adata.X)
+	else:
+		n_peaks = np.asarray(adata.X.sum(axis=1)).reshape(-1, 1)
+		tf = adata.X / n_peaks
 	if scale_factor is not None and scale_factor != 0 and scale_factor != 1:
 		tf = tf * scale_factor
 	if log_tf:
@@ -56,8 +61,11 @@ def tfidf(data: Union[AnnData, MuData], log_tf=True, log_idf=True, log_tfidf=Fal
 	if log_idf:
 		idf = np.log1p(idf)
 
-	idf = dia_matrix((idf, 0), shape=(idf.size, idf.size))
-	tf_idf = np.dot(tf, idf)
+	if issparse(tf):
+		idf = dia_matrix((idf, 0), shape=(idf.size, idf.size))
+		tf_idf = np.dot(tf, idf)
+	else:
+		tf_idf = np.dot(csr_matrix(tf), csr_matrix(np.diag(idf)))
 
 	if log_tfidf:
 		tf_idf = np.log1p(tf_idf)
