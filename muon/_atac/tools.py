@@ -57,8 +57,7 @@ def lsi(data: Union[AnnData, MuData], scale_embeddings=True, n_comps=50):
 	stdev = svalues / np.sqrt(adata.X.shape[0] - 1)
 
 	adata.obsm['X_lsi'] = cell_embeddings
-	adata.uns['lsi'] = {}
-	adata.uns['lsi']['stdev'] = stdev
+	adata.uns['lsi'] = {'stdev': stdev}
 	adata.varm['LSI'] = peaks_loadings.T
 
 	return None
@@ -182,6 +181,13 @@ def add_peak_annotation_gene_names(data: Union[AnnData, MuData],
 
 	# Add gene names to the peak annotatoin table, then reset the index on gene IDs
 	ann = adata.uns['atac']['peak_annotation']
+
+	# Check whether the annotation index is not gene IDs
+	if len(np.intersect1d(ann.index.values, gene_id_name.index.values)) == 0:
+		if return_annotation:
+			return ann
+		return
+
 	ann = ann.join(gene_id_name).rename_axis("gene").reset_index(drop=False)
 
 	# Use empty strings for intergenic peaks when there is no gene

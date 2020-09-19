@@ -62,8 +62,6 @@ class MuData():
 
             # Get global variables
             self._var = kwargs.get("var", None)
-            # API legacy from AnnData
-            self.n_vars = self.n_var
 
             # Get global varm
             self.varm = kwargs.get("varm", {})
@@ -80,6 +78,10 @@ class MuData():
             self.layers = None
             self.isbacked = False
             self.is_view = False
+
+            # Restore proper .obs / .var
+            self.update_obs()
+            self.update_var()
 
             return
 
@@ -185,15 +187,25 @@ class MuData():
         # Keep data from global .obs/.var columns
         data_global = getattr(self, attr).loc[:,columns_global]
         # Join modality .obs/.var tables
-        setattr(self, attr, pd.concat([getattr(a, attr).add_prefix(m + '/') for m, a in self.mod.items()], join='outer', axis=1, sort=False))
-        # Add data from global obs columns
-        setattr(self, attr, getattr(self, attr).join(data_global, how='left'))
+        data_mod = pd.concat([getattr(a, attr).add_prefix(m + '/') for m, a in self.mod.items()], join='outer', axis=1, sort=False)
+        # Add data from global .obs/.var columns
+        # This might reduce the size of .obs/.var if observations/variables were removed
+        setattr(self, '_'+attr, data_mod.join(data_global, how='left'))
         
-        # Update .obsm / .varm
+        # Update .obsm/.varm
         for k, v in self.mod.items():
             getattr(self, attr+'m')[k] = getattr(self, attr).index.isin(v.obs.index)
 
         # TODO: update .obsp/.varp (size might have changed)
+
+    def _shrink_attr(self, attr: str):
+        """
+        Remove observations/variables for each modality from the global observations/variables table
+        """
+        # Figure out which global columns exist
+        columns_global = list(map(all, zip(*list([[not col.startswith(mod+"/") for col in getattr(self, attr).columns] for mod in self.mod]))))
+        # Only keep data from global .obs/.var columns
+        setattr(self, attr, getattr(self, attr).loc[:,columns_global])
 
     @property
     def obs(self) -> pd.DataFrame:
@@ -242,8 +254,8 @@ class MuData():
 
     @var.setter
     def var(self, value: pd.DataFrame):
-        if len(value) != self.shape[0]:
-            raise ValueError(f"The length of provided annotation {len(value)} does not match the length {self.shape[0]} of MuData.var.")
+        if len(value) != self.shape[1]:
+            raise ValueError(f"The length of provided annotation {len(value)} does not match the length {self.shape[1]} of MuData.var.")
         self._var = value
 
     @property
@@ -252,6 +264,10 @@ class MuData():
         Total number of variables
         """
         return self._var.shape[0]
+
+
+    # API legacy from AnnData
+    n_vars = n_var
 
     def var_vector(self, key: str, layer: Optional[str] = None) -> np.ndarray:
         """
@@ -263,6 +279,12 @@ class MuData():
                     raise KeyError(f"There is no {key} in MuData .var but there is one in {m} .var. Consider running `mu.update_var()` to update global .var.")
             raise KeyError(f"There is no key {key} in MuData .var or in .var of any modalities.")
         return self.var[key].values
+
+    def update_var(self):
+        """
+        Update .var slot of MuData with the newest .var data from all the modalities
+        """
+        self._update_attr('var')
 
     def var_names_make_unique(self):
         """

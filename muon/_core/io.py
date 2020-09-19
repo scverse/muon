@@ -79,11 +79,11 @@ def read_10x_h5(filename: Union[str, Path],
 				add_peak_annotation(mdata.mod['atac'], default_annotation)
 				print(f"Added peak annotation from {default_annotation} to .uns['atac']['peak_annotation']")
 
-			try:
-				add_peak_annotation_gene_names(mdata)
-				print("Added gene names to peak annotation in .uns['atac']['peak_annotation']")
-			except Exception:
-				pass
+				try:
+					add_peak_annotation_gene_names(mdata)
+					print("Added gene names to peak annotation in .uns['atac']['peak_annotation']")
+				except Exception:
+					pass
 
 			# 3) Locate fragments file
 
@@ -107,11 +107,13 @@ def write_h5mu(filename: Union[str, Path],
 
 	Currently is based on anndata._io.h5ad.write_h5ad internally.
 	Matrices - sparse or dense - are currently stored as they are.
-
-	Ideally this is merged later to anndata._io.h5ad.write_h5ad.
 	"""
 	from anndata._io.utils import write_attribute
 	from anndata._io.h5ad import write_h5ad
+
+	# Remove top-level annotation that comes from individual modalities
+	mdata._shrink_attr("obs")
+	mdata._shrink_attr("var")
 
 	write_h5ad(filepath=filename, adata=mdata, *args, **kwargs)
 
