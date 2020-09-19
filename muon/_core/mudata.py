@@ -79,9 +79,8 @@ class MuData():
             self.isbacked = False
             self.is_view = False
 
-            # Restore proper .obs / .var
-            self.update_obs()
-            self.update_var()
+            # Restore proper .obs and .var
+            self.update()
 
             return
 
@@ -293,6 +292,13 @@ class MuData():
         for k in self.mod:
             self.mod[k].var_names_make_unique()
 
+    def update(self):
+        """
+        Update both .obs and .var of MuData with the data from all the modalities
+        """
+        self._update_attr('obs')
+        self._update_attr('var')
+
     def write_h5mu(self, filename: str, *args, **kwargs):
         """
         Write MuData object to an HDF5 file
@@ -314,8 +320,11 @@ class MuData():
             "var"
         ]:
             keys = getattr(self, attr).keys()
-            if len(keys) > 0:
-                descr += f"\n  {attr}:\t{str(list(keys))[1:-1]}"
+            global_keys = list(map(all, zip(*list([[not col.startswith(mod+"/") 
+                for col in getattr(self, attr).columns] 
+                for mod in self.mod]))))
+            if any(global_keys):
+                descr += f"\n  {attr}:\t{str(list(keys[global_keys]))[1:-1]}"
         descr += f"\n  {len(self.mod)} modalities"
         for k, v in self.mod.items():
             descr += f"\n    {k}:\t{v.n_obs} x {v.n_vars}"
