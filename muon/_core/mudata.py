@@ -94,8 +94,6 @@ class MuData():
 
         # Initialise global variables
         self._var = pd.concat([a.var.add_prefix(m+'/') for m, a in self.mod.items()], join="outer", axis=0, sort=False)
-        # API legacy from AnnData
-        self.n_vars = self.n_var
 
         # Make var map for each modality
         self.varm = dict()
