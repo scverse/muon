@@ -132,7 +132,8 @@ def write_h5mu(filename: Union[str, Path],
 				adata.strings_to_categoricals(adata.raw.var)
 
 			write_attribute(f, f"mod/{k}/X", adata.X)
-			write_attribute(f, f"mod/{k}/raw", adata.raw)
+			if adata.raw is not None:
+				write_h5ad_raw(f, f"mod/{k}/raw", adata.raw)
 
 			write_attribute(f, f"mod/{k}/obs", adata.obs)
 			write_attribute(f, f"mod/{k}/var", adata.var)
@@ -185,7 +186,10 @@ def write_h5ad(filename: Union[str, Path],
 
 		if not (adata.isbacked and Path(adata.filename) == Path(filepath)):
 			write_attribute(f, f"mod/{mod}/X", adata.X)
-		write_attribute(f, f"mod/{mod}/raw", adata.raw)
+		
+		# NOTE: Calling write_attribute() does not allow writing .raw into .h5mu modalities
+		if adata.raw is not None:
+			write_h5ad_raw(f, f"mod/{mod}/raw", adata.raw)
 
 		write_attribute(f, f"mod/{mod}/obs", adata.obs)
 		write_attribute(f, f"mod/{mod}/var", adata.var)
@@ -198,6 +202,22 @@ def write_h5ad(filename: Union[str, Path],
 
 
 write_anndata = write_h5ad
+
+
+def write_h5ad_raw(f, key, raw):
+	"""
+	Replicates write_raw() in anndata/_io/h5ad.py but allow
+	to write raw slots to modalities inside .h5mu files
+	"""
+	from anndata._io.utils import write_attribute, EncodingVersions
+
+	group = f.create_group(key)
+	group.attrs["encoding-type"] = "raw"
+	group.attrs["encoding-version"] = EncodingVersions.raw.value
+	group.attrs["shape"] = raw.shape
+	write_attribute(f, f"{key}/X", raw.X)
+	write_attribute(f, f"{key}/var", raw.var)
+	write_attribute(f, f"{key}/varm", raw.varm)
 
 
 def write(filename: Union[str, Path],

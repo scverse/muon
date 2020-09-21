@@ -85,7 +85,7 @@ class MuData():
             return
 
         # Initialise global observations
-        self._obs = pd.concat([a.obs.add_prefix(m+'/') for m, a in self.mod.items()], join='outer', axis=1, sort=False)
+        self._obs = pd.concat([a.obs.add_prefix(m+':') for m, a in self.mod.items()], join='outer', axis=1, sort=False)
 
         # Make obs map for each modality
         self.obsm = dict()
@@ -93,7 +93,7 @@ class MuData():
             self.obsm[k] = self.obs.index.isin(v.obs.index)
 
         # Initialise global variables
-        self._var = pd.concat([a.var.add_prefix(m+'/') for m, a in self.mod.items()], join="outer", axis=0, sort=False)
+        self._var = pd.concat([a.var.add_prefix(m+':') for m, a in self.mod.items()], join="outer", axis=0, sort=False)
 
         # Make var map for each modality
         self.varm = dict()
@@ -180,11 +180,11 @@ class MuData():
         Update global observations/variables with observations/variables for each modality
         """
         # Figure out which global columns exist
-        columns_global = list(map(all, zip(*list([[not col.startswith(mod+"/") for col in getattr(self, attr).columns] for mod in self.mod]))))
+        columns_global = list(map(all, zip(*list([[not col.startswith(mod+":") for col in getattr(self, attr).columns] for mod in self.mod]))))
         # Keep data from global .obs/.var columns
         data_global = getattr(self, attr).loc[:,columns_global]
         # Join modality .obs/.var tables
-        data_mod = pd.concat([getattr(a, attr).add_prefix(m + '/') for m, a in self.mod.items()], join='outer', axis=1, sort=False)
+        data_mod = pd.concat([getattr(a, attr).add_prefix(m + ':') for m, a in self.mod.items()], join='outer', axis=1, sort=False)
         # Add data from global .obs/.var columns
         # This might reduce the size of .obs/.var if observations/variables were removed
         setattr(self, '_'+attr, data_mod.join(data_global, how='left'))
@@ -200,7 +200,7 @@ class MuData():
         Remove observations/variables for each modality from the global observations/variables table
         """
         # Figure out which global columns exist
-        columns_global = list(map(all, zip(*list([[not col.startswith(mod+"/") for col in getattr(self, attr).columns] for mod in self.mod]))))
+        columns_global = list(map(all, zip(*list([[not col.startswith(mod+":") for col in getattr(self, attr).columns] for mod in self.mod]))))
         # Only keep data from global .obs/.var columns
         setattr(self, attr, getattr(self, attr).loc[:,columns_global])
 
@@ -318,7 +318,7 @@ class MuData():
             "var"
         ]:
             keys = getattr(self, attr).keys()
-            global_keys = list(map(all, zip(*list([[not col.startswith(mod+"/") 
+            global_keys = list(map(all, zip(*list([[not col.startswith(mod+":") 
                 for col in getattr(self, attr).columns] 
                 for mod in self.mod]))))
             if any(global_keys):
