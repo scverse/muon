@@ -43,6 +43,14 @@ ATAC submodule
    atac.pl.umap
    atac.pl.embedding
 
+
+Input/Output
+================
+
+.. automodule:: muon._core._io
+   :members:
+
+
 Indices and tables
 ==================
 
