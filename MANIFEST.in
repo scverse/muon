@@ -1,0 +1,3 @@
+include data/ref/jaspar/*txt
+include data/ref/jaspar/*pfm
+recursive-exclude tests *
