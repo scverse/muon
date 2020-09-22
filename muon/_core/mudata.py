@@ -1,5 +1,8 @@
 from typing import Tuple, Union, Optional, Mapping, Iterable, Sequence, Any
 import collections
+from functools import reduce
+import warnings
+
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_string_dtype, is_categorical_dtype
@@ -71,6 +74,8 @@ class MuData():
 
             # Unstructured annotations
             self.uns = kwargs.get("uns", {})
+            if self.uns is None:
+                self.uns = dict()
 
             # For compatibility with calls requiring AnnData slots
             self.raw = None
@@ -175,16 +180,45 @@ class MuData():
     #     AnnData._set_dim_index(self, value_idx, attr)
 
 
-    def _update_attr(self, attr: str):
+    def _update_attr(self, attr: str, join_common: bool = False):
         """
         Update global observations/variables with observations/variables for each modality
         """
+
+        # Check if the are same obs_names/var_names in different modalities
+        # If there are, join_common=True request can not be satisfied
+        if any(list(map(lambda x: len(np.intersect1d(*x)) > 0, 
+            [(getattr(self.mod[mod_i], attr+'_names').values, 
+                getattr(self.mod[mod_j], attr+'_names').values) 
+            for i, mod_i in enumerate(self.mod) 
+            for j, mod_j in enumerate(self.mod) 
+            if j>i]))
+        ):
+            if join_common:
+                warnings.warn(f"Cannot join columns with the same name because {attr}_names are intersecting.")
+                join_common = False
+
         # Figure out which global columns exist
         columns_global = list(map(all, zip(*list([[not col.startswith(mod+":") for col in getattr(self, attr).columns] for mod in self.mod]))))
+
+        if join_common:
+            # If all modalities have a column with the same name, it is not global
+            columns_common = reduce(np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod])
+            columns_global = [i for i in columns_global if i not in columns_common]
+
         # Keep data from global .obs/.var columns
         data_global = getattr(self, attr).loc[:,columns_global]
+
         # Join modality .obs/.var tables
-        data_mod = pd.concat([getattr(a, attr).add_prefix(m + ':') for m, a in self.mod.items()], join='outer', axis=1, sort=False)
+        if join_common:
+            data_mod = pd.concat([getattr(a, attr).drop(columns_common, axis=1).add_prefix(m + ':') for m, a in self.mod.items()], 
+                join='outer', axis=1, sort=False)
+            data_common = pd.concat([getattr(a, attr)[columns_common] for m, a in self.mod.items()],
+                join='outer', axis=0, sort=False)
+            data_mod = data_mod.join(data_common, how='left')
+        else:
+            data_mod = pd.concat([getattr(a, attr).add_prefix(m + ':') for m, a in self.mod.items()], join='outer', axis=1, sort=False)
+
         # Add data from global .obs/.var columns
         # This might reduce the size of .obs/.var if observations/variables were removed
         setattr(self, '_'+attr, data_mod.join(data_global, how='left'))
@@ -281,7 +315,7 @@ class MuData():
         """
         Update .var slot of MuData with the newest .var data from all the modalities
         """
-        self._update_attr('var')
+        self._update_attr('var', join_common=True)
 
     def var_names_make_unique(self):
         """
