@@ -47,7 +47,7 @@ ATAC submodule
 Input/Output
 ================
 
-.. automodule:: muon._core._io
+.. automodule:: muon._core.io
    :members:
 
 
