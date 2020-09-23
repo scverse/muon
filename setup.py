@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="muon-gtca",
+    name="muon",
     version="0.1.0",
     author="Danila Bredikhin",
     author_email="danila.bredikhin@embl.de",
