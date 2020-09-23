@@ -15,6 +15,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse import hstack
 from anndata import AnnData
 from .._core.mudata import MuData
+from .._core.utils import get_gene_annotation_from_rna
 
 #
 # Computational methods for transforming and analysing count data
@@ -620,14 +621,7 @@ def count_fragments_features(data: Union[AnnData, MuData],
 	if features is None:
 		# Try to gene gene annotation in the data.mod['rna']
 		if isinstance(data, MuData) and 'rna' in data.mod and 'interval' in data.mod['rna'].var.columns:
-			features = pd.DataFrame([s.replace(":", "-", 1).split("-") for s in data.mod['rna'].var.interval])
-			features.columns = ["Chromosome", "Start", "End"]
-			features['gene_id'] = data.mod['rna'].var.gene_ids
-			features['gene_name'] = data.mod['rna'].var.index
-			# Remove genes with no coordinates indicated
-			features = features.loc[~features.Start.isnull()]
-			features.Start = features.Start.astype(int)
-			features.End = features.End.astype(int)
+			features = get_gene_annotation_from_rna(data)
 		else:
 			raise ValueError("Argument `features` is required. It should be a BED-like DataFrame with gene coordinates and names.")
 
