@@ -12,7 +12,7 @@ import pandas as pd
 import scanpy as sc
 from scipy.sparse.linalg import svds
 from scipy.sparse import csr_matrix
-from scipy.sparse import hstack
+from scipy.sparse import lil_matrix
 from anndata import AnnData
 from .._core.mudata import MuData
 from .._core.utils import get_gene_annotation_from_rna
@@ -590,10 +590,9 @@ def locate_fragments(data: Union[AnnData, MuData],
 
 
 def count_fragments_features(data: Union[AnnData, MuData],
-						     features: Optional[pd.DataFrame] = None,
-						     extend_upstream: int = 2e3,
-						     extend_downstream: int = 0,
-						     average: str = 'sum') -> AnnData:
+							 features: Optional[pd.DataFrame] = None,
+							 extend_upstream: int = 2e3,
+							 extend_downstream: int = 0) -> AnnData:
 	"""
 	Parse peak annotation file and add it to the .uns["atac"]["peak_annotation"]
 
@@ -608,8 +607,6 @@ def count_fragments_features(data: Union[AnnData, MuData],
 		Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
 	extend_downstream
 		Number of nucleotides to extend every gene downstream (0 by default)
-	average
-		Name of the function to aggregate fragments per gene ('sum' by default to sum scores, 'count' to calculate number of fragments)
 	"""
 	if isinstance(data, AnnData):
 		adata = data
@@ -636,43 +633,31 @@ def count_fragments_features(data: Union[AnnData, MuData],
 			)
 
 	n = adata.n_obs
-	cells_df = pd.DataFrame(index=adata.obs.index)
-	cells_df["cell_index"] = range(n)
+	n_features = features.shape[0]
+
+	# Dictionary with matrix positions
+	d = {k:v for k,v in zip(adata.obs.index,range(n))}
+
 
 	fragments = pysam.TabixFile(adata.uns['files']['fragments'], parser=pysam.asBed())
 	try:
-		# Construct an empty sparse matrix with the right amount of cells
-		mx = csr_matrix(([], ([], [])), shape=(n, 0), dtype=np.int8)
+		# List of lists matrix is quick and convenient to fill by row
+		mx = lil_matrix((n_features,n), dtype=int)
 
 		logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {features.shape[0]} features...")
-		# Gene order is determined
-		sparse_columns = []
-		for i in range(features.shape[0]):  # iterate over features (e.g. genes)
+
+		for i in range(n_features):	 # iterate over features (e.g. genes)
 			f = features.iloc[i]
-			barcodes = []
-			scores = []
 			for fr in fragments.fetch(f.Chromosome, f.Start - extend_upstream, f.End + extend_downstream):
-				barcodes.append(fr.name)      # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
-				scores.append(int(fr.score))  # number of cuts per fragment (e.g. 2)
+				try:
+					ind = d[fr.name]				 # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
+					mx.rows[i].append(ind)
+					mx.data[i].append(int(fr.score)) # number of cuts per fragment (e.g. 2)
+				except:
+					pass
 
-			# Note: This will also discard barcodes not present in the original data
-			feature_df = pd.DataFrame({"score": scores}, index=barcodes, dtype=int)\
-						   .join(cells_df, how="inner")\
-						   .groupby("cell_index")\
-						   .agg({"score": average})
-
-			feature_mx = csr_matrix((feature_df.score.values,
-								    (feature_df.index.values,
-								     [0] * feature_df.shape[0])),
-								    shape=(n, 1),
-								    dtype=np.int8)
-
-			sparse_columns.append(feature_mx)
-
-			if i > 0 and i % 1000 == 0:
-				logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Processed {i} features")
-
-		mx = hstack(sparse_columns).tocsr()
+		# Faster to convert to csr first and then transpose
+		mx = mx.tocsr().transpose()
 
 		return AnnData(X=mx, obs=adata.obs, var=features)
 
