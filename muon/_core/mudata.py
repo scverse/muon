@@ -324,6 +324,30 @@ class MuData():
         for k in self.mod:
             self.mod[k].var_names_make_unique()
 
+    # _keys methods to increase compatibility 
+    # with calls requiring those AnnData methods
+
+    def obs_keys(self) -> List[str]:
+        """List keys of observation annotation :attr:`obs`."""
+        return self._obs.keys().tolist()
+
+    def var_keys(self) -> List[str]:
+        """List keys of variable annotation :attr:`var`."""
+        return self._var.keys().tolist()
+
+    def obsm_keys(self) -> List[str]:
+        """List keys of observation annotation :attr:`obsm`."""
+        return list(self._obsm.keys())
+
+    def varm_keys(self) -> List[str]:
+        """List keys of variable annotation :attr:`varm`."""
+        return list(self._varm.keys())
+
+    def uns_keys(self) -> List[str]:
+        """List keys of unstructured annotation."""
+        return list(self._uns.keys())
+
+
     def update(self):
         """
         Update both .obs and .var of MuData with the data from all the modalities
