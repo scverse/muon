@@ -1,4 +1,4 @@
-from typing import Tuple, Union, Optional, Mapping, Iterable, Sequence, Any
+from typing import List, Tuple, Union, Optional, Mapping, Iterable, Sequence, Any
 import collections
 from functools import reduce
 import warnings
