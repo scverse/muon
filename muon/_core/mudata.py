@@ -1,7 +1,9 @@
 from typing import List, Tuple, Union, Optional, Mapping, Iterable, Sequence, Any
+from numbers import Integral
 import collections
 from functools import reduce
 import warnings
+from copy import deepcopy
 
 import numpy as np
 import pandas as pd
@@ -165,9 +167,33 @@ class MuData():
     _sanitize = strings_to_categoricals
 
     def __getitem__(self, index) -> Union["MuData", AnnData]:
+        def slice_mapping(mapping, index):
+            mp = {}
+            for n, v in mapping.items():
+                mp[n] = v[index]
+            return mp
+
         if isinstance(index, str):
             return self.mod[index]
-        raise NotImplementedError("MuData slicing is not implemented yet")
+        elif isinstance(index, tuple) or isinstance(index, Integral) or isinstance(index, slice):
+            if isinstance(index, tuple):
+                obsidx = index[0]
+                varidx = index[1]
+            else:
+                if isinstance(index, Integral):
+                    obsidx = slice(index, index + 1) # othewise, pd.DataFrame.iloc returns a Series when selecting a single index
+                else:
+                    obsidx = index
+                varidx = slice(None)
+            mod = slice_mapping(self.mod, index)
+            obs = self.obs.iloc[obsidx, :]
+            obsm = slice_mapping(self.obsm, (obsidx, ...))
+            var = self.var.iloc[varidx, :]
+            varm = slice_mapping(self.varm, (varidx, ...))
+
+            #TODO: obsp, varp
+
+            return self._init_from_dict_(mod, obs, var, deepcopy(self.uns), obsm, varm)
 
     @property
     def shape(self) -> Tuple[int, int]:
