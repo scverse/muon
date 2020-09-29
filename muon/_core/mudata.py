@@ -373,14 +373,20 @@ class MuData():
         descr = f"MuData object with n_obs × n_vars = {n_obs} × {n_vars}{backed_at}"
         for attr in [
             "obs",
-            "var"
+            "var",
+            "obsm",
+            "varm",
+            "obsp",
+            "varp"
         ]:
-            keys = getattr(self, attr).keys()
-            global_keys = list(map(all, zip(*list([[not col.startswith(mod+":") 
-                for col in getattr(self, attr).columns] 
-                for mod in self.mod]))))
-            if any(global_keys):
-                descr += f"\n  {attr}:\t{str(list(keys[global_keys]))[1:-1]}"
+            keys = list(getattr(self, attr).keys())
+            if len(keys) > 0:
+                mod_sep = ":" if isinstance(getattr(self, attr), pd.DataFrame) else ""
+                global_keys = list(map(all, zip(*list([[not col.startswith(mod+mod_sep) 
+                    for col in getattr(self, attr).keys()] 
+                    for mod in self.mod]))))
+                if any(global_keys):
+                    descr += f"\n  {attr}:\t{str([keys[i] for i in range(len(keys)) if global_keys[i]])[1:-1]}"
         descr += f"\n  {len(self.mod)} modalities"
         for k, v in self.mod.items():
             descr += f"\n    {k}:\t{v.n_obs} x {v.n_vars}"
