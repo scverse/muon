@@ -55,6 +55,8 @@ class MuData():
         if len(kwargs) > 0:
             # Get global observations
             self._obs = kwargs.get("obs", None)
+            if isinstance(self._obs, collections.abc.Mapping):
+                self._obs = pd.DataFrame(self._obs)
             self._n_obs = self.obs.shape[0] if self.obs is not None else None
 
             # Get global obsm
@@ -65,6 +67,8 @@ class MuData():
 
             # Get global variables
             self._var = kwargs.get("var", None)
+            if isinstance(self._var, collections.abc.Mapping):
+                self._var = pd.Dataframe(self._var)
 
             # Get global varm
             self.varm = kwargs.get("varm", {})
