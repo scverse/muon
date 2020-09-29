@@ -379,14 +379,15 @@ class MuData():
             "obsp",
             "varp"
         ]:
-            keys = list(getattr(self, attr).keys())
-            if len(keys) > 0:
-                mod_sep = ":" if isinstance(getattr(self, attr), pd.DataFrame) else ""
-                global_keys = list(map(all, zip(*list([[not col.startswith(mod+mod_sep) 
-                    for col in getattr(self, attr).keys()] 
-                    for mod in self.mod]))))
-                if any(global_keys):
-                    descr += f"\n  {attr}:\t{str([keys[i] for i in range(len(keys)) if global_keys[i]])[1:-1]}"
+            if hasattr(self, attr) and getattr(self, attr) is not None:
+                keys = list(getattr(self, attr).keys())
+                if len(keys) > 0:
+                    mod_sep = ":" if isinstance(getattr(self, attr), pd.DataFrame) else ""
+                    global_keys = list(map(all, zip(*list([[not col.startswith(mod+mod_sep) 
+                        for col in getattr(self, attr).keys()] 
+                        for mod in self.mod]))))
+                    if any(global_keys):
+                        descr += f"\n  {attr}:\t{str([keys[i] for i in range(len(keys)) if global_keys[i]])[1:-1]}"
         descr += f"\n  {len(self.mod)} modalities"
         for k, v in self.mod.items():
             descr += f"\n    {k}:\t{v.n_obs} x {v.n_vars}"
