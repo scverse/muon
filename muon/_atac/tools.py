@@ -594,7 +594,7 @@ def count_fragments_features(data: Union[AnnData, MuData],
 							 extend_upstream: int = 2e3,
 							 extend_downstream: int = 0) -> AnnData:
 	"""
-	Parse peak annotation file and add it to the .uns["atac"]["peak_annotation"]
+    Count fragments overlapping given Features. Returns cells x features matrix.
 
 	Parameters
 	----------
