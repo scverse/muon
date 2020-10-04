@@ -3,6 +3,7 @@ from typing import Union, Optional, List, Iterable, Mapping, Sequence
 import warnings
 
 import numpy as np
+import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 import scanpy as sc
 from anndata import AnnData
@@ -178,3 +179,42 @@ def dotplot(data: Union[AnnData, MuData],
 
 	return None
 
+
+def tss_enrichment(data: AnnData,
+                  groupby:str = None,
+                  ax: Optional[Axes] = None):
+
+    ax = ax or plt.gca()
+
+
+    if groupby is not None:
+
+        if isinstance(groupby, str):
+            groupby = [groupby]
+
+        groups = data.obs.groupby(groupby)
+
+        for name, group in groups:
+            ad = data[group.index]
+            _tss_enrichment_single(ad, ax)
+    else:
+        _tss_enrichment_single(data, ax)
+
+    # TODO Not sure how to best deal with plot returning/showing
+    plt.show()
+    return None
+
+def _tss_enrichment_single(data: AnnData,
+                           ax: Axes,
+                           sd: bool=False):
+    x = data.var['TSS_position']
+    means = data.X.mean(axis=0)
+    ax.plot(x , means)
+    if sd:
+        sd = np.sqrt(data.X.var(axis=0))
+        plt.fill_between(
+            x,
+            means - sd,
+            means + sd,
+            alpha=0.2,
+        )
