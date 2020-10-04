@@ -10,6 +10,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import scanpy as sc
+from tqdm import tqdm
 from scipy.sparse.linalg import svds
 from scipy.sparse import csr_matrix
 from scipy.sparse import lil_matrix
@@ -526,8 +527,8 @@ def locate_genome(data: Union[AnnData, MuData],
 # ^    ^     ^     ^                  ^
 # |    |     |     |                  |
 # |    |     |     4: name (cell barcode)
-# |    |     3: end (3' fragment position)
-# |    2: start (5' fragment position)|
+# |    |     3: end (3' fragment position, exclusive)
+# |    2: start (5' fragment position, inclusive)|
 # 1: contig (chromosome)              5: score (number of cuts per fragment)
 # 
 # Fragments file is compressed (.gz) and has to be indexed 
@@ -668,3 +669,177 @@ def count_fragments_features(data: Union[AnnData, MuData],
 	finally:
 		# The connection has to be closed
 		fragments.close()
+
+def tss_enrichment(data: Union[AnnData, MuData],
+                   features: Optional[pd.DataFrame] = None,
+                   extend_upstream: int = 1000,
+                   extend_downstream: int = 1000,
+                   n_tss: int = 2000,
+                   return_tss: bool = True):
+    """
+    Calculate TSS enrichment according to ENCODE guidelines. Adds a column `TSS_score` to the `.obs` DataFrame and 
+
+    Parameters
+    ----------
+    data
+        AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+    features
+        A DataFrame with feature annotation, e.g. genes.
+        Annotation has to contain columns: Chromosome, Start, End.
+    extend_upsteam
+        Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
+    extend_downstream
+        Number of nucleotides to extend every gene downstream (0 by default)
+    n_tss
+        How many randomly chosen TSS sites to pile up. The fewer the faster. Default: 2000.
+    return_tss
+        Whether to return the TSS pileup matrix. Needed for enrichment plots.
+    """
+    if isinstance(data, AnnData):
+        adata = data
+    elif isinstance(data, MuData) and 'atac' in data.mod:
+        adata = data.mod['atac']
+    else:
+        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+    if features is None:
+        # Try to gene gene annotation in the data.mod['rna']
+        if isinstance(data, MuData) and 'rna' in data.mod and 'interval' in data.mod['rna'].var.columns:
+            features = get_gene_annotation_from_rna(data)
+        else:
+            raise ValueError("Argument `features` is required. It should be a BED-like DataFrame with gene coordinates and names.")
+
+    if features.shape[0] > n_tss:
+        # Only use n_tss randomly chosen sites to make function faster
+        features = features.sample(n=n_tss)
+
+    # Pile up tss regions
+    tss_pileup = _tss_pileup(adata,
+                             features,
+                             extend_upstream=extend_upstream,
+                             extend_downstream=extend_downstream)
+
+    flank_means, center_means = _calculate_tss_score(data=tss_pileup)
+
+    tss_pileup.X = tss_pileup.X / flank_means[:,None]
+
+    tss_scores = center_means / flank_means
+    adata.obs["TSS_score"] = tss_scores
+    tss_pileup.obs["TSS_score"] = tss_scores
+
+    if return_tss:
+        return tss_pileup
+
+
+
+
+
+
+
+def _tss_pileup(adata: AnnData,
+                features: pd.DataFrame,
+                extend_upstream: int = 1000,
+                extend_downstream: int = 1000) -> AnnData:
+    """
+    Pile up reads in TSS regions. Returns a cell x position matrix that can be used for QC.
+
+    Parameters
+    ----------
+    data
+        AnnData object with associated fragments file.
+    features
+        A DataFrame with feature annotation, e.g. genes.
+        Annotation has to contain columns: Chromosome, Start, End.
+    extend_upsteam
+        Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
+    extend_downstream
+        Number of nucleotides to extend every gene downstream (0 by default)
+    """
+    if 'files' not in adata.uns or 'fragments' not in adata.uns['files']:
+        raise KeyError("There is no fragments file located yet. Run muon.atac.tl.locate_fragments first.")
+
+    try:
+        import pysam
+    except ImportError:
+        raise ImportError(
+            "pysam is not available. It is required to work with the fragments file. Install pysam from PyPI (`pip install pysam`) or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
+            )
+
+    n = adata.n_obs
+    n_features = extend_downstream + extend_upstream + 1
+
+    # Dictionary with matrix positions
+    d = {k:v for k,v in zip(adata.obs.index,range(n))}
+
+    # Not sparse since we expect most positions to be filled
+    mx = np.zeros((n, n_features), dtype=int)
+
+    fragments = pysam.TabixFile(adata.uns['files']['fragments'], parser=pysam.asBed())
+
+    # Subset the features to the chromosomes present in the fragments file
+    chromosomes = fragments.contigs
+    features = features[features.Chromosome.isin(chromosomes)]
+
+    # logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {features.shape[0]} features...")
+
+    for i in tqdm(range(features.shape[0]),
+                  desc="Fetching Regions..."):	 # iterate over features (e.g. genes)
+
+        f = features.iloc[i]
+        tss_start = f.Start - extend_upstream # First position of the TSS region
+        for fr in fragments.fetch(f.Chromosome, f.Start - extend_upstream, f.Start + extend_downstream):
+            try:
+                rowind = d[fr.name]                 # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
+                score = int(fr.score)               # number of cuts per fragment (e.g. 2)
+                colind_start = max(fr.start - tss_start, 0)
+                colind_end = min(fr.end - tss_start, n_features) # ends are non-inclusive in bed
+                mx[rowind, colind_start:colind_end] += score
+            except:
+                pass
+
+    fragments.close()
+
+    anno = pd.DataFrame({'TSS_position' : range(-extend_upstream, extend_downstream + 1)}, )
+    anno.index = anno.index.astype(str)
+
+    return AnnData(X=mx, obs=adata.obs, var=anno, dtype=int)
+
+
+def _calculate_tss_score(data: AnnData,
+                        flank_size: int=100,
+                        center_size: int=1001):
+    """
+    Calculate TSS enrichment scores (defined by ENCODE) for each cell.
+
+    Parameters
+    ----------
+    data
+        AnnData object with TSS positons as generated by `tss_pileup`.
+    flank_size
+        Number of nucleotides in the flank on either side of the region (ENCODE standard: 100bp).
+    center_size
+        Number of nucleotides in the center on either side of the region (ENCODE standard: 1001bp).
+    """
+    region_size = data.X.shape[1]
+
+    if center_size > region_size:
+        raise ValueError(f"`center_size` ({center_size}) must smaller than the piled up region ({region_size}).")
+
+    if center_size % 2 == 0:
+        raise ValueError(f"`center_size` must be an uneven number, but is {center_size}.")
+
+    # Calculate flank means
+    flanks = np.hstack((data.X[:,:flank_size], data.X[:,-flank_size:]))
+    flank_means = flanks.mean(axis=1)
+
+    # Replace 0 means with population average (to not have 0 division after)
+    flank_means[flank_means == 0] = flank_means.mean()
+
+    # Calculate center means
+    center_dist = (region_size - center_size ) // 2 # distance from the edge of data region
+    centers = data.X[:, center_dist:-center_dist]
+    center_means = centers.mean(axis=1)
+
+
+    return flank_means, center_means
+
