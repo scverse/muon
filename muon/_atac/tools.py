@@ -903,11 +903,11 @@ def nucleosome_signal(data: Union[AnnData, MuData],
         #     print(f"Read {i/1000000} Mio. fragments.", end='\r')
 
     # Prevent division by 0
-    mat[mat[:,1]==0,:] += 1
+    mat[mat[:,0]==0,:] += 1
 
     # Calculate nucleosome signal
-    nucleosome_enrichment = mat[:,0] / mat[:,1]
-    nucleosome_enrichment[mat[:,1] == 0] = 0
+    nucleosome_enrichment = mat[:,1] / mat[:,0]
+    # nucleosome_enrichment[mat[:,0] == 0] = 0
 
     adata.obs["Nucleosome_signal"] = nucleosome_enrichment
 
