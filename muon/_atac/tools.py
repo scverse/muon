@@ -913,3 +913,62 @@ def nucleosome_signal(data: Union[AnnData, MuData],
 
     return None
 
+def fetch_regions_to_df(fragment_path: str,
+						features: Union[pd.DataFrame,str],
+					    extend_upstream: int = 0,
+						extend_downstream: int = 0,
+                        relative_coordinates = False) -> pd.DataFrame:
+    """
+    Parse peak annotation file and return it as DataFrame.
+
+    Parameters
+    ----------
+    fragment_path
+        Location of the fragments file (must be tabix indexed).
+    features
+        A DataFrame with feature annotation, e.g. genes or a string of format `chr1-1-2000000`.
+        Annotation has to contain columns: Chromosome, Start, End.
+    extend_upsteam
+        Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
+    extend_downstream
+        Number of nucleotides to extend every gene downstream (0 by default)
+    relative_coordinates
+        Return the coordinates with their relative position to the middle of the features.
+    """
+
+    try:
+        import pysam
+    except ImportError:
+        raise ImportError(
+            "pysam is not available. It is required to work with the fragments file. Install pysam from PyPI (`pip install pysam`) or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
+            )
+
+    if isinstance(features, str):
+        feat_list = features.split("-")
+        features = pd.DataFrame(columns=['Chromosome', 'Start', 'End'])
+        features.loc[0] = feat_list
+        features = features.astype({'Start': int, 'End': int})
+
+
+    fragments = pysam.TabixFile(fragment_path, parser=pysam.asBed())
+    n_features = features.shape[0]
+
+    dfs = []
+    for i in tqdm(range(n_features),
+                  desc="Fetching Regions..."):	 # iterate over features (e.g. genes)
+        f = features.iloc[i]
+        fr = fragments.fetch(f.Chromosome, f.Start - extend_upstream, f.End + extend_downstream)
+        df = pd.DataFrame([(x.contig, x.start, x.end, x.name, x.score) for x in fr],
+                          columns=["Chromosome", "Start", "End", "Cell", "Score"])
+        if df.shape[0] != 0:
+            df["Feature"] = f.Chromosome + "_" + str(f.Start) + "_" + str(f.End)
+
+            if relative_coordinates:
+                middle = int(f.Start + (f.End - f.Start)/2)
+                df.Start = df.Start - middle
+                df.End = df.End - middle
+
+            dfs.append(df)
+
+    df = pd.concat(dfs, axis=0, ignore_index=True)
+    return(df)
