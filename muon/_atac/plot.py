@@ -257,10 +257,10 @@ def fragment_histogram(data: Union[AnnData, MuData],
             g = sns.FacetGrid(fragments, col=groupby[0], row = groupby[1], sharey=False)
         elif len(groupby) == 1:
             g = sns.FacetGrid(fragments, col=groupby[0], sharey=False)
-        g.map(sns.histplot, "length", binwidth=1)
+        g.map(sns.histplot, "length", binwidth=5)
         g.set_xlabels("Fragment length (bp)")
     else:
-        g = sns.histplot(data=fragments, x="length", binwidth=1)
+        g = sns.histplot(data=fragments, x="length", binwidth=5)
         g.set_xlabel("Fragment length (bp)")
     g.set(xlim = (0,1000))
 
