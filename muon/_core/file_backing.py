@@ -2,68 +2,114 @@ from os import PathLike
 from os.path import abspath
 from typing import Optional
 from collections import defaultdict
+from weakref import WeakSet
 
-import anndata as ad
+from anndata._core.file_backing import AnnDataFileManager
 import h5py
 
+class MuDataFileManager(AnnDataFileManager):
+    def __init__(self, filename: Optional[PathLike] = None, filemode: Optional[ad.compat.Literal["r", "r+"]]=None):
+        self._counter = 0
+        self._children = WeakSet()
+        self._noclose = False
+        self._old_noclose = None
+        super().__init__(None, abspath(filename), filemode)
 
-class MuDataFileManager(ad._core.file_backing.AnnDataFileManager):
+    def open(self,
+        filename: Optional[PathLike] = None,
+        filemode: Optional[ad.compat.Literal["r", "r+"]] = None) -> bool:
+
+        if self._noclose:
+            return
+        if self._file is not None and (filename is None and filemode is None or filename == self.filename and filemode == self._filemode and self._file.id):
+            self._counter += 1
+            return False
+
+        if self._file is not None and self._file.id:
+            self._file.close()
+
+        if filename is not None:
+            self.filename = filename
+        if filemode is not None:
+            self._filemode = filemode
+        if self.filename is None:
+            raise ValueError("Cannot open backing file if backing not initialized")
+        self._file = h5py.File(self.filename, self._filemode)
+        self._counter = 1
+        for child in self._children:
+            child._file = self._file['mod'][child._mod]
+        return True
+
+    def close(self):
+        if not self._noclose:
+            for child in self._children:
+                child.close()
+
+    def _close(self):
+        if self._counter > 0:
+            self._counter -= 1
+            if self._counter == 0:
+                self._file.close()
+
+    def _to_memory_mode(self):
+        for m in self._children:
+            m._to_memory_mode()
+        self._file.close()
+        self._file = None
+        self.filename = None
+
+    @property
+    def is_open(self) -> bool:
+        return (self._file is not None) & bool(self._file.id)
+
+    @AnnDataFileManager.filename.setter
+    def filename(self, filename: Optional[PathLike]):
+        if not self._noclose:
+            self._filename = None if filename is None else filename
+
+    def prevent_open_close(self, noclose:bool):
+        self._old_noclose = self._noclose
+        self._noclose = noclose
+        return self
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self._old_noclose is not None:
+            self._noclose = self._old_noclose
+            self._old_noclose = None
+
+class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
     _h5files = {}
 
     def __init__(
         self,
         adata: ad.AnnData,
         mod: str,
-        file: Optional[h5py.File] = None,
-        filename: Optional[PathLike] = None,
-        filemode: Optional[ad.compat.Literal["r", "r+"]] = None,
+        parent: MuDataFileManager,
     ):
-        path = abspath(file.filename)
-
-        if file is not None:
-            filename = file.filename
-            filemode = file.mode
-
+        self._parent = parent
         self._mod = mod
-
-        if path not in self._h5files:
-            self._h5files[path] = [file, 0]
-        self.__file = self._h5files[path]
-        super().__init__(adata, abspath(filename), filemode)
+        parent._children.add(self)
+        super().__init__(adata, parent.filename, parent._filemode)
 
     def open(
         self,
         filename: Optional[PathLike] = None,
         filemode: Optional[ad.compat.Literal["r", "r+"]] = None,
     ):
-        if filename is not None:
-            self._filename = abspath(filename)
-        if filemode is not None:
-            self._filemode = filemode
-        if self._filename is None:
-            raise ValueError("Cannot open backing file if backing not initialized")
-
-        if self.__file[0] is None or not self.__file[0].id:
-            self.__file[0] = h5py.File(self._filename, self._filemode)
-            self.__file[1] = 1
-        else:
-            self.__file[1] += 1
-        self._file = self.__file[0]['mod'][self._mod]
+        if not self._parent.open(filename, filemode):
+            self._file = self._parent._file['mod'][self._mod]
 
     def close(self):
-        self.__file[1] -= 1
-        if self.__file[1] == 0:
-            self.__file[0].close()
-            self.__file[0] = None
+        self._parent._close()
 
     def _to_memory_mode(self):
         self._adata.__X = self._adata.X[()]
-        self.file.close()
-        self._filename = None
+        self.close()
+        self.filename = None
 
     @property
     def is_open(self) -> bool:
-        if self.__file[0] is None or self.__file[1] == 0:
-            return False
-        else:
-            return bool(self.__file[0].id)
+        return self._parent.is_open
