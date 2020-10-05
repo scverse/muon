@@ -843,3 +843,73 @@ def _calculate_tss_score(data: AnnData,
 
     return flank_means, center_means
 
+
+def nucleosome_signal(data: Union[AnnData, MuData],
+                          n: int=None):
+    """
+    Computes the ratio of nucleosomal cut fragments to nucleosome-free fragments per cell.
+    Nucleosomal fragments are shorter than 147 bp while nucleosome free fragments are between
+    147 and 294 bp long.
+    Parameters
+    ----------
+    data
+        AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+    n
+        Number of fragments to count. If `None`, 1e4 fragments * number of cells.
+
+    """
+    if isinstance(data, AnnData):
+        adata = data
+    elif isinstance(data, MuData) and 'atac' in data.mod:
+        adata = data.mod['atac']
+    else:
+        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+    if 'files' not in adata.uns or 'fragments' not in adata.uns['files']:
+        raise KeyError("There is no fragments file located yet. Run muon.atac.tl.locate_fragments first.")
+
+    try:
+        import pysam
+    except ImportError:
+        raise ImportError(
+            "pysam is not available. It is required to work with the fragments file. Install pysam from PyPI (`pip install pysam`) or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
+            )
+
+
+    fragments = pysam.TabixFile(adata.uns['files']['fragments'], parser=pysam.asBed())
+
+    # Dictionary with matrix row indices
+    d = {k:v for k,v in zip(adata.obs.index,range(adata.n_obs))}
+    mat = np.zeros(shape=(adata.n_obs, 2), dtype=int)
+
+    fr = fragments.fetch()
+
+    if n is None:
+        n = int(adata.n_obs*1e4)
+
+    for i in tqdm(range(n),
+                  desc="Reading Fragments"):
+        try:
+            f = fr.next()
+            length = f.end - f.start
+            row_ind = d[f.name]
+            if length < 114:
+                mat[row_ind,0] += 1
+            elif length < 294:
+                mat[row_ind,1] += 1
+        except:
+            pass
+        # if i % 1000000 == 0:
+        #     print(f"Read {i/1000000} Mio. fragments.", end='\r')
+
+    # Prevent division by 0
+    mat[mat[:,1]==0,:] += 1
+
+    # Calculate nucleosome signal
+    nucleosome_enrichment = mat[:,0] / mat[:,1]
+    nucleosome_enrichment[mat[:,1] == 0] = 0
+
+    adata.obs["Nucleosome_signal"] = nucleosome_enrichment
+
+    return None
+
