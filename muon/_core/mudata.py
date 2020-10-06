@@ -164,24 +164,22 @@ class MuData:
         self.varp = None
 
     def _init_as_view(self, mudata_ref: "MuData", index):
-        def slice_mapping(mapping, index):
+        def slice_mapping(mapping, obsnames, varnames):
             mp = {}
             for n, v in mapping.items():
-                mp[n] = v[index]
+                obsidx = v.obs.index.intersection(obsnames)
+                varidx = v.var.index.intersection(varnames)
+                mp[n] = v[obsidx, varidx]
             return mp
 
-        if isinstance(index, tuple):
-            obsidx = index[0]
-            varidx = index[1]
-        else:
-            if isinstance(index, Integral):
-                obsidx = slice(
-                    index, index + 1
-                )  # othewise, pd.DataFrame.iloc returns a Series when selecting a single index
-            else:
-                obsidx = index
-            varidx = slice(None)
-        self.mod = slice_mapping(mudata_ref.mod, index)
+        from anndata._core.index import _normalize_indices
+        obsidx, varidx = _normalize_indices(index, mudata_ref.obs.index, mudata_ref.var.index)
+        if isinstance(obsidx, Integral): # to handle single-element subsets, otherwise pd.Index[int] returns
+            obsidx = slice(obsidx, obsidx + 1)       # a str and pd.Index.intersection throws an exception
+        if isinstance(varidx, Integral):
+            varidx = slice(varidx, varidx + 1)
+
+        self.mod = slice_mapping(mudata_ref.mod, mudata_ref.obs.index[obsidx], mudata_ref.var.index[varidx])
         self._obs = mudata_ref.obs.iloc[obsidx, :]
         self.obsm = mudata_ref.obsm._view(self, (obsidx, ...))
         self._var = mudata_ref.var.iloc[varidx, :]

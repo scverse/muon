@@ -4,6 +4,7 @@ from typing import Optional
 from collections import defaultdict
 from weakref import WeakSet
 
+import anndata as ad
 from anndata._core.file_backing import AnnDataFileManager
 import h5py
 
