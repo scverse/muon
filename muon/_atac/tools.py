@@ -679,7 +679,8 @@ def tss_enrichment(data: Union[AnnData, MuData],
                    return_tss: bool = True,
                    random_state=None):
     """
-    Calculate TSS enrichment according to ENCODE guidelines. Adds a column `tss_score` to the `.obs` DataFrame and 
+    Calculate TSS enrichment according to ENCODE guidelines. Adds a column `tss_score` to the `.obs` DataFrame and
+    optionally returns a tss score object.
 
     Parameters
     ----------
@@ -698,6 +699,13 @@ def tss_enrichment(data: Union[AnnData, MuData],
         Whether to return the TSS pileup matrix. Needed for enrichment plots.
     random_state : int, array-like, BitGenerator, np.random.RandomState, optional
         Argument passed to pandas.DataFrame.sample() for sampling features.
+
+    Returns
+    ----------
+    AnnData
+        AnnData object with a 'tss_score' column in the .obs slot.
+
+
     """
     if isinstance(data, AnnData):
         adata = data
