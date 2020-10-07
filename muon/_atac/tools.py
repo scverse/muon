@@ -917,7 +917,14 @@ def nucleosome_signal(data: Union[AnnData, MuData],
     nucleosome_enrichment = mat[:,1] / mat[:,0]
     # nucleosome_enrichment[mat[:,0] == 0] = 0
 
-    adata.obs["Nucleosome_signal"] = nucleosome_enrichment
+    adata.obs["nucleosome_signal"] = nucleosome_enrichment
+    
+    # Message for the user
+    if isinstance(data, AnnData):
+        logging.info("Added a \"nucleosome_signal\" column to the .obs slot of the AnnData object")
+    else:
+        logging.info("Added a \"nucleosome_signal\" column to the .obs slot of tof the 'atac' modality")
+
 
     return None
 
