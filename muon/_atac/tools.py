@@ -845,7 +845,9 @@ def _calculate_tss_score(data: AnnData,
 
 
 def nucleosome_signal(data: Union[AnnData, MuData],
-                          n: Union[int, float]=None):
+                      n: Union[int, float]=None,
+                      nucleosome_free_upper_bound: int=147,
+                      mononuleosomal_upper_bound: int=294):
     """
     Computes the ratio of nucleosomal cut fragments to nucleosome-free fragments per cell.
     Nucleosomal fragments are shorter than 147 bp while nucleosome free fragments are between
@@ -856,7 +858,10 @@ def nucleosome_signal(data: Union[AnnData, MuData],
         AnnData object with peak counts or multimodal MuData object with 'atac' modality.
     n
         Number of fragments to count. If `None`, 1e4 fragments * number of cells.
-
+    nucleosome_free_upper_bound
+        Number of bases up to which a fragment counts as nucleosome free. Default: 147
+    mononuleosomal_upper_bound
+        Number of bases up to which a fragment counts as mononuleosomal. Default: 294
     """
     if isinstance(data, AnnData):
         adata = data
@@ -895,9 +900,9 @@ def nucleosome_signal(data: Union[AnnData, MuData],
             f = fr.next()
             length = f.end - f.start
             row_ind = d[f.name]
-            if length < 114:
+            if length < nucleosome_free_upper_bound:
                 mat[row_ind,0] += 1
-            elif length < 294:
+            elif length < mononuleosomal_upper_bound:
                 mat[row_ind,1] += 1
         except:
             pass
