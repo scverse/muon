@@ -249,7 +249,7 @@ def fragment_histogram(data: Union[AnnData, MuData],
     data
         AnnData object with peak counts or multimodal MuData object with 'atac' modality.
     region
-        Region to plot. Specified as 'chr1-1-2000000'.
+        Region to plot. Specified with the format `chr1:1-2000000` or`chr1-1-2000000`.
     groupby
         Column name(s) of .obs slot of the AnnData object according to which the plot is split.
     """

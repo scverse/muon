@@ -15,6 +15,7 @@ from scipy.sparse.linalg import svds
 from scipy.sparse import csr_matrix
 from scipy.sparse import lil_matrix
 from anndata import AnnData
+from . import utils
 from .._core.mudata import MuData
 from .._core.utils import get_gene_annotation_from_rna
 
@@ -933,7 +934,7 @@ def fetch_regions_to_df(fragment_path: str,
     fragment_path
         Location of the fragments file (must be tabix indexed).
     features
-        A DataFrame with feature annotation, e.g. genes or a string of format `chr1-1-2000000`.
+        A DataFrame with feature annotation, e.g. genes or a string of format `chr1:1-2000000` or`chr1-1-2000000`.
         Annotation has to contain columns: Chromosome, Start, End.
     extend_upsteam
         Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
@@ -951,10 +952,7 @@ def fetch_regions_to_df(fragment_path: str,
             )
 
     if isinstance(features, str):
-        feat_list = features.split("-")
-        features = pd.DataFrame(columns=['Chromosome', 'Start', 'End'])
-        features.loc[0] = feat_list
-        features = features.astype({'Start': int, 'End': int})
+        features = utils.parse_region_string(features)
 
 
     fragments = pysam.TabixFile(fragment_path, parser=pysam.asBed())
