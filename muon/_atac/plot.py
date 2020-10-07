@@ -241,14 +241,17 @@ def _tss_enrichment_single(data: AnnData,
 
 def fragment_histogram(data: Union[AnnData, MuData],
                        region: str="chr1-1-2000000",
-                       groupby:Optional[Union[str]] = None,
-                       ax: Optional[Axes] = None):
+                       groupby:Optional[Union[str]] = None):
     """
     Plot Histogram of Fragment lengths within specified region.
     Parameters
     ----------
     data
         AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+    region
+        Region to plot. Specified as 'chr1-1-2000000'.
+    groupby
+        Column name(s) of .obs slot of the AnnData object according to which the plot is split.
     """
 
     if isinstance(data, AnnData):
