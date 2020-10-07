@@ -676,7 +676,8 @@ def tss_enrichment(data: Union[AnnData, MuData],
                    extend_upstream: int = 1000,
                    extend_downstream: int = 1000,
                    n_tss: int = 2000,
-                   return_tss: bool = True):
+                   return_tss: bool = True,
+                   random_state=None):
     """
     Calculate TSS enrichment according to ENCODE guidelines. Adds a column `tss_score` to the `.obs` DataFrame and 
 
@@ -695,6 +696,8 @@ def tss_enrichment(data: Union[AnnData, MuData],
         How many randomly chosen TSS sites to pile up. The fewer the faster. Default: 2000.
     return_tss
         Whether to return the TSS pileup matrix. Needed for enrichment plots.
+    random_state : int, array-like, BitGenerator, np.random.RandomState, optional
+        Argument passed to pandas.DataFrame.sample() for sampling features.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -712,7 +715,7 @@ def tss_enrichment(data: Union[AnnData, MuData],
 
     if features.shape[0] > n_tss:
         # Only use n_tss randomly chosen sites to make function faster
-        features = features.sample(n=n_tss)
+        features = features.sample(n=n_tss, random_state=random_state)
 
     # Pile up tss regions
     tss_pileup = _tss_pileup(adata,
