@@ -369,7 +369,7 @@ class MuData:
 
         # Update .obsm/.varm
         for k, v in self.mod.items():
-            getattr(self, attr + "m")[k] = getattr(self, attr).index.isin(v.obs.index)
+            getattr(self, attr + "m")[k] = getattr(self, attr).index.isin(getattr(v, attr).index)
 
         # TODO: update .obsp/.varp (size might have changed)
 
