@@ -10,11 +10,14 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import scanpy as sc
+from tqdm import tqdm
 from scipy.sparse.linalg import svds
 from scipy.sparse import csr_matrix
-from scipy.sparse import hstack
+from scipy.sparse import lil_matrix
 from anndata import AnnData
+from . import utils
 from .._core.mudata import MuData
+from .._core.utils import get_gene_annotation_from_rna
 
 #
 # Computational methods for transforming and analysing count data
@@ -525,8 +528,8 @@ def locate_genome(data: Union[AnnData, MuData],
 # ^    ^     ^     ^                  ^
 # |    |     |     |                  |
 # |    |     |     4: name (cell barcode)
-# |    |     3: end (3' fragment position)
-# |    2: start (5' fragment position)|
+# |    |     3: end (3' fragment position, exclusive)
+# |    2: start (5' fragment position, inclusive)|
 # 1: contig (chromosome)              5: score (number of cuts per fragment)
 # 
 # Fragments file is compressed (.gz) and has to be indexed 
@@ -589,12 +592,11 @@ def locate_fragments(data: Union[AnnData, MuData],
 
 
 def count_fragments_features(data: Union[AnnData, MuData],
-						     features: Optional[pd.DataFrame] = None,
-						     extend_upstream: int = 2e3,
-						     extend_downstream: int = 0,
-						     average: str = 'sum') -> AnnData:
+							 features: Optional[pd.DataFrame] = None,
+							 extend_upstream: int = 2e3,
+							 extend_downstream: int = 0) -> AnnData:
 	"""
-	Parse peak annotation file and add it to the .uns["atac"]["peak_annotation"]
+    Count fragments overlapping given Features. Returns cells x features matrix.
 
 	Parameters
 	----------
@@ -607,8 +609,6 @@ def count_fragments_features(data: Union[AnnData, MuData],
 		Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
 	extend_downstream
 		Number of nucleotides to extend every gene downstream (0 by default)
-	average
-		Name of the function to aggregate fragments per gene ('sum' by default to sum scores, 'count' to calculate number of fragments)
 	"""
 	if isinstance(data, AnnData):
 		adata = data
@@ -620,14 +620,7 @@ def count_fragments_features(data: Union[AnnData, MuData],
 	if features is None:
 		# Try to gene gene annotation in the data.mod['rna']
 		if isinstance(data, MuData) and 'rna' in data.mod and 'interval' in data.mod['rna'].var.columns:
-			features = pd.DataFrame([s.replace(":", "-", 1).split("-") for s in data.mod['rna'].var.interval])
-			features.columns = ["Chromosome", "Start", "End"]
-			features['gene_id'] = data.mod['rna'].var.gene_ids
-			features['gene_name'] = data.mod['rna'].var.index
-			# Remove genes with no coordinates indicated
-			features = features.loc[~features.Start.isnull()]
-			features.Start = features.Start.astype(int)
-			features.End = features.End.astype(int)
+			features = get_gene_annotation_from_rna(data)
 		else:
 			raise ValueError("Argument `features` is required. It should be a BED-like DataFrame with gene coordinates and names.")
 
@@ -642,43 +635,31 @@ def count_fragments_features(data: Union[AnnData, MuData],
 			)
 
 	n = adata.n_obs
-	cells_df = pd.DataFrame(index=adata.obs.index)
-	cells_df["cell_index"] = range(n)
+	n_features = features.shape[0]
+
+	# Dictionary with matrix positions
+	d = {k:v for k,v in zip(adata.obs.index,range(n))}
+
 
 	fragments = pysam.TabixFile(adata.uns['files']['fragments'], parser=pysam.asBed())
 	try:
-		# Construct an empty sparse matrix with the right amount of cells
-		mx = csr_matrix(([], ([], [])), shape=(n, 0), dtype=np.int8)
+		# List of lists matrix is quick and convenient to fill by row
+		mx = lil_matrix((n_features,n), dtype=int)
 
 		logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {features.shape[0]} features...")
-		# Gene order is determined
-		sparse_columns = []
-		for i in range(features.shape[0]):  # iterate over features (e.g. genes)
+
+		for i in range(n_features):	 # iterate over features (e.g. genes)
 			f = features.iloc[i]
-			barcodes = []
-			scores = []
 			for fr in fragments.fetch(f.Chromosome, f.Start - extend_upstream, f.End + extend_downstream):
-				barcodes.append(fr.name)      # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
-				scores.append(int(fr.score))  # number of cuts per fragment (e.g. 2)
+				try:
+					ind = d[fr.name]				 # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
+					mx.rows[i].append(ind)
+					mx.data[i].append(int(fr.score)) # number of cuts per fragment (e.g. 2)
+				except:
+					pass
 
-			# Note: This will also discard barcodes not present in the original data
-			feature_df = pd.DataFrame({"score": scores}, index=barcodes, dtype=int)\
-						   .join(cells_df, how="inner")\
-						   .groupby("cell_index")\
-						   .agg({"score": average})
-
-			feature_mx = csr_matrix((feature_df.score.values,
-								    (feature_df.index.values,
-								     [0] * feature_df.shape[0])),
-								    shape=(n, 1),
-								    dtype=np.int8)
-
-			sparse_columns.append(feature_mx)
-
-			if i > 0 and i % 1000 == 0:
-				logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Processed {i} features")
-
-		mx = hstack(sparse_columns).tocsr()
+		# Faster to convert to csr first and then transpose
+		mx = mx.tocsr().transpose()
 
 		return AnnData(X=mx, obs=adata.obs, var=features)
 
@@ -689,3 +670,334 @@ def count_fragments_features(data: Union[AnnData, MuData],
 	finally:
 		# The connection has to be closed
 		fragments.close()
+
+def tss_enrichment(data: Union[AnnData, MuData],
+                   features: Optional[pd.DataFrame] = None,
+                   extend_upstream: int = 1000,
+                   extend_downstream: int = 1000,
+                   n_tss: int = 2000,
+                   return_tss: bool = True,
+                   random_state=None):
+    """
+    Calculate TSS enrichment according to ENCODE guidelines. Adds a column `tss_score` to the `.obs` DataFrame and
+    optionally returns a tss score object.
+
+    Parameters
+    ----------
+    data
+        AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+    features
+        A DataFrame with feature annotation, e.g. genes.
+        Annotation has to contain columns: Chromosome, Start, End.
+    extend_upsteam
+        Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
+    extend_downstream
+        Number of nucleotides to extend every gene downstream (0 by default)
+    n_tss
+        How many randomly chosen TSS sites to pile up. The fewer the faster. Default: 2000.
+    return_tss
+        Whether to return the TSS pileup matrix. Needed for enrichment plots.
+    random_state : int, array-like, BitGenerator, np.random.RandomState, optional
+        Argument passed to pandas.DataFrame.sample() for sampling features.
+
+    Returns
+    ----------
+    AnnData
+        AnnData object with a 'tss_score' column in the .obs slot.
+
+
+    """
+    if isinstance(data, AnnData):
+        adata = data
+    elif isinstance(data, MuData) and 'atac' in data.mod:
+        adata = data.mod['atac']
+    else:
+        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+    if features is None:
+        # Try to gene gene annotation in the data.mod['rna']
+        if isinstance(data, MuData) and 'rna' in data.mod and 'interval' in data.mod['rna'].var.columns:
+            features = get_gene_annotation_from_rna(data)
+        else:
+            raise ValueError("Argument `features` is required. It should be a BED-like DataFrame with gene coordinates and names.")
+
+    if features.shape[0] > n_tss:
+        # Only use n_tss randomly chosen sites to make function faster
+        features = features.sample(n=n_tss, random_state=random_state)
+
+    # Pile up tss regions
+    tss_pileup = _tss_pileup(adata,
+                             features,
+                             extend_upstream=extend_upstream,
+                             extend_downstream=extend_downstream)
+
+    flank_means, center_means = _calculate_tss_score(data=tss_pileup)
+
+    tss_pileup.X = tss_pileup.X / flank_means[:,None]
+
+    tss_scores = center_means / flank_means
+
+    adata.obs["tss_score"] = tss_scores
+    tss_pileup.obs["tss_score"] = tss_scores
+
+    if isinstance(data, AnnData):
+        logging.info("Added a \"tss_score\" column to the .obs slot of the AnnData object")
+    else:
+        logging.info("Added a \"tss_score\" column to the .obs slot of tof the 'atac' modality")
+
+    if return_tss:
+        return tss_pileup
+
+
+
+
+
+
+
+def _tss_pileup(adata: AnnData,
+                features: pd.DataFrame,
+                extend_upstream: int = 1000,
+                extend_downstream: int = 1000) -> AnnData:
+    """
+    Pile up reads in TSS regions. Returns a cell x position matrix that can be used for QC.
+
+    Parameters
+    ----------
+    data
+        AnnData object with associated fragments file.
+    features
+        A DataFrame with feature annotation, e.g. genes.
+        Annotation has to contain columns: Chromosome, Start, End.
+    extend_upsteam
+        Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
+    extend_downstream
+        Number of nucleotides to extend every gene downstream (0 by default)
+    """
+    if 'files' not in adata.uns or 'fragments' not in adata.uns['files']:
+        raise KeyError("There is no fragments file located yet. Run muon.atac.tl.locate_fragments first.")
+
+    try:
+        import pysam
+    except ImportError:
+        raise ImportError(
+            "pysam is not available. It is required to work with the fragments file. Install pysam from PyPI (`pip install pysam`) or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
+            )
+
+    n = adata.n_obs
+    n_features = extend_downstream + extend_upstream + 1
+
+    # Dictionary with matrix positions
+    d = {k:v for k,v in zip(adata.obs.index,range(n))}
+
+    # Not sparse since we expect most positions to be filled
+    mx = np.zeros((n, n_features), dtype=int)
+
+    fragments = pysam.TabixFile(adata.uns['files']['fragments'], parser=pysam.asBed())
+
+    # Subset the features to the chromosomes present in the fragments file
+    chromosomes = fragments.contigs
+    features = features[features.Chromosome.isin(chromosomes)]
+
+    # logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {features.shape[0]} features...")
+
+    for i in tqdm(range(features.shape[0]),
+                  desc="Fetching Regions..."):	 # iterate over features (e.g. genes)
+
+        f = features.iloc[i]
+        tss_start = f.Start - extend_upstream # First position of the TSS region
+        for fr in fragments.fetch(f.Chromosome, f.Start - extend_upstream, f.Start + extend_downstream):
+            try:
+                rowind = d[fr.name]                 # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
+                score = int(fr.score)               # number of cuts per fragment (e.g. 2)
+                colind_start = max(fr.start - tss_start, 0)
+                colind_end = min(fr.end - tss_start, n_features) # ends are non-inclusive in bed
+                mx[rowind, colind_start:colind_end] += score
+            except:
+                pass
+
+    fragments.close()
+
+    anno = pd.DataFrame({'TSS_position' : range(-extend_upstream, extend_downstream + 1)}, )
+    anno.index = anno.index.astype(str)
+
+    return AnnData(X=mx, obs=adata.obs, var=anno, dtype=int)
+
+
+def _calculate_tss_score(data: AnnData,
+                        flank_size: int=100,
+                        center_size: int=1001):
+    """
+    Calculate TSS enrichment scores (defined by ENCODE) for each cell.
+
+    Parameters
+    ----------
+    data
+        AnnData object with TSS positons as generated by `tss_pileup`.
+    flank_size
+        Number of nucleotides in the flank on either side of the region (ENCODE standard: 100bp).
+    center_size
+        Number of nucleotides in the center on either side of the region (ENCODE standard: 1001bp).
+    """
+    region_size = data.X.shape[1]
+
+    if center_size > region_size:
+        raise ValueError(f"`center_size` ({center_size}) must smaller than the piled up region ({region_size}).")
+
+    if center_size % 2 == 0:
+        raise ValueError(f"`center_size` must be an uneven number, but is {center_size}.")
+
+    # Calculate flank means
+    flanks = np.hstack((data.X[:,:flank_size], data.X[:,-flank_size:]))
+    flank_means = flanks.mean(axis=1)
+
+    # Replace 0 means with population average (to not have 0 division after)
+    flank_means[flank_means == 0] = flank_means.mean()
+
+    # Calculate center means
+    center_dist = (region_size - center_size ) // 2 # distance from the edge of data region
+    centers = data.X[:, center_dist:-center_dist]
+    center_means = centers.mean(axis=1)
+
+
+    return flank_means, center_means
+
+
+def nucleosome_signal(data: Union[AnnData, MuData],
+                      n: Union[int, float]=None,
+                      nucleosome_free_upper_bound: int=147,
+                      mononuleosomal_upper_bound: int=294):
+    """
+    Computes the ratio of nucleosomal cut fragments to nucleosome-free fragments per cell.
+    Nucleosomal fragments are shorter than 147 bp while nucleosome free fragments are between
+    147 and 294 bp long.
+    Parameters
+    ----------
+    data
+        AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+    n
+        Number of fragments to count. If `None`, 1e4 fragments * number of cells.
+    nucleosome_free_upper_bound
+        Number of bases up to which a fragment counts as nucleosome free. Default: 147
+    mononuleosomal_upper_bound
+        Number of bases up to which a fragment counts as mononuleosomal. Default: 294
+    """
+    if isinstance(data, AnnData):
+        adata = data
+    elif isinstance(data, MuData) and 'atac' in data.mod:
+        adata = data.mod['atac']
+    else:
+        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+    if 'files' not in adata.uns or 'fragments' not in adata.uns['files']:
+        raise KeyError("There is no fragments file located yet. Run muon.atac.tl.locate_fragments first.")
+
+    try:
+        import pysam
+    except ImportError:
+        raise ImportError(
+            "pysam is not available. It is required to work with the fragments file. Install pysam from PyPI (`pip install pysam`) or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
+            )
+
+
+    fragments = pysam.TabixFile(adata.uns['files']['fragments'], parser=pysam.asBed())
+
+    # Dictionary with matrix row indices
+    d = {k:v for k,v in zip(adata.obs.index,range(adata.n_obs))}
+    mat = np.zeros(shape=(adata.n_obs, 2), dtype=int)
+
+    fr = fragments.fetch()
+
+    if n is None:
+        n = int(adata.n_obs*1e4)
+    else:
+        n = int(n) # Cast n to int
+
+    for i in tqdm(range(n),
+                  desc="Reading Fragments"):
+        try:
+            f = fr.next()
+            length = f.end - f.start
+            row_ind = d[f.name]
+            if length < nucleosome_free_upper_bound:
+                mat[row_ind,0] += 1
+            elif length < mononuleosomal_upper_bound:
+                mat[row_ind,1] += 1
+        except:
+            pass
+        # if i % 1000000 == 0:
+        #     print(f"Read {i/1000000} Mio. fragments.", end='\r')
+
+    # Prevent division by 0
+    mat[mat[:,0]==0,:] += 1
+
+    # Calculate nucleosome signal
+    nucleosome_enrichment = mat[:,1] / mat[:,0]
+    # nucleosome_enrichment[mat[:,0] == 0] = 0
+
+    adata.obs["nucleosome_signal"] = nucleosome_enrichment
+    
+    # Message for the user
+    if isinstance(data, AnnData):
+        logging.info("Added a \"nucleosome_signal\" column to the .obs slot of the AnnData object")
+    else:
+        logging.info("Added a \"nucleosome_signal\" column to the .obs slot of tof the 'atac' modality")
+
+
+    return None
+
+def fetch_regions_to_df(fragment_path: str,
+						features: Union[pd.DataFrame,str],
+					    extend_upstream: int = 0,
+						extend_downstream: int = 0,
+                        relative_coordinates = False) -> pd.DataFrame:
+    """
+    Parse peak annotation file and return it as DataFrame.
+
+    Parameters
+    ----------
+    fragment_path
+        Location of the fragments file (must be tabix indexed).
+    features
+        A DataFrame with feature annotation, e.g. genes or a string of format `chr1:1-2000000` or`chr1-1-2000000`.
+        Annotation has to contain columns: Chromosome, Start, End.
+    extend_upsteam
+        Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
+    extend_downstream
+        Number of nucleotides to extend every gene downstream (0 by default)
+    relative_coordinates
+        Return the coordinates with their relative position to the middle of the features.
+    """
+
+    try:
+        import pysam
+    except ImportError:
+        raise ImportError(
+            "pysam is not available. It is required to work with the fragments file. Install pysam from PyPI (`pip install pysam`) or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
+            )
+
+    if isinstance(features, str):
+        features = utils.parse_region_string(features)
+
+
+    fragments = pysam.TabixFile(fragment_path, parser=pysam.asBed())
+    n_features = features.shape[0]
+
+    dfs = []
+    for i in tqdm(range(n_features),
+                  desc="Fetching Regions..."):	 # iterate over features (e.g. genes)
+        f = features.iloc[i]
+        fr = fragments.fetch(f.Chromosome, f.Start - extend_upstream, f.End + extend_downstream)
+        df = pd.DataFrame([(x.contig, x.start, x.end, x.name, x.score) for x in fr],
+                          columns=["Chromosome", "Start", "End", "Cell", "Score"])
+        if df.shape[0] != 0:
+            df["Feature"] = f.Chromosome + "_" + str(f.Start) + "_" + str(f.End)
+
+            if relative_coordinates:
+                middle = int(f.Start + (f.End - f.Start)/2)
+                df.Start = df.Start - middle
+                df.End = df.End - middle
+
+            dfs.append(df)
+
+    df = pd.concat(dfs, axis=0, ignore_index=True)
+    return(df)
