@@ -352,8 +352,8 @@ class MuData():
         """
         Update both .obs and .var of MuData with the data from all the modalities
         """
-        self._update_attr('obs')
-        self._update_attr('var')
+        self.update_var()
+        self.update_obs()
 
     def write_h5mu(self, filename: str, *args, **kwargs):
         """
