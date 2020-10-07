@@ -845,7 +845,7 @@ def _calculate_tss_score(data: AnnData,
 
 
 def nucleosome_signal(data: Union[AnnData, MuData],
-                          n: int=None):
+                          n: Union[int, float]=None):
     """
     Computes the ratio of nucleosomal cut fragments to nucleosome-free fragments per cell.
     Nucleosomal fragments are shorter than 147 bp while nucleosome free fragments are between
@@ -886,6 +886,8 @@ def nucleosome_signal(data: Union[AnnData, MuData],
 
     if n is None:
         n = int(adata.n_obs*1e4)
+    else:
+        n = int(n) # Cast n to int
 
     for i in tqdm(range(n),
                   desc="Reading Fragments"):

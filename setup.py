@@ -28,7 +28,8 @@ setuptools.setup(
         'anndata',
         'scanpy',
         'loompy',
-        'protobuf'
+        'protobuf',
+        'tqdm'
     ],
     include_package_data=True
 )
