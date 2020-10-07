@@ -678,7 +678,7 @@ def tss_enrichment(data: Union[AnnData, MuData],
                    n_tss: int = 2000,
                    return_tss: bool = True):
     """
-    Calculate TSS enrichment according to ENCODE guidelines. Adds a column `TSS_score` to the `.obs` DataFrame and 
+    Calculate TSS enrichment according to ENCODE guidelines. Adds a column `tss_score` to the `.obs` DataFrame and 
 
     Parameters
     ----------
@@ -725,8 +725,14 @@ def tss_enrichment(data: Union[AnnData, MuData],
     tss_pileup.X = tss_pileup.X / flank_means[:,None]
 
     tss_scores = center_means / flank_means
-    adata.obs["TSS_score"] = tss_scores
-    tss_pileup.obs["TSS_score"] = tss_scores
+
+    adata.obs["tss_score"] = tss_scores
+    tss_pileup.obs["tss_score"] = tss_scores
+
+    if isinstance(data, AnnData):
+        logging.info("Added a \"tss_score\" column to the .obs slot of the AnnData object")
+    else:
+        logging.info("Added a \"tss_score\" column to the .obs slot of tof the 'atac' modality")
 
     if return_tss:
         return tss_pileup
