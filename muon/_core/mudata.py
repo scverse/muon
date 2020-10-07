@@ -313,26 +313,27 @@ class MuData:
                 join_common = False
 
         # Figure out which global columns exist
-        columns_global = list(
-            map(
-                all,
-                zip(
-                    *list(
-                        [
-                            [not col.startswith(mod + ":") for col in getattr(self, attr).columns]
-                            for mod in self.mod
-                        ]
-                    )
-                ),
+        columns_global = getattr(self, attr).columns[
+            list(
+                map(
+                    all,
+                    zip(
+                        *list(
+                            [
+                                [not col.startswith(mod + ":") for col in getattr(self, attr).columns]
+                                for mod in self.mod
+                            ]
+                        )
+                    ),
+                )
             )
-        )
+        ]
 
-        if join_common:
-            # If all modalities have a column with the same name, it is not global
-            columns_common = reduce(
-                np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
-            )
-            columns_global = [i for i in columns_global if i not in columns_common]
+        # If all modalities have a column with the same name, it is not global
+        columns_common = reduce(
+            np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
+        )
+        columns_global = [i for i in columns_global if i not in columns_common]
 
         # Keep data from global .obs/.var columns
         data_global = getattr(self, attr).loc[:, columns_global]
