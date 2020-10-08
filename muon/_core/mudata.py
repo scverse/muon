@@ -120,12 +120,6 @@ class MuData:
             sort=False,
         )
 
-        # Make obs map for each modality
-        self.obsm = dict()
-        for k, v in self.mod.items():
-            self.obsm[k] = self.obs.index.isin(v.obs.index)
-        self.obsm = MuAxisArrays(self, 0, self.obsm)
-
         # Initialise global variables
         self._var = pd.concat(
             [a.var.add_prefix(m + ":") for m, a in self.mod.items()],
@@ -133,6 +127,12 @@ class MuData:
             axis=0,
             sort=False,
         )
+
+         # Make obs map for each modality
+        self.obsm = dict()
+        for k, v in self.mod.items():
+            self.obsm[k] = self.obs.index.isin(v.obs.index)
+        self.obsm = MuAxisArrays(self, 0, self.obsm)
 
         # Make var map for each modality
         self.varm = dict()
