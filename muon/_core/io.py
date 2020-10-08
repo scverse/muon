@@ -308,6 +308,12 @@ def read_h5mu(filename: Union[str, Path], backed: Union[str, bool, None] = None)
 				for m in gmods.keys():
 					mods[m] = read_h5mu_mod_backed(gmods[m], manager)
 				d[k] = mods
+			elif k == "mod":
+				mods = {}
+				gmods = f[k]
+				for m in gmods.keys():
+					mods[m] = read_h5ad(filename, m)
+				d[k] = mods
 			else:
 				d[k] = read_attribute(f[k])
 
