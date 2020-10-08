@@ -11,6 +11,7 @@ import pandas as pd
 from pandas.api.types import is_string_dtype, is_categorical_dtype
 import anndata
 from anndata import AnnData
+from anndata.utils import convert_to_dict
 from anndata._core.aligned_mapping import AxisArrays, AlignedViewMixin, AxisArraysBase
 
 
@@ -81,15 +82,12 @@ class MuData:
         else:
             raise TypeError("Expected AnnData object or dictionary with AnnData objects as values")
 
-        self.n_mod = len(self.mod)
-
         # When creating from a dictionary with _init_from_dict_
         if len(kwargs) > 0:
             # Get global observations
             self._obs = kwargs.get("obs", None)
             if isinstance(self._obs, collections.abc.Mapping):
                 self._obs = pd.DataFrame(self._obs)
-            self._n_obs = self.obs.shape[0] if self.obs is not None else None
 
             # Get global obsp
             self.obsp = kwargs.get("obsp", None)
@@ -190,6 +188,15 @@ class MuData:
         self.filename = mudata_ref.filename
         self.filemode = mudata_ref.filemode
         self._mudata_ref = mudata_ref
+
+    def _init_as_actual(self, data: "MuData"):
+        self._init_common()
+        self.mod = data.mod
+        self._obs = data.obs
+        self._var = data.var
+        self.obsm = MuAxisArrays(self, 0, convert_to_dict(data.obsm))
+        self.varm = MuAxisArrays(self, 1, convert_to_dict(data.varm))
+        self.uns = data.uns
 
     @classmethod
     def _init_from_dict_(
@@ -388,6 +395,10 @@ class MuData:
         setattr(self, attr, getattr(self, attr).loc[:, columns_global])
 
     @property
+    def n_mod(self) -> int:
+        return len(self.mod)
+
+    @property
     def isbacked(self) -> bool:
         return self.filename is not None
 
@@ -405,6 +416,8 @@ class MuData:
             raise ValueError(
                 f"The length of provided annotation {len(value)} does not match the length {self.shape[0]} of MuData.obs."
             )
+        if self.is_view:
+            self._init_as_actual(self.copy())
         self._obs = value
 
     @property
@@ -446,6 +459,8 @@ class MuData:
             raise ValueError(
                 f"The length of provided annotation {len(value)} does not match the length {self.shape[1]} of MuData.var."
             )
+        if self.is_view:
+            self._init_as_actual(self.copy())
         self._var = value
 
     @property
