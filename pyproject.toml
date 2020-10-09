@@ -21,3 +21,7 @@ module = "muon"
 author = "Danila Bredikhin"
 author-email = "danila.bredikhin@embl.de"
 home-page = "https://github.com/gtca/muon"
+
+[tool.black]
+line-length = 100
+target-version = ['py37']
