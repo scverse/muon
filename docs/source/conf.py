@@ -32,10 +32,10 @@ author = 'Danila Bredikhin'
 # ones.
 extensions = [
         'recommonmark',
-        'sphinx.ext.autodoc',
-        'sphinx.ext.autosummary',
-        'sphinx.ext.autosectionlabel',
         'sphinx.ext.napoleon',
+        'sphinx.ext.autosummary',
+        'sphinx_automodapi.automodapi',
+        'sphinx.ext.autosectionlabel',
         'sphinx.ext.mathjax',
         "sphinx_rtd_theme",
 ]
@@ -46,6 +46,10 @@ source_suffix = {
     '.txt': 'markdown',
     '.md': 'markdown',
 }
+
+# autodoc/autosummary config
+autosummary_generate = True
+autosummary_imported_members = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
