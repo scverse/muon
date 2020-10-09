@@ -11,7 +11,7 @@ from pathlib import Path
 import scanpy as sc
 
 from .mudata import MuData
-from .file_backing import MuDataFileManager
+from .file_backing import MuDataFileManager, AnnDataFileManager
 
 from .._atac.tools import add_peak_annotation, locate_fragments, add_peak_annotation_gene_names
 
@@ -115,7 +115,11 @@ def write_h5mu(filename: Union[str, Path],
 	mdata._shrink_attr("obs")
 	mdata._shrink_attr("var")
 
-	write_h5ad(filepath=filename, adata=mdata, *args, **kwargs)
+	if mdata.isbacked:
+		with mdata.file.prevent_open_close(True): # write_h5ad closes the file internally, which prevents us from accessing the modality data later
+			write_h5ad(filepath=filename, adata=mdata, *args, **kwargs)
+	else:
+		write_h5ad(filepath=filename, adata=mdata, *args, **kwargs)
 
 	with h5py.File(filename, "a") as f:
 		# Remove modalities if they exist
@@ -143,6 +147,10 @@ def write_h5mu(filename: Union[str, Path],
 			write_attribute(f, f"mod/{k}/varp", adata.varp)
 			write_attribute(f, f"mod/{k}/layers", adata.layers)
 			write_attribute(f, f"mod/{k}/uns", adata.uns)
+
+	if mdata.isbacked:
+		mdata.file.close()
+		mdata.file.open(filename, "r+")
 
 
 def write_h5ad(filename: Union[str, Path],
@@ -283,7 +291,13 @@ def read_h5mu(filename: Union[str, Path], backed: Union[str, bool, None] = None)
 	from anndata._io.utils import read_attribute
 	from anndata._io.h5ad import read_dataframe
 
-	with h5py.File(filename, "r") as f:
+	if backed is True or not backed:
+		mode = "r"
+	else:
+		mode = backed
+	if backed:
+		manager = MuDataFileManager(filename, mode)
+	with h5py.File(filename, mode) as f:
 		d = {}
 		for k in f.keys():
 			if k in ["obs", "var"]:
@@ -292,14 +306,19 @@ def read_h5mu(filename: Union[str, Path], backed: Union[str, bool, None] = None)
 				mods = {}
 				gmods = f[k]
 				for m in gmods.keys():
-					mods[m] = read_h5mu_mod_backed(gmods[m])
+					mods[m] = read_h5mu_mod_backed(gmods[m], manager)
 				d[k] = mods
 			else:
 				d[k] = read_attribute(f[k])
 
-	return MuData._init_from_dict_(**d)
+	mu = MuData._init_from_dict_(**d)
+	if backed:
+		mu.filename = filename
+		mu.filemode = mode
+		mu.file = manager
+	return mu
 
-def read_h5mu_mod_backed(g: "h5py.Group") -> dict:
+def read_h5mu_mod_backed(g: "h5py.Group", manager: MuDataFileManager) -> dict:
 	from anndata._io.utils import read_attribute
 	from anndata._io.h5ad import read_dataframe, _clean_uns
 
@@ -320,7 +339,7 @@ def read_h5mu_mod_backed(g: "h5py.Group") -> dict:
 		else:
 			d[k] = read_attribute(g[k])
 	ad = AnnData(**d)
-	ad.file = MuDataFileManager(ad, basename(g.name), g.file)
+	ad.file = AnnDataFileManager(ad, basename(g.name), manager)
 	return ad
 
 def read_h5ad(

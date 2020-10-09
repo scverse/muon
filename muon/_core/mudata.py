@@ -1,31 +1,64 @@
 from typing import List, Tuple, Union, Optional, Mapping, Iterable, Sequence, Any
+from numbers import Integral
 import collections
 from functools import reduce
 import warnings
+from copy import deepcopy
+from os import PathLike
 
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_string_dtype, is_categorical_dtype
 import anndata
 from anndata import AnnData
+from anndata.utils import convert_to_dict
+from anndata._core.aligned_mapping import AxisArrays, AlignedViewMixin, AxisArraysBase
 
 
-class MuData():
+class MuAxisArraysView(AlignedViewMixin, AxisArraysBase):
+    def __init__(
+        self, parent_mapping: AxisArraysBase, parent_view: "mudata.MuData", subset_idx: Any
+    ):
+        self.parent_mapping = parent_mapping
+        self._parent = parent_view
+        self.subset_idx = subset_idx
+        self._axis = parent_mapping._axis
+        self.dim_names = None
+
+
+class MuAxisArrays(AxisArrays):
+    _view_class = MuAxisArraysView
+
+
+class MuData:
     """
     Multimodal data object
 
     MuData represents modalities as collections of AnnData objects
-    as well as includes multimodal annotations 
-    such as embeddings and neighbours graphs learned jointly 
-    on multiple modalities and generalised sample 
+    as well as includes multimodal annotations
+    such as embeddings and neighbours graphs learned jointly
+    on multiple modalities and generalised sample
     and feature metadata tables.
     """
-    def __init__(self,
-                 data: Union[AnnData, Mapping[str, AnnData]] = None,
-                 feature_types_names: Optional[dict] = {"Gene Expression": "rna",
-                                                        "Peaks": "atac",
-                                                        "Antibody Capture": "cite"},
-                 **kwargs):
+
+    def __init__(
+        self,
+        data: Union[AnnData, Mapping[str, AnnData], "MuData"] = None,
+        feature_types_names: Optional[dict] = {
+            "Gene Expression": "rna",
+            "Peaks": "atac",
+            "Antibody Capture": "cite",
+        },
+        as_view: bool = False,
+        index: Optional[
+            Union[Tuple[Union[slice, Integral], Union[slice, Integral]], slice, Integral]
+        ] = None,
+        **kwargs,
+    ):
+        self._init_common()
+        if as_view:
+            self._init_as_view(data, index)
+            return
 
         # Add all modalities to a MuData object
         self.mod = dict()
@@ -45,44 +78,32 @@ class MuData():
                     if feature_types_names is not None:
                         if name in feature_types_names.keys():
                             alias = feature_types_names[name]
-                    self.mod[alias] = data[:,data.var.feature_types == name]
+                    self.mod[alias] = data[:, data.var.feature_types == name]
         else:
             raise TypeError("Expected AnnData object or dictionary with AnnData objects as values")
-
-        self.n_mod = len(self.mod)
 
         # When creating from a dictionary with _init_from_dict_
         if len(kwargs) > 0:
             # Get global observations
             self._obs = kwargs.get("obs", None)
-            self._n_obs = self.obs.shape[0] if self.obs is not None else None
-
-            # Get global obsm
-            self.obsm = kwargs.get("obsm", {})
+            if isinstance(self._obs, collections.abc.Mapping):
+                self._obs = pd.DataFrame(self._obs)
 
             # Get global obsp
             self.obsp = kwargs.get("obsp", None)
 
             # Get global variables
             self._var = kwargs.get("var", None)
+            if isinstance(self._var, collections.abc.Mapping):
+                self._var = pd.Dataframe(self._var)
 
+            # Get global obsm
+            self.obsm = MuAxisArrays(self, 0, kwargs.get("obsm", {}))
             # Get global varm
-            self.varm = kwargs.get("varm", {})
-            
+            self.varm = MuAxisArrays(self, 1, kwargs.get("varm", {}))
+
             # Get global varp
             self.varp = kwargs.get("varp", None)
-
-            # Unstructured annotations
-            self.uns = kwargs.get("uns", {})
-            if self.uns is None:
-                self.uns = dict()
-
-            # For compatibility with calls requiring AnnData slots
-            self.raw = None
-            self.X = None
-            self.layers = None
-            self.isbacked = False
-            self.is_view = False
 
             # Restore proper .obs and .var
             self.update()
@@ -90,20 +111,35 @@ class MuData():
             return
 
         # Initialise global observations
-        self._obs = pd.concat([a.obs.add_prefix(m+':') for m, a in self.mod.items()], join='outer', axis=1, sort=False)
+        self._obs = pd.concat(
+            [a.obs.add_prefix(m + ":") for m, a in self.mod.items()],
+            join="outer",
+            axis=1,
+            sort=False,
+        )
 
-        # Make obs map for each modality
+        # Initialise global variables
+        self._var = pd.concat(
+            [a.var.add_prefix(m + ":") for m, a in self.mod.items()],
+            join="outer",
+            axis=0,
+            sort=False,
+        )
+
+         # Make obs map for each modality
         self.obsm = dict()
         for k, v in self.mod.items():
             self.obsm[k] = self.obs.index.isin(v.obs.index)
-
-        # Initialise global variables
-        self._var = pd.concat([a.var.add_prefix(m+':') for m, a in self.mod.items()], join="outer", axis=0, sort=False)
+        self.obsm = MuAxisArrays(self, 0, self.obsm)
 
         # Make var map for each modality
         self.varm = dict()
         for k, v in self.mod.items():
             self.varm[k] = self.var.index.isin(v.var.index)
+        self.varm = MuAxisArrays(self, 1, self.varm)
+
+    def _init_common(self):
+        self._mudata_ref = None
 
         # Unstructured annotations
         # NOTE: this is dict in contract to OrderedDict in anndata
@@ -114,16 +150,57 @@ class MuData():
         self.raw = None
         self.X = None
         self.layers = None
-        self.isbacked = False
+        self.file = None
+        self.filename = None
+        self.filemode = None
         self.is_view = False
+        self.obs_names = None  # required by AxisArrays
+        self.var_names = None
 
         # TODO
         self.obsp = None
         self.varp = None
 
+    def _init_as_view(self, mudata_ref: "MuData", index):
+        def slice_mapping(mapping, obsnames, varnames):
+            mp = {}
+            for n, v in mapping.items():
+                obsidx = v.obs.index.intersection(obsnames)
+                varidx = v.var.index.intersection(varnames)
+                mp[n] = v[obsidx, varidx]
+            return mp
+
+        from anndata._core.index import _normalize_indices
+        obsidx, varidx = _normalize_indices(index, mudata_ref.obs.index, mudata_ref.var.index)
+        if isinstance(obsidx, Integral): # to handle single-element subsets, otherwise pd.Index[int] returns
+            obsidx = slice(obsidx, obsidx + 1)       # a str and pd.Index.intersection throws an exception
+        if isinstance(varidx, Integral):
+            varidx = slice(varidx, varidx + 1)
+
+        self.mod = slice_mapping(mudata_ref.mod, mudata_ref.obs.index[obsidx], mudata_ref.var.index[varidx])
+        self._obs = mudata_ref.obs.iloc[obsidx, :]
+        self.obsm = mudata_ref.obsm._view(self, (obsidx, ...))
+        self._var = mudata_ref.var.iloc[varidx, :]
+        self.varm = mudata_ref.varm._view(self, (varidx, ...))
+
+        self.is_view = True
+        self.file = mudata_ref.file
+        self.filename = mudata_ref.filename
+        self.filemode = mudata_ref.filemode
+        self._mudata_ref = mudata_ref
+
+    def _init_as_actual(self, data: "MuData"):
+        self._init_common()
+        self.mod = data.mod
+        self._obs = data.obs
+        self._var = data.var
+        self.obsm = MuAxisArrays(self, 0, convert_to_dict(data.obsm))
+        self.varm = MuAxisArrays(self, 1, convert_to_dict(data.varm))
+        self.uns = data.uns
 
     @classmethod
-    def _init_from_dict_(cls,
+    def _init_from_dict_(
+        cls,
         mod: Optional[Mapping[str, Union[Mapping, AnnData]]] = None,
         obs: Optional[Union[pd.DataFrame, Mapping[str, Iterable[Any]]]] = None,
         var: Optional[Union[pd.DataFrame, Mapping[str, Iterable[Any]]]] = None,
@@ -132,17 +209,43 @@ class MuData():
         varm: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
         obsp: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
         varp: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
-        ):
+    ):
 
-        return cls(data = {k:(v if isinstance(v, AnnData) else AnnData(**v)) for k, v in mod.items()},
-                   obs=obs,
-                   var=var,
-                   uns=uns,
-                   obsm=obsm,
-                   varm=varm,
-                   obsp=obsp,
-                   varp=varp)
+        return cls(
+            data={k: (v if isinstance(v, AnnData) else AnnData(**v)) for k, v in mod.items()},
+            obs=obs,
+            var=var,
+            uns=uns,
+            obsm=obsm,
+            varm=varm,
+            obsp=obsp,
+            varp=varp,
+        )
 
+    def copy(self, filename: Optional[PathLike] = None) -> "MuData":
+        if not self.isbacked:
+            mod = {}
+            for k, v in self.mod.items():
+                mod[k] = v.copy()
+            return self._init_from_dict_(
+                mod,
+                self.obs.copy(),
+                self.var.copy(),
+                deepcopy(self.uns),  # this should always be an empty dict
+                self.obsm.copy(),
+                self.varm.copy(),
+                deepcopy(self.obsp),
+                deepcopy(self.varp),
+            )
+        else:
+            if filename is None:
+                raise ValueError(
+                    "To copy a MuData object in backed mode, pass a filename: `copy(filename='myfilename.h5mu')`"
+                )
+            from .io import read_h5mu
+
+            self.write_h5mu(filename)
+            return read_h5mu(filename, self.filemode)
 
     def strings_to_categoricals(self, df: Optional[pd.DataFrame] = None):
         """
@@ -163,7 +266,8 @@ class MuData():
     def __getitem__(self, index) -> Union["MuData", AnnData]:
         if isinstance(index, str):
             return self.mod[index]
-        raise NotImplementedError("MuData slicing is not implemented yet")
+        else:
+            return MuData(self, as_view=True, index=index)
 
     @property
     def shape(self) -> Tuple[int, int]:
@@ -179,7 +283,6 @@ class MuData():
     #     setattr(self, f"_{attr}", value)
     #     AnnData._set_dim_index(self, value_idx, attr)
 
-
     def _update_attr(self, attr: str, join_common: bool = False):
         """
         Update global observations/variables with observations/variables for each modality
@@ -187,45 +290,86 @@ class MuData():
 
         # Check if the are same obs_names/var_names in different modalities
         # If there are, join_common=True request can not be satisfied
-        if any(list(map(lambda x: len(np.intersect1d(*x)) > 0, 
-            [(getattr(self.mod[mod_i], attr+'_names').values, 
-                getattr(self.mod[mod_j], attr+'_names').values) 
-            for i, mod_i in enumerate(self.mod) 
-            for j, mod_j in enumerate(self.mod) 
-            if j>i]))
+        if any(
+            list(
+                map(
+                    lambda x: len(np.intersect1d(*x)) > 0,
+                    [
+                        (
+                            getattr(self.mod[mod_i], attr + "_names").values,
+                            getattr(self.mod[mod_j], attr + "_names").values,
+                        )
+                        for i, mod_i in enumerate(self.mod)
+                        for j, mod_j in enumerate(self.mod)
+                        if j > i
+                    ],
+                )
+            )
         ):
             if join_common:
-                warnings.warn(f"Cannot join columns with the same name because {attr}_names are intersecting.")
+                warnings.warn(
+                    f"Cannot join columns with the same name because {attr}_names are intersecting."
+                )
                 join_common = False
 
         # Figure out which global columns exist
-        columns_global = list(map(all, zip(*list([[not col.startswith(mod+":") for col in getattr(self, attr).columns] for mod in self.mod]))))
+        columns_global = list(
+            map(
+                all,
+                zip(
+                    *list(
+                        [
+                            [not col.startswith(mod + ":") for col in getattr(self, attr).columns]
+                            for mod in self.mod
+                        ]
+                    )
+                ),
+            )
+        )
 
         if join_common:
             # If all modalities have a column with the same name, it is not global
-            columns_common = reduce(np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod])
+            columns_common = reduce(
+                np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
+            )
             columns_global = [i for i in columns_global if i not in columns_common]
 
         # Keep data from global .obs/.var columns
-        data_global = getattr(self, attr).loc[:,columns_global]
+        data_global = getattr(self, attr).loc[:, columns_global]
 
         # Join modality .obs/.var tables
         if join_common:
-            data_mod = pd.concat([getattr(a, attr).drop(columns_common, axis=1).add_prefix(m + ':') for m, a in self.mod.items()], 
-                join='outer', axis=1, sort=False)
-            data_common = pd.concat([getattr(a, attr)[columns_common] for m, a in self.mod.items()],
-                join='outer', axis=0, sort=False)
-            data_mod = data_mod.join(data_common, how='left')
+            data_mod = pd.concat(
+                [
+                    getattr(a, attr).drop(columns_common, axis=1).add_prefix(m + ":")
+                    for m, a in self.mod.items()
+                ],
+                join="outer",
+                axis=1,
+                sort=False,
+            )
+            data_common = pd.concat(
+                [getattr(a, attr)[columns_common] for m, a in self.mod.items()],
+                join="outer",
+                axis=0,
+                sort=False,
+            )
+            data_mod = data_mod.join(data_common, how="left")
         else:
-            data_mod = pd.concat([getattr(a, attr).add_prefix(m + ':') for m, a in self.mod.items()], join='outer', axis=1, sort=False)
+            data_mod = pd.concat(
+                [getattr(a, attr).add_prefix(m + ":") for m, a in self.mod.items()],
+                join="outer",
+                axis=1,
+                sort=False,
+            )
 
         # Add data from global .obs/.var columns
         # This might reduce the size of .obs/.var if observations/variables were removed
-        setattr(self, '_'+attr, data_mod.join(data_global, how='left'))
-        
+        setattr(self, "_" + attr, data_mod.join(data_global, how="left"))
+
         # Update .obsm/.varm
         for k, v in self.mod.items():
-            getattr(self, attr+'m')[k] = getattr(self, attr).index.isin(v.obs.index)
+            getattr(self, attr + "m")[k] = getattr(self, attr).index.isin(v.obs.index)
 
         # TODO: update .obsp/.varp (size might have changed)
 
@@ -234,9 +378,29 @@ class MuData():
         Remove observations/variables for each modality from the global observations/variables table
         """
         # Figure out which global columns exist
-        columns_global = list(map(all, zip(*list([[not col.startswith(mod+":") for col in getattr(self, attr).columns] for mod in self.mod]))))
+        columns_global = list(
+            map(
+                all,
+                zip(
+                    *list(
+                        [
+                            [not col.startswith(mod + ":") for col in getattr(self, attr).columns]
+                            for mod in self.mod
+                        ]
+                    )
+                ),
+            )
+        )
         # Only keep data from global .obs/.var columns
-        setattr(self, attr, getattr(self, attr).loc[:,columns_global])
+        setattr(self, attr, getattr(self, attr).loc[:, columns_global])
+
+    @property
+    def n_mod(self) -> int:
+        return len(self.mod)
+
+    @property
+    def isbacked(self) -> bool:
+        return self.filename is not None
 
     @property
     def obs(self) -> pd.DataFrame:
@@ -249,7 +413,11 @@ class MuData():
     def obs(self, value: pd.DataFrame):
         # self._set_dim_df(value, "obs")
         if len(value) != self.shape[0]:
-            raise ValueError(f"The length of provided annotation {len(value)} does not match the length {self.shape[0]} of MuData.obs.")
+            raise ValueError(
+                f"The length of provided annotation {len(value)} does not match the length {self.shape[0]} of MuData.obs."
+            )
+        if self.is_view:
+            self._init_as_actual(self.copy())
         self._obs = value
 
     @property
@@ -266,7 +434,9 @@ class MuData():
         if key not in self.obs.columns:
             for m, a in self.mod.items():
                 if key in a.obs.columns:
-                    raise KeyError(f"There is no {key} in MuData .obs but there is one in {m} .obs. Consider running `mu.update_obs()` to update global .obs.")
+                    raise KeyError(
+                        f"There is no {key} in MuData .obs but there is one in {m} .obs. Consider running `mu.update_obs()` to update global .obs."
+                    )
             raise KeyError(f"There is no key {key} in MuData .obs or in .obs of any modalities.")
         return self.obs[key].values
 
@@ -274,7 +444,7 @@ class MuData():
         """
         Update .obs slot of MuData with the newest .obs data from all the modalities
         """
-        self._update_attr('obs')
+        self._update_attr("obs")
 
     @property
     def var(self) -> pd.DataFrame:
@@ -286,7 +456,11 @@ class MuData():
     @var.setter
     def var(self, value: pd.DataFrame):
         if len(value) != self.shape[1]:
-            raise ValueError(f"The length of provided annotation {len(value)} does not match the length {self.shape[1]} of MuData.var.")
+            raise ValueError(
+                f"The length of provided annotation {len(value)} does not match the length {self.shape[1]} of MuData.var."
+            )
+        if self.is_view:
+            self._init_as_actual(self.copy())
         self._var = value
 
     @property
@@ -295,7 +469,6 @@ class MuData():
         Total number of variables
         """
         return self._var.shape[0]
-
 
     # API legacy from AnnData
     n_vars = n_var
@@ -307,7 +480,9 @@ class MuData():
         if key not in self.var.columns:
             for m, a in self.mod.items():
                 if key in a.var.columns:
-                    raise KeyError(f"There is no {key} in MuData .var but there is one in {m} .var. Consider running `mu.update_var()` to update global .var.")
+                    raise KeyError(
+                        f"There is no {key} in MuData .var but there is one in {m} .var. Consider running `mu.update_var()` to update global .var."
+                    )
             raise KeyError(f"There is no key {key} in MuData .var or in .var of any modalities.")
         return self.var[key].values
 
@@ -315,7 +490,7 @@ class MuData():
         """
         Update .var slot of MuData with the newest .var data from all the modalities
         """
-        self._update_attr('var', join_common=True)
+        self._update_attr("var", join_common=True)
 
     def var_names_make_unique(self):
         """
@@ -324,7 +499,7 @@ class MuData():
         for k in self.mod:
             self.mod[k].var_names_make_unique()
 
-    # _keys methods to increase compatibility 
+    # _keys methods to increase compatibility
     # with calls requiring those AnnData methods
 
     def obs_keys(self) -> List[str]:
@@ -346,7 +521,6 @@ class MuData():
     def uns_keys(self) -> List[str]:
         """List keys of unstructured annotation."""
         return list(self._uns.keys())
-
 
     def update(self):
         """
