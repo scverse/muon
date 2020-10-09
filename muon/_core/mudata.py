@@ -17,7 +17,7 @@ from anndata._core.aligned_mapping import AxisArrays, AlignedViewMixin, AxisArra
 
 class MuAxisArraysView(AlignedViewMixin, AxisArraysBase):
     def __init__(
-        self, parent_mapping: AxisArraysBase, parent_view: "mudata.MuData", subset_idx: Any
+        self, parent_mapping: AxisArraysBase, parent_view: "MuData", subset_idx: Any
     ):
         self.parent_mapping = parent_mapping
         self._parent = parent_view
