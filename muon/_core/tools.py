@@ -21,11 +21,11 @@ def _set_mofa_data_from_mudata(model, mdata, groups_label=None,
 	----------
 	model: MOFA+ model entry point object
 	mdata: a MuData object
-	groups_label (optional): a column name in adata.obs for grouping the samples
-	use_raw (optional): use raw slot of AnnData as input values
-	use_layer (optional): use a specific layer of AnnData as input values (supersedes use_raw option)
-	likelihoods (optional): likelihoods to use (guessed from the data if not provided)
-	features_subset (optional): .var column with a boolean value to select genes (e.g. "highly_variable"), None by default
+	groups_label : optional: a column name in adata.obs for grouping the samples
+	use_raw : optional: use raw slot of AnnData as input values
+	use_layer : optional: use a specific layer of AnnData as input values (supersedes use_raw option)
+	likelihoods : optional: likelihoods to use (guessed from the data if not provided)
+	features_subset : optional: .var column with a boolean value to select genes (e.g. "highly_variable"), None by default
 	"""
 
 	try:
@@ -168,35 +168,64 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 
 	PARAMETERS
 	----------
-	data: an MuData object
-	groups_label (optional): a column name in adata.obs for grouping the samples
-	use_raw (optional): use raw slot of AnnData as input values
-	use_layer (optional): use a specific layer of AnnData as input values (supersedes use_raw option)
-	features_subset (optional): .var column with a boolean value to select genes (e.g. "highly_variable"), None by default
-	likelihoods (optional): likelihoods to use, default is guessed from the data
-	n_factors (optional): number of factors to train the model with
-	scale_views (optional): scale views to unit variance
-	scale_groups (optional): scale groups to unit variance
-	ard_weights (optional): use view-wise sparsity
-	ard_factors (optional): use group-wise sparsity
-	spikeslab_weights (optional): use feature-wise sparsity (e.g. gene-wise)
-	spikeslab_factors (optional): use sample-wise sparsity (e.g. cell-wise)
-	n_iterations (optional): upper limit on the number of iterations
-	convergence_mode (optional): fast, medium, or slow convergence mode
-	gpu_mode (optional): if to use GPU mode
-	Y_ELBO_TauTrick (optional): if to use ELBO Tau trick to speed up computations
-	save_parameters (optional): if to save training parameters
-	save_data (optional): if to save training data
-	save_metadata (optional): if to load metadata from the AnnData object (.obs and .var tables) and save it, False by default
-	seed (optional): random seed
-	outfile (optional): path to HDF5 file to store the model
-	expectations (optional): which nodes should be used to save expectations for (will save only W and Z by default);
-	possible expectations names include Y, W, Z, Tau, AlphaZ, AlphaW, ThetaW, ThetaZ
-	outfile (optional): output file name
-	save_interrupted (optional): if to save partially trained model when the training is interrupted
-	verbose (optional): print verbose information during traing
-	quiet (optional): silence messages during training procedure
-	copy (optional): return a copy of AnnData instead of writing to the provided object
+	data
+		an MuData object
+	groups_label : optional
+		a column name in adata.obs for grouping the samples
+	use_raw : optional
+		use raw slot of AnnData as input values
+	use_layer : optional
+		use a specific layer of AnnData as input values (supersedes use_raw option)
+	features_subset : optional
+		.var column with a boolean value to select genes (e.g. "highly_variable"), None by default
+	likelihoods : optional
+		likelihoods to use, default is guessed from the data
+	n_factors : optional
+		number of factors to train the model with
+	scale_views : optional
+		scale views to unit variance
+	scale_groups : optional
+		scale groups to unit variance
+	ard_weights : optional
+		use view-wise sparsity
+	ard_factors : optional
+		use group-wise sparsity
+	spikeslab_weights : optional
+		use feature-wise sparsity (e.g. gene-wise)
+	spikeslab_factors : optional
+		use sample-wise sparsity (e.g. cell-wise)
+	n_iterations : optional
+		upper limit on the number of iterations
+	convergence_mode : optional
+		fast, medium, or slow convergence mode
+	gpu_mode : optional
+		if to use GPU mode
+	Y_ELBO_TauTrick : optional
+		if to use ELBO Tau trick to speed up computations
+	save_parameters : optional
+		if to save training parameters
+	save_data : optional
+		if to save training data
+	save_metadata : optional
+		if to load metadata from the AnnData object (.obs and .var tables) and save it, False by default
+	seed : optional
+		random seed
+	outfile : optional
+		path to HDF5 file to store the model
+	expectations : optional
+		which nodes should be used to save expectations for (will save only W and Z by default);
+	possible expectations names
+		nclude Y, W, Z, Tau, AlphaZ, AlphaW, ThetaW, ThetaZ
+	outfile : optional
+		output file name
+	save_interrupted : optional
+		if to save partially trained model when the training is interrupted
+	verbose : optional
+		print verbose information during traing
+	quiet : optional
+		silence messages during training procedure
+	copy : optional
+		return a copy of AnnData instead of writing to the provided object
 	"""
 
 	try:
