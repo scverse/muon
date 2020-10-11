@@ -216,8 +216,6 @@ def mofa(data: Union[AnnData, MuData], groups_label: bool = None,
 		which nodes should be used to save expectations for (will save only W and Z by default);
 	possible expectations names
 		nclude Y, W, Z, Tau, AlphaZ, AlphaW, ThetaW, ThetaZ
-	outfile : optional
-		output file name
 	save_interrupted : optional
 		if to save partially trained model when the training is interrupted
 	verbose : optional
