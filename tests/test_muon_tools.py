@@ -3,7 +3,6 @@ import unittest
 import numpy as np
 from anndata import AnnData
 import muon as mu
-from muon import atac as ac
 from muon import MuData
 
 class TestMOFASimple(unittest.TestCase):
@@ -11,10 +10,10 @@ class TestMOFASimple(unittest.TestCase):
 		# Create a dataset using 5 factors
 		np.random.seed(1000)
 		z = np.random.normal(size=(100,5))
-		w1 = np.random.normal(size=(1000,5))
-		w2 = np.random.normal(size=(500,5))
-		e1 = np.random.normal(size=(100,1000))
-		e2 = np.random.normal(size=(100,500))
+		w1 = np.random.normal(size=(90,5))
+		w2 = np.random.normal(size=(50,5))
+		e1 = np.random.normal(size=(100,90))
+		e2 = np.random.normal(size=(100,50))
 		y1 = np.dot(z, w1.T) + e1
 		y2 = np.dot(z, w2.T) + e2
 		self.mdata = MuData({'y1': AnnData(y1), 'y2': AnnData(y2)})

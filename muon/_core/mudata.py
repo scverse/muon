@@ -1,6 +1,6 @@
 from typing import List, Tuple, Union, Optional, Mapping, Iterable, Sequence, Any
 from numbers import Integral
-import collections
+from collections import abc
 from functools import reduce
 import warnings
 from copy import deepcopy
@@ -62,7 +62,7 @@ class MuData:
 
         # Add all modalities to a MuData object
         self.mod = dict()
-        if isinstance(data, collections.Mapping):
+        if isinstance(data, abc.Mapping):
             for k, v in data.items():
                 self.mod[k] = v
         elif isinstance(data, AnnData):
@@ -86,7 +86,7 @@ class MuData:
         if len(kwargs) > 0:
             # Get global observations
             self._obs = kwargs.get("obs", None)
-            if isinstance(self._obs, collections.abc.Mapping):
+            if isinstance(self._obs, abc.Mapping):
                 self._obs = pd.DataFrame(self._obs)
 
             # Get global obsp
@@ -94,7 +94,7 @@ class MuData:
 
             # Get global variables
             self._var = kwargs.get("var", None)
-            if isinstance(self._var, collections.abc.Mapping):
+            if isinstance(self._var, abc.Mapping):
                 self._var = pd.Dataframe(self._var)
 
             # Get global obsm
