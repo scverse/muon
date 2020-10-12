@@ -555,6 +555,7 @@ def locate_fragments(data: Union[AnnData, MuData],
 	return_fragments
 		If return the Tabix connection the fragments file. False by default.
 	"""
+	frag = None
 	try:
 		if isinstance(data, AnnData):
 			adata = data
@@ -586,7 +587,7 @@ def locate_fragments(data: Union[AnnData, MuData],
 		print(e)
 
 	finally:
-		if not return_fragments:
+		if frag is not None and not return_fragments:
 			# The connection has to be closed
 			frag.close()
 
