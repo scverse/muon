@@ -32,13 +32,13 @@ author = "Danila Bredikhin"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "recommonmark",
-    "sphinx.ext.autodoc",
-    "sphinx.ext.autosummary",
-    "sphinx.ext.autosectionlabel",
-    "sphinx.ext.napoleon",
-    "sphinx.ext.mathjax",
-    "sphinx_rtd_theme",
+        'recommonmark',
+        'sphinx.ext.napoleon',
+        'sphinx.ext.autosummary',
+        'sphinx_automodapi.automodapi',
+        'sphinx.ext.autosectionlabel',
+        'sphinx.ext.mathjax',
+        "sphinx_rtd_theme",
 ]
 autosectionlabel_prefix_document = True
 
@@ -47,6 +47,10 @@ source_suffix = {
     ".txt": "markdown",
     ".md": "markdown",
 }
+
+# autodoc/autosummary config
+autosummary_generate = True
+autosummary_imported_members = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]

@@ -228,6 +228,8 @@ def tss_enrichment(
 
     # TODO Not sure how to best deal with plot returning/showing
     ax.set_title(title)
+    ax.set_xlabel("Distance from TSS, bp")
+    ax.set_ylabel("Average TSS enrichment score")
     ax.legend(loc="upper right", title=", ".join(groupby))
     plt.show()
     return None
