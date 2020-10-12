@@ -10,7 +10,7 @@ API reference
 
 ```eval_rst
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 10
    :caption: Contents:
 ```
 
@@ -18,22 +18,16 @@ Multimodal omics
 ================
 
 ```eval_rst
-.. automodule:: muon._core.preproc
-   :members:
-
-.. automodule:: muon._core.plot
-   :members:
-
-.. automodule:: muon._core.tools
-   :members:
-
-.. module:: muon.pl
-.. currentmodule:: muon
-
+.. module: muon
 .. autosummary::
-   :toctree: .
+   :toctree: generated
+   :recursive:
 
-   pl.mofa
+   muon.MuData
+   muon.pp
+   muon.tl
+   muon.pl
+   muon.utils
 ```
 
 ATAC submodule
@@ -44,7 +38,7 @@ ATAC submodule
 .. currentmodule:: muon
 
 .. autosummary::
-   :toctree:
+   :toctree: generated
 
    atac.pl.pca
    atac.pl.umap
@@ -55,7 +49,9 @@ Input/Output
 ================
 
 ```eval_rst
-.. automodule:: muon._core.io
-   :members:
-``
+
+.. automodsumm:: muon
+   :functions-only:
+   :toctree: generated
+```
 
