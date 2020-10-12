@@ -11,18 +11,18 @@ from .._core.mudata import MuData
 from . import tools
 import seaborn as sns
 
-def _average_peaks(adata: AnnData,
-                   keys: List[str],
-                   average: str,
-                   use_raw: bool):
+
+def _average_peaks(adata: AnnData, keys: List[str], average: str, use_raw: bool):
     # New keys will be placed here
     attr_names = []
     tmp_names = []
-    x = adata.obs.loc[:,[]]
+    x = adata.obs.loc[:, []]
     for key in keys:
         if key not in adata.obs_names and key not in adata.obs.columns:
-            if 'atac' not in adata.uns or 'peak_annotation' not in adata.uns['atac']:
-                raise KeyError(f"There is no feature or feature annotation {key}. If it is a gene name, load peak annotation with muon.atac.pp.add_peak_annotation first.")
+            if "atac" not in adata.uns or "peak_annotation" not in adata.uns["atac"]:
+                raise KeyError(
+                    f"There is no feature or feature annotation {key}. If it is a gene name, load peak annotation with muon.atac.pp.add_peak_annotation first."
+                )
             peak_sel = adata.uns["atac"]["peak_annotation"].loc[[key]]
 
             # only use peaks that are in the object (e.g. haven't been filtered out)
@@ -34,18 +34,18 @@ def _average_peaks(adata: AnnData,
                 warnings.warn(f"Peaks for {key} are not found.")
                 continue
 
-            if average == 'total' or average == 'all':
+            if average == "total" or average == "all":
                 attr_name = f"{key} (all peaks)"
                 attr_names.append(attr_name)
                 tmp_names.append(attr_name)
 
                 if attr_name not in adata.obs.columns:
                     if use_raw:
-                        x[attr_name] = np.asarray(adata.raw[:,peaks].X.mean(axis=1)).reshape(-1)
+                        x[attr_name] = np.asarray(adata.raw[:, peaks].X.mean(axis=1)).reshape(-1)
                     else:
-                        x[attr_name] = np.asarray(adata[:,peaks].X.mean(axis=1)).reshape(-1)
+                        x[attr_name] = np.asarray(adata[:, peaks].X.mean(axis=1)).reshape(-1)
 
-            elif average == 'peak_type':
+            elif average == "peak_type":
                 peak_types = peak_sel.peak_type
 
                 # {'promoter': ['chrX:NNN_NNN', ...], 'distal': ['chrX:NNN_NNN', ...]}
@@ -61,27 +61,32 @@ def _average_peaks(adata: AnnData,
 
                     if attr_name not in adata.obs.columns:
                         if use_raw:
-                            x[attr_name] = np.asarray(adata.raw[:,p].X.mean(axis=1)).reshape(-1)
+                            x[attr_name] = np.asarray(adata.raw[:, p].X.mean(axis=1)).reshape(-1)
                         else:
-                            x[attr_name] = np.asarray(adata[:,p].X.mean(axis=1)).reshape(-1)
+                            x[attr_name] = np.asarray(adata[:, p].X.mean(axis=1)).reshape(-1)
 
             else:
                 # No averaging, one plot per peak
                 if average is not None and average is not False and average != -1:
-                    warnings.warn(f"Plotting individual peaks since {average} was not recognised. Try using 'total' or 'peak_type'.")
+                    warnings.warn(
+                        f"Plotting individual peaks since {average} was not recognised. Try using 'total' or 'peak_type'."
+                    )
                 attr_names += peak_sel.peak.values
-        
+
         else:
             attr_names.append(key)
 
     return (x, attr_names, tmp_names)
 
-def embedding(data: Union[AnnData, MuData],
-              basis: str,
-              color: Optional[Union[str, List[str]]] = None,
-              average: Optional[str] = 'total',
-              use_raw: bool = True,
-              **kwargs):
+
+def embedding(
+    data: Union[AnnData, MuData],
+    basis: str,
+    color: Optional[Union[str, List[str]]] = None,
+    average: Optional[str] = "total",
+    use_raw: bool = True,
+    **kwargs,
+):
     """
     Scatter plot in the define basis
 
@@ -90,7 +95,7 @@ def embedding(data: Union[AnnData, MuData],
     if isinstance(data, AnnData):
         adata = data
     elif isinstance(data, MuData):
-        adata = data.mod['atac']
+        adata = data.mod["atac"]
     else:
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
@@ -120,7 +125,7 @@ def pca(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None]
 
     See sc.pl.embedding for details.
     """
-    return embedding(data, basis='pca', **kwargs)
+    return embedding(data, basis="pca", **kwargs)
 
 
 def lsi(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None]:
@@ -129,7 +134,7 @@ def lsi(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None]
 
     See sc.pl.embedding for details.
     """
-    return embedding(data, basis='lsi', **kwargs)
+    return embedding(data, basis="lsi", **kwargs)
 
 
 def umap(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None]:
@@ -138,7 +143,7 @@ def umap(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None
 
     See sc.pl.embedding for details.
     """
-    return embedding(data, basis='umap', **kwargs)
+    return embedding(data, basis="umap", **kwargs)
 
 
 def mofa(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
@@ -147,15 +152,17 @@ def mofa(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
 
     See sc.pl.embedding for details.
     """
-    return embedding(mdata, 'mofa', **kwargs)
+    return embedding(mdata, "mofa", **kwargs)
 
 
-def dotplot(data: Union[AnnData, MuData],
-            var_names: Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]],
-            groupby: Optional[Union[str]] = None,
-            average: Optional[str] = 'total',
-            use_raw: Optional[Union[bool]] = None,
-            **kwargs):
+def dotplot(
+    data: Union[AnnData, MuData],
+    var_names: Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]],
+    groupby: Optional[Union[str]] = None,
+    average: Optional[str] = "total",
+    use_raw: Optional[Union[bool]] = None,
+    **kwargs,
+):
     """
     Dotplot
 
@@ -164,7 +171,7 @@ def dotplot(data: Union[AnnData, MuData],
     if isinstance(data, AnnData):
         adata = data
     elif isinstance(data, MuData):
-        adata = data.mod['atac']
+        adata = data.mod["atac"]
     else:
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
@@ -175,17 +182,21 @@ def dotplot(data: Union[AnnData, MuData],
     else:
         raise TypeError("Expected var_names to be a string or an iterable.")
 
-    x, attr_names, tmp_names = _average_peaks(adata=adata, keys=keys, average=average, use_raw=use_raw)
+    x, attr_names, tmp_names = _average_peaks(
+        adata=adata, keys=keys, average=average, use_raw=use_raw
+    )
     ad = AnnData(x, obs=adata.obs)
     sc.pl.dotplot(ad, var_names=attr_names, groupby=groupby, use_raw=use_raw, **kwargs)
 
     return None
 
 
-def tss_enrichment(data: AnnData,
-                   groupby:Optional[Union[str]] = None,
-                   title: str="TSS Enrichment",
-                   ax: Optional[Axes] = None):
+def tss_enrichment(
+    data: AnnData,
+    groupby: Optional[Union[str]] = None,
+    title: str = "TSS Enrichment",
+    ax: Optional[Axes] = None,
+):
 
     """
     Plot relative enrichment scores around a TSS.
@@ -202,7 +213,6 @@ def tss_enrichment(data: AnnData,
         A matplotlib axes object.
     """
     ax = ax or plt.gca()
-
 
     if groupby is not None:
         if isinstance(groupby, str):
@@ -224,13 +234,11 @@ def tss_enrichment(data: AnnData,
     plt.show()
     return None
 
-def _tss_enrichment_single(data: AnnData,
-                           ax: Axes,
-                           sd: bool=False,
-                           *args, **kwargs):
-    x = data.var['TSS_position']
+
+def _tss_enrichment_single(data: AnnData, ax: Axes, sd: bool = False, *args, **kwargs):
+    x = data.var["TSS_position"]
     means = data.X.mean(axis=0)
-    ax.plot(x , means, **kwargs)
+    ax.plot(x, means, **kwargs)
     if sd:
         sd = np.sqrt(data.X.var(axis=0))
         plt.fill_between(
@@ -241,9 +249,11 @@ def _tss_enrichment_single(data: AnnData,
         )
 
 
-def fragment_histogram(data: Union[AnnData, MuData],
-                       region: str="chr1-1-2000000",
-                       groupby:Optional[Union[str]] = None):
+def fragment_histogram(
+    data: Union[AnnData, MuData],
+    region: str = "chr1-1-2000000",
+    groupby: Optional[Union[str]] = None,
+):
     """
     Plot Histogram of Fragment lengths within specified region.
     Parameters
@@ -259,17 +269,16 @@ def fragment_histogram(data: Union[AnnData, MuData],
     if isinstance(data, AnnData):
         adata = data
     elif isinstance(data, MuData):
-        adata = data.mod['atac']
+        adata = data.mod["atac"]
     else:
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
-    fragment_path = adata.uns['files']['fragments']
-    fragments = tools.fetch_regions_to_df(fragment_path=fragment_path,
-                                          features=region)
+    fragment_path = adata.uns["files"]["fragments"]
+    fragments = tools.fetch_regions_to_df(fragment_path=fragment_path, features=region)
 
-    fragments['length'] = fragments.End - fragments.Start
+    fragments["length"] = fragments.End - fragments.Start
     fragments.set_index(keys="Cell", inplace=True)
-    fragments = fragments.join(adata.obs, how='right')
+    fragments = fragments.join(adata.obs, how="right")
 
     if groupby is not None:
         if isinstance(groupby, str):
@@ -277,7 +286,7 @@ def fragment_histogram(data: Union[AnnData, MuData],
         if len(groupby) > 2:
             raise ValueError("Maximum 2 categories in groupby")
         elif len(groupby) == 2:
-            g = sns.FacetGrid(fragments, col=groupby[0], row = groupby[1], sharey=False)
+            g = sns.FacetGrid(fragments, col=groupby[0], row=groupby[1], sharey=False)
         elif len(groupby) == 1:
             g = sns.FacetGrid(fragments, col=groupby[0], sharey=False)
         g.map(sns.histplot, "length", binwidth=5)
@@ -285,9 +294,8 @@ def fragment_histogram(data: Union[AnnData, MuData],
     else:
         g = sns.histplot(data=fragments, x="length", binwidth=5)
         g.set_xlabel("Fragment length (bp)")
-    g.set(xlim = (0,1000))
+    g.set(xlim=(0, 1000))
 
     plt.show()
 
     return None
-

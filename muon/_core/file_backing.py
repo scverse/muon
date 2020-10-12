@@ -8,21 +8,34 @@ import anndata as ad
 from anndata._core.file_backing import AnnDataFileManager
 import h5py
 
+
 class MuDataFileManager(AnnDataFileManager):
-    def __init__(self, filename: Optional[PathLike] = None, filemode: Optional[ad.compat.Literal["r", "r+"]]=None):
+    def __init__(
+        self,
+        filename: Optional[PathLike] = None,
+        filemode: Optional[ad.compat.Literal["r", "r+"]] = None,
+    ):
         self._counter = 0
         self._children = WeakSet()
         self._noclose = False
         self._old_noclose = None
         super().__init__(None, abspath(filename), filemode)
 
-    def open(self,
+    def open(
+        self,
         filename: Optional[PathLike] = None,
-        filemode: Optional[ad.compat.Literal["r", "r+"]] = None) -> bool:
+        filemode: Optional[ad.compat.Literal["r", "r+"]] = None,
+    ) -> bool:
 
         if self._noclose:
             return
-        if self._file is not None and (filename is None and filemode is None or filename == self.filename and filemode == self._filemode and self._file.id):
+        if self._file is not None and (
+            filename is None
+            and filemode is None
+            or filename == self.filename
+            and filemode == self._filemode
+            and self._file.id
+        ):
             self._counter += 1
             return False
 
@@ -38,7 +51,7 @@ class MuDataFileManager(AnnDataFileManager):
         self._file = h5py.File(self.filename, self._filemode)
         self._counter = 1
         for child in self._children:
-            child._file = self._file['mod'][child._mod]
+            child._file = self._file["mod"][child._mod]
         return True
 
     def close(self):
@@ -68,7 +81,7 @@ class MuDataFileManager(AnnDataFileManager):
         if not self._noclose:
             self._filename = None if filename is None else filename
 
-    def prevent_open_close(self, noclose:bool):
+    def prevent_open_close(self, noclose: bool):
         self._old_noclose = self._noclose
         self._noclose = noclose
         return self
@@ -80,6 +93,7 @@ class MuDataFileManager(AnnDataFileManager):
         if self._old_noclose is not None:
             self._noclose = self._old_noclose
             self._old_noclose = None
+
 
 class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
     _h5files = {}
@@ -101,7 +115,7 @@ class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
         filemode: Optional[ad.compat.Literal["r", "r+"]] = None,
     ):
         if not self._parent.open(filename, filemode):
-            self._file = self._parent._file['mod'][self._mod]
+            self._file = self._parent._file["mod"][self._mod]
 
     def close(self):
         self._parent._close()

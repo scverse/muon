@@ -6,30 +6,24 @@ from typing import Union
 
 def get_gene_annotation_from_rna(data: Union[AnnData, MuData]):
     """
-	Get data frame with start and end positions from interval
-	column of the 'rna' layers .var.
+    Get data frame with start and end positions from interval
+    column of the 'rna' layers .var.
 
-	Parameters
-	----------
-	mdata: MuData
-		MuData object
-	"""
+    Parameters
+    ----------
+    mdata: MuData
+            MuData object
+    """
 
     if isinstance(data, AnnData):
         adata = data
-    elif isinstance(data, MuData) and 'rna' in data.mod:
-        adata = data.mod['rna']
+    elif isinstance(data, MuData) and "rna" in data.mod:
+        adata = data.mod["rna"]
     else:
         raise TypeError("Expected AnnData or MuData object with 'rna' modality")
 
-
     if "interval" in adata.var.columns:
-        features = pd.DataFrame(
-            [
-                s.replace(":", "-", 1).split("-")
-                for s in adata.var.interval
-            ]
-        )
+        features = pd.DataFrame([s.replace(":", "-", 1).split("-") for s in adata.var.interval])
         features.columns = ["Chromosome", "Start", "End"]
         features["gene_id"] = adata.var.gene_ids.values
         features["gene_name"] = adata.var.index.values

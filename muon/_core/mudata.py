@@ -16,9 +16,7 @@ from anndata._core.aligned_mapping import AxisArrays, AlignedViewMixin, AxisArra
 
 
 class MuAxisArraysView(AlignedViewMixin, AxisArraysBase):
-    def __init__(
-        self, parent_mapping: AxisArraysBase, parent_view: "MuData", subset_idx: Any
-    ):
+    def __init__(self, parent_mapping: AxisArraysBase, parent_view: "MuData", subset_idx: Any):
         self.parent_mapping = parent_mapping
         self._parent = parent_view
         self.subset_idx = subset_idx
@@ -126,7 +124,7 @@ class MuData:
             sort=False,
         )
 
-         # Make obs map for each modality
+        # Make obs map for each modality
         self.obsm = dict()
         for k, v in self.mod.items():
             self.obsm[k] = self.obs.index.isin(v.obs.index)
@@ -171,13 +169,20 @@ class MuData:
             return mp
 
         from anndata._core.index import _normalize_indices
+
         obsidx, varidx = _normalize_indices(index, mudata_ref.obs.index, mudata_ref.var.index)
-        if isinstance(obsidx, Integral): # to handle single-element subsets, otherwise pd.Index[int] returns
-            obsidx = slice(obsidx, obsidx + 1)       # a str and pd.Index.intersection throws an exception
+        if isinstance(
+            obsidx, Integral
+        ):  # to handle single-element subsets, otherwise pd.Index[int] returns
+            obsidx = slice(
+                obsidx, obsidx + 1
+            )  # a str and pd.Index.intersection throws an exception
         if isinstance(varidx, Integral):
             varidx = slice(varidx, varidx + 1)
 
-        self.mod = slice_mapping(mudata_ref.mod, mudata_ref.obs.index[obsidx], mudata_ref.var.index[varidx])
+        self.mod = slice_mapping(
+            mudata_ref.mod, mudata_ref.obs.index[obsidx], mudata_ref.var.index[varidx]
+        )
         self._obs = mudata_ref.obs.iloc[obsidx, :]
         self.obsm = mudata_ref.obsm._view(self, (obsidx, ...))
         self._var = mudata_ref.var.iloc[varidx, :]
@@ -320,7 +325,10 @@ class MuData:
                     zip(
                         *list(
                             [
-                                [not col.startswith(mod + ":") for col in getattr(self, attr).columns]
+                                [
+                                    not col.startswith(mod + ":")
+                                    for col in getattr(self, attr).columns
+                                ]
                                 for mod in self.mod
                             ]
                         )
@@ -546,21 +554,27 @@ class MuData:
         else:
             backed_at = ""
         descr = f"MuData object with n_obs × n_vars = {n_obs} × {n_vars}{backed_at}"
-        for attr in [
-            "obs",
-            "var",
-            "obsm",
-            "varm",
-            "obsp",
-            "varp"
-        ]:
+        for attr in ["obs", "var", "obsm", "varm", "obsp", "varp"]:
             if hasattr(self, attr) and getattr(self, attr) is not None:
                 keys = list(getattr(self, attr).keys())
                 if len(keys) > 0:
                     mod_sep = ":" if isinstance(getattr(self, attr), pd.DataFrame) else ""
-                    global_keys = list(map(all, zip(*list([[not col.startswith(mod+mod_sep) 
-                        for col in getattr(self, attr).keys()] 
-                        for mod in self.mod]))))
+                    global_keys = list(
+                        map(
+                            all,
+                            zip(
+                                *list(
+                                    [
+                                        [
+                                            not col.startswith(mod + mod_sep)
+                                            for col in getattr(self, attr).keys()
+                                        ]
+                                        for mod in self.mod
+                                    ]
+                                )
+                            ),
+                        )
+                    )
                     if any(global_keys):
                         descr += f"\n  {attr}:\t{str([keys[i] for i in range(len(keys)) if global_keys[i]])[1:-1]}"
         descr += f"\n  {len(self.mod)} modalities"

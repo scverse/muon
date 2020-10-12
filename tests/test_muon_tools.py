@@ -5,6 +5,7 @@ from anndata import AnnData
 import muon as mu
 from muon import MuData
 
+
 class TestMOFASimple(unittest.TestCase):
 	def setUp(self):
 		# Create a dataset using 5 factors
@@ -35,6 +36,5 @@ class TestMOFASimple(unittest.TestCase):
 		self.assertTrue(all([i > 0.1 for i in r2[:5]]))
 		self.assertFalse(any([i > 0.1 for i in r2[5:]]))
 
-
 if __name__ == "__main__":
-	unittest.main()
+    unittest.main()
