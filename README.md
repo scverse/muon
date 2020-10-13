@@ -1,5 +1,3 @@
-> Please note the project is experimental and no stable API is being provided as this point.
-
 <img src="./docs/img/muon_header.png" data-canonical-src="./docs/img/muon_header.png" width="700"/>
 
 `muon` is a multimodal omics Python framework.
