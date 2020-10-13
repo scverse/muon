@@ -70,7 +70,7 @@ def read_10x_h5(filename: Union[str, Path], extended: bool = True, *args, **kwar
 
     if extended:
         if "atac" in mdata.mod:
-        	initialise_default_files(mdata, filename)
+            initialise_default_files(mdata, filename)
 
     return mdata
 
@@ -100,7 +100,6 @@ def read_10x_mtx(path: Union[str, Path], extended: bool = True, *args, **kwargs)
 
     adata = sc.read_10x_mtx(path, gex_only=False, *args, **kwargs)
 
-    
     mdata = MuData(adata)
 
     # Patches sc.read_10x_h5 behaviour to:
@@ -108,10 +107,9 @@ def read_10x_mtx(path: Union[str, Path], extended: bool = True, *args, **kwargs)
     # - attempt to locate fragments file
     if extended:
         if "atac" in mdata.mod:
-        	initialise_default_files(mdata, path)
+            initialise_default_files(mdata, path)
 
     return mdata
-
 
 
 #

@@ -631,8 +631,7 @@ def locate_fragments(data: Union[AnnData, MuData], fragments: str, return_fragme
             frag.close()
 
 
-def initialise_default_files(data: Union[AnnData, MuData],
-                             path: Union[str, Path]):
+def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path]):
     """
     Locate default files for ATAC-seq
 
@@ -648,15 +647,12 @@ def initialise_default_files(data: Union[AnnData, MuData],
     else:
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
-
     # 2) Add peak annotation
 
     default_annotation = os.path.join(os.path.dirname(path), "atac_peak_annotation.tsv")
     if os.path.exists(default_annotation):
         add_peak_annotation(adata, default_annotation)
-        print(
-            f"Added peak annotation from {default_annotation} to .uns['atac']['peak_annotation']"
-        )
+        print(f"Added peak annotation from {default_annotation} to .uns['atac']['peak_annotation']")
 
         if isinstance(data, MuData):
             try:
@@ -664,7 +660,6 @@ def initialise_default_files(data: Union[AnnData, MuData],
                 print("Added gene names to peak annotation in .uns['atac']['peak_annotation']")
             except Exception:
                 pass
-
 
     # 3) Locate fragments file
 
