@@ -4,6 +4,7 @@ from glob import glob
 import pkgutil
 from collections import OrderedDict
 from typing import List, Union, Optional, Callable, Iterable
+from pathlib import Path
 import logging
 from datetime import datetime
 
@@ -360,7 +361,7 @@ def _parse_motif_matrices(
     except ImportError:
         raise ImportError(
             "MOODS is not available. Install MOODS from PyPI (`pip install MOODS-python`) \
-			or from GitHub (`pip install git+https://github.com/jhkorhonen/MOODS`)"
+            or from GitHub (`pip install git+https://github.com/jhkorhonen/MOODS`)"
         )
 
     if files is None:
@@ -485,7 +486,7 @@ def get_sequences(data: Union[AnnData, MuData], bed: str, fasta_file: str, bed_f
         else:
             raise FileNotFoundError(
                 "Genome file has to be provided with `fasta_file` \
-				or located using `muon.atac.tl.locate_genome`."
+                or located using `muon.atac.tl.locate_genome`."
             )
     else:
         # TODO: have a function to check validity of the file
@@ -607,8 +608,8 @@ def locate_fragments(data: Union[AnnData, MuData], fragments: str, return_fragme
         except ImportError:
             raise ImportError(
                 "pysam is not available. It is required to work with the fragments file. \
-				Install pysam from PyPI (`pip install pysam`) \
-				or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
+                Install pysam from PyPI (`pip install pysam`) \
+                or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
             )
 
         # Here we make sure we can create a connection to the fragments file
@@ -628,6 +629,49 @@ def locate_fragments(data: Union[AnnData, MuData], fragments: str, return_fragme
         if frag is not None and not return_fragments:
             # The connection has to be closed
             frag.close()
+
+
+def initialise_default_files(data: Union[AnnData, MuData],
+                             path: Union[str, Path]):
+    """
+    Locate default files for ATAC-seq
+
+    - attempt to locate peak annotation file (atac_peak_annotation.tsv)
+    - attempt to parse add peak annotation and store it as a DataFrame
+    - attempt to locate fragments file (atac_fragments.tsv.gz)
+    """
+
+    if isinstance(data, AnnData):
+        adata = data
+    elif isinstance(data, MuData) and "atac" in data.mod:
+        adata = data.mod["atac"]
+    else:
+        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+
+    # 2) Add peak annotation
+
+    default_annotation = os.path.join(os.path.dirname(path), "atac_peak_annotation.tsv")
+    if os.path.exists(default_annotation):
+        add_peak_annotation(adata, default_annotation)
+        print(
+            f"Added peak annotation from {default_annotation} to .uns['atac']['peak_annotation']"
+        )
+
+        if isinstance(data, MuData):
+            try:
+                add_peak_annotation_gene_names(data)
+                print("Added gene names to peak annotation in .uns['atac']['peak_annotation']")
+            except Exception:
+                pass
+
+
+    # 3) Locate fragments file
+
+    default_fragments = os.path.join(os.path.dirname(path), "atac_fragments.tsv.gz")
+    if os.path.exists(default_annotation):
+        locate_fragments(adata, default_fragments)
+        print(f"Located fragments file: {default_fragments}")
 
 
 def count_fragments_features(

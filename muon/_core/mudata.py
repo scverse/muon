@@ -45,7 +45,7 @@ class MuData:
         feature_types_names: Optional[dict] = {
             "Gene Expression": "rna",
             "Peaks": "atac",
-            "Antibody Capture": "cite",
+            "Antibody Capture": "prot",
         },
         as_view: bool = False,
         index: Optional[

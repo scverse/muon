@@ -13,7 +13,7 @@ import scanpy as sc
 from .mudata import MuData
 from .file_backing import MuDataFileManager, AnnDataFileManager
 
-from .._atac.tools import add_peak_annotation, locate_fragments, add_peak_annotation_gene_names
+from .._atac.tools import initialise_default_files
 
 #
 # Reading data
@@ -70,30 +70,48 @@ def read_10x_h5(filename: Union[str, Path], extended: bool = True, *args, **kwar
 
     if extended:
         if "atac" in mdata.mod:
-
-            # 2) Add peak annotation
-
-            default_annotation = os.path.join(os.path.dirname(filename), "atac_peak_annotation.tsv")
-            if os.path.exists(default_annotation):
-                add_peak_annotation(mdata.mod["atac"], default_annotation)
-                print(
-                    f"Added peak annotation from {default_annotation} to .uns['atac']['peak_annotation']"
-                )
-
-                try:
-                    add_peak_annotation_gene_names(mdata)
-                    print("Added gene names to peak annotation in .uns['atac']['peak_annotation']")
-                except Exception:
-                    pass
-
-            # 3) Locate fragments file
-
-            default_fragments = os.path.join(os.path.dirname(filename), "atac_fragments.tsv.gz")
-            if os.path.exists(default_annotation):
-                locate_fragments(mdata.mod["atac"], default_fragments)
-                print(f"Located fragments file: {default_fragments}")
+        	initialise_default_files(mdata, filename)
 
     return mdata
+
+
+def read_10x_mtx(path: Union[str, Path], extended: bool = True, *args, **kwargs) -> MuData:
+    """
+    Read data from 10X Genomics-formatted files
+    (matrix.mtx.gz, features.tsv.gz, barcodes.tsv.gz)
+
+    This function uses scanpy.read_10x_mtx() internally
+    and patches its behaviour to:
+    - attempt to read `interval` field for features;
+    - (for ATAC-seq) attempt to locate peak annotation file and add peak annotation;
+    - (for ATAC-seq) attempt to locate fragments file.
+
+    Ideally it is merged later to scanpy.read_10x_mtx().
+
+    Parameters
+    ----------
+    path : str
+            Path to 10X folder (filtered_feature_bc_matrix or raw_feature_bc_matrix)
+            or to the matrix file inside it
+    extended : bool, optional (default: True)
+            Perform extended functionality automatically such as
+            locating peak annotation and fragments files.
+    """
+
+    adata = sc.read_10x_mtx(path, gex_only=False, *args, **kwargs)
+
+    
+    mdata = MuData(adata)
+
+    # Patches sc.read_10x_h5 behaviour to:
+    # - attempt to add peak annotation
+    # - attempt to locate fragments file
+    if extended:
+        if "atac" in mdata.mod:
+        	initialise_default_files(mdata, path)
+
+    return mdata
+
 
 
 #
