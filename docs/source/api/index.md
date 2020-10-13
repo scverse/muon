@@ -45,6 +45,19 @@ ATAC submodule
    atac.pl.embedding
 ```
 
+Protein submodule
+=================
+
+```eval_rst
+.. module:: muon.prot
+.. currentmodule:: muon
+
+.. autosummary::
+    :toctree: generated
+
+    prot.pp
+```
+
 Input/Output
 ================
 

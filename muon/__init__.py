@@ -6,5 +6,6 @@ from ._core import utils
 from ._core.io import *
 
 from . import _atac as atac
+from . import _prot as prot
 
 name = "muon"
