@@ -123,13 +123,15 @@ def dsb(
             raise ImportError("sklearn package not found. Install the sklearn package to denoise.")
 
         bgmeans = np.empty(cells_scaled.shape[0], np.float32)
+        # init_params needs to be random, otherwise fitted variance for one of the n_components
+        # sometimes goes to 0
         sharedvar = GaussianMixture(
-            n_components=2, covariance_type="tied", init_params="random"
-        )  # this needs to be random, otherwise
+            n_components=2, covariance_type="tied", init_params="random", random_state=random_state
+        )
         separatevar = GaussianMixture(
-            n_components=2, covariance_type="full", init_params="random"
-        )  # fitted variance for one of the components
-        for c in range(cells_scaled.shape[0]):  # sometimes goes to 0
+            n_components=2, covariance_type="full", init_params="random", random_state=random_state
+        )
+        for c in range(cells_scaled.shape[0]):
             sharedvar.fit(cells_scaled[c, :, np.newaxis])
             separatevar.fit(cells_scaled[c, :, np.newaxis])
 
