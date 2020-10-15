@@ -1,4 +1,5 @@
 from typing import Union, List, Optional, Iterable, Sequence
+import warnings
 
 from matplotlib.axes import Axes
 import numpy as np
