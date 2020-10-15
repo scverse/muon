@@ -1,6 +1,8 @@
 from typing import Union, List, Optional, Iterable, Sequence
 
 from matplotlib.axes import Axes
+import numpy as np
+import pandas as pd
 import scanpy as sc
 from anndata import AnnData
 
