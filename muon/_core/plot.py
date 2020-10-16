@@ -19,8 +19,11 @@ def embedding(
     **kwargs,
 ):
     """
-    Scatter plot in the define basis, which can also be
-    a basis inside any modality, e.g. "rna:X_pca".
+    Scatter plot for .obs
+
+    Produce a scatter plot in the define basis,
+    which can also be a basis inside any modality,
+    e.g. "rna:X_pca".
 
     See sc.pl.embedding for details.
 

@@ -3,6 +3,7 @@ from numbers import Integral, Real
 from warnings import warn
 
 import numpy as np
+import pandas as pd
 from scipy.sparse import issparse
 from anndata import AnnData
 
@@ -10,96 +11,128 @@ from .. import MuData
 
 
 def dsb(
-    mdata: Union[AnnData, MuData],
-    mdata_raw: Optional[Union[AnnData, MuData]] = None,
+    data: Union[AnnData, MuData],
+    data_raw: Optional[Union[AnnData, MuData]] = None,
     pseudocount: Integral = 10,
     denoise_counts: bool = True,
     isotype_controls: Optional[Iterable[str]] = None,
     empty_counts_range: Optional[Tuple[Real, Real]] = None,
     cell_counts_range: Optional[Tuple[Real, Real]] = None,
+    add_layer: bool = False,
     random_state: Optional[Union[int, np.random.RandomState, None]] = None,
 ) -> Union[None, MuData]:
     """
     Normalize protein expression with DSB (Denoised and Scaled by Background)
 
-    Normalized data will be written to ``mdata`` (if it is an AnnData object) or ``mdata.mod['cite']``
-    (if it is a MuData object) as a new layer named ``dsb``.
+    Normalized data will be written to ``data`` (if it is an AnnData object) or ``data.mod['prot']``
+    (if it is a MuData object) as an X matrix or as a new layer named ``dsb``.
 
     References:
         Mulè et al, 2020 (`doi:10.1101/2020.02.24.963603 <https://dx.doi.org/10.1101/2020.02.24.963603>`_)
 
     Args:
-        mdata: AnnData object with protein expression counts or MuData object with ``cite`` modality.
-            If ``mdata_raw`` is ``None``, must be a ``MuData`` object containing raw (unfiltered,
-            including empty droplets) data for both ``cite`` and ``rna`` modalities. If ``mdata_raw``
+        data: AnnData object with protein expression counts or MuData object with ``prot`` modality.
+            If ``data_raw`` is ``None``, must be a ``MuData`` object containing raw (unfiltered,
+            including empty droplets) data for both ``prot`` and ``rna`` modalities. If ``data_raw``
             is not ``None``, must contain filtered (non-empty droplets) data.
-        mdata_raw: AnnData object with protein expression counts or MuData object with 'cite' modality
+        data_raw: AnnData object with protein expression counts or MuData object with 'prot' modality
             containing raw (unfiltered, including empty droplets) data.
         pseudocount: Pseudocount to add before log-transform.
         denoise_counts: Whether to perform denoising.
         isotype_controls: Names of the isotype controls. If ``None``, isotype controls will not be used.
-        empty_counts_range: If ``mdata_raw`` is ``None``, i.e. ``mdata`` contains the unfiltered data,
+        empty_counts_range: If ``data_raw`` is ``None``, i.e. ``data`` contains the unfiltered data,
             this specifies the minimum and maximum log10-counts for a droplet to be considered empty.
-        cell_counts_range: If ``mdata_raw`` is ``None``, i.e. ``mdata`` contains the unfiltered data,
+        cell_counts_range: If ``data_raw`` is ``None``, i.e. ``data`` contains the unfiltered data,
             this specifies the minimum and maximum log10-counts for a droplet to be considered not empty.
+        add_layer: Whether to add a ``'dsb'`` layer instead of assigning to the X matrix.
         random_state: Random seed.
 
     Returns:
-        ``None`` if ``mdata_raw`` is not ``None`` (in this case the normalized data are written directly
-        to ``mdata``), otherwise a ``MuData`` object containing filtered data (non-empty droplets).
+        ``None`` if ``data_raw`` is not ``None`` (in this case the normalized data are written directly
+        to ``data``), otherwise a ``MuData`` object containing filtered data (non-empty droplets).
     """
     toreturn = None
-    if mdata_raw is None:
+    if data_raw is None:
         if empty_counts_range is None or cell_counts_range is None:
             raise ValueError(
-                "mdata_raw is None, assuming mdata is the unfiltered object, no count ranges provided"
+                "data_raw is None, assuming data is the unfiltered object, but no count ranges provided"
             )
         if max(*empty_counts_range) > min(*cell_counts_range):
             raise ValueError("overlapping count ranges")
-        if not isinstance(mdata, MuData) or "cite" not in mdata.mod or "rna" not in mdata.mod:
+        if not isinstance(data, MuData) or "prot" not in data.mod or "rna" not in data.mod:
             raise TypeError(
-                "No mdata_raw given, assuming mdata is the unfiltered object, but mdata is not MuData"
-                " or does not contain 'cite' and 'rna' modalities"
+                "No data_raw given, assuming data is the unfiltered object, but data is not MuData"
+                " or does not contain 'prot' and 'rna' modalities"
             )
-        if mdata.mod["rna"].n_obs != mdata.mod["cite"].n_obs:
-            raise ValueError("different numbers of cells in 'rna' and 'cite' modalities.")
+        if data.mod["rna"].n_obs != data.mod["prot"].n_obs:
+            raise ValueError("different numbers of cells in 'rna' and 'prot' modalities.")
 
-        log10umi = np.log10(np.asarray(mdata.mod["rna"].X.sum(axis=1)).squeeze() + 1)
+        log10umi = np.log10(np.asarray(data.mod["rna"].X.sum(axis=1)).squeeze() + 1)
         empty_idx = np.where(
             (log10umi >= min(*empty_counts_range)) & (log10umi < max(*empty_counts_range))
         )[0]
         cell_idx = np.where(
             (log10umi >= min(*cell_counts_range)) & (log10umi < max(*cell_counts_range))
         )[0]
-        cellidx = mdata.mod["cite"].obs_names[cell_idx]
-        empty = mdata.mod["cite"][empty_idx, :]
+        cellidx = data.mod["prot"].obs_names[cell_idx]
+        empty = data.mod["prot"][empty_idx, :]
 
-        mdata = mdata[cellidx, :].copy()
-        cells = mdata.mod["cite"]
+        data = data[cellidx, :].copy()
+        cells = data.mod["prot"]
 
-        toreturn = mdata
+        toreturn = data
 
-    elif isinstance(mdata_raw, AnnData):
-        empty = mdata_raw
-    elif isinstance(mdata_raw, MuData) and "cite" in mdata_raw.mod:
-        empty = mdata_raw["cite"]
+    elif isinstance(data_raw, AnnData):
+        empty = data_raw
+    elif isinstance(data_raw, MuData) and "prot" in data_raw.mod:
+        empty = data_raw["prot"]
     else:
-        raise TypeError("mdata_raw must be an AnnData or a MuData object with 'cite' modality")
+        raise TypeError("data_raw must be an AnnData or a MuData object with 'prot' modality")
 
-    if isinstance(mdata, AnnData):
-        cells = mdata
-    elif isinstance(mdata, MuData) and "cite" in mdata.mod:
-        cells = mdata["cite"]
+    if isinstance(data, AnnData):
+        cells = data
+    elif isinstance(data, MuData) and "prot" in data.mod:
+        cells = data["prot"]
     else:
-        raise TypeError("mdata must be an AnnData or a MuData object with 'cite' modality")
+        raise TypeError("data must be an AnnData or a MuData object with 'prot' modality")
 
     if pseudocount < 0:
         raise ValueError("pseudocount cannot be negative")
 
     if cells.shape[1] != empty.shape[1]:  # this should only be possible if mudata_raw != None
-        raise ValueError("mdata and mdata_raw have different numbers of proteins")
+        raise ValueError("data and data_raw have different numbers of proteins")
 
-    empty = empty[~empty.obs_names.isin(cells.obs_names)]
+    if empty_counts_range is None:  # mudata_raw != None
+        warn(
+            "empty_counts_range values are not provided, treating all the non-cells as empty droplets"
+        )
+        empty = empty[~empty.obs_names.isin(cells.obs_names)]
+    else:
+        if data_raw is not None:
+            if not isinstance(data_raw, MuData) or "rna" not in data_raw.mod:
+                warn(
+                    "data_raw must be a MuData object with 'rna' modality, ignoring empty_counts_range and treating all the non-cells as empty droplets"
+                )
+                empty = empty[~empty.obs_names.isin(cells.obs_names)]
+            else:
+                # data_raw is a MuData with 'rna' modality and empty_counts_range values are provided
+                log10umi = np.log10(np.asarray(data_raw.mod["rna"].X.sum(axis=1)).squeeze() + 1)
+                bc_umis = pd.DataFrame({"log10umi": log10umi}, index=data_raw.mod["rna"].obs_names)
+                empty_droplets = bc_umis.query(
+                    f"log10umi >= {min(*empty_counts_range)} & log10umi < {max(*empty_counts_range)}"
+                ).index.values
+
+                empty_len_orig = len(empty_droplets)
+                empty_droplets = np.array([i for i in empty_droplets if i not in cells.obs_names])
+                empty_len = len(empty_droplets)
+                if empty_len != empty_len_orig:
+                    warn(
+                        f"Dropping {empty_len_orig - empty_len} empty droplets as they are already defined as cells"
+                    )
+                empty = empty[empty_droplets].copy()
+
+    if data_raw is not None and cell_counts_range is not None:
+        warn("cell_counts_range values are ignored since cells are provided in data")
 
     empty_scaled = (
         np.log(empty.X + pseudocount)
@@ -155,5 +188,8 @@ def dsb(
         reg.fit(covar, cells_scaled)
 
         cells_scaled -= reg.predict(covar) - reg.intercept_
-    cells.layers["dsb"] = cells_scaled
+    if add_layer:
+        cells.layers["dsb"] = cells_scaled
+    else:
+        cells.X = cells_scaled
     return toreturn
