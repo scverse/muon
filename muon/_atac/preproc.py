@@ -95,9 +95,9 @@ def binarize(data: Union[AnnData, MuData]):
 
     if callable(getattr(adata.X, "todense", None)):
         # Sparse matrix
-        adata.X.data = np.where(adata.X.data > 0, 1, 0)
+        adata.X.data[adata.X.data != 0] = 1
     else:
-        adata.X = np.where(adata.X > 0, 1, 0)
+        adata.X[adata.X != 0] = 1
 
 
 def scopen(
