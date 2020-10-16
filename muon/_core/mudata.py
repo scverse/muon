@@ -163,8 +163,8 @@ class MuData:
         def slice_mapping(mapping, obsnames, varnames):
             mp = {}
             for n, v in mapping.items():
-                obsidx = v.obs.index.intersection(obsnames)
-                varidx = v.var.index.intersection(varnames)
+                obsidx = v.obs.index.isin(obsnames)
+                varidx = v.var.index.isin(varnames)
                 mp[n] = v[obsidx, varidx]
             return mp
 

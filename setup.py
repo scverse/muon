@@ -31,5 +31,6 @@ setuptools.setup(
         "protobuf",
         "tqdm",
     ],
+    extras_require={"dsb_denoise": ["sklearn"]},
     include_package_data=True,
 )
