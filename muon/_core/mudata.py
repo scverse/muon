@@ -45,7 +45,7 @@ class MuData:
         feature_types_names: Optional[dict] = {
             "Gene Expression": "rna",
             "Peaks": "atac",
-            "Antibody Capture": "cite",
+            "Antibody Capture": "prot",
         },
         as_view: bool = False,
         index: Optional[
@@ -76,7 +76,7 @@ class MuData:
                     if feature_types_names is not None:
                         if name in feature_types_names.keys():
                             alias = feature_types_names[name]
-                    self.mod[alias] = data[:, data.var.feature_types == name]
+                    self.mod[alias] = data[:, data.var.feature_types == name].copy()
         else:
             raise TypeError("Expected AnnData object or dictionary with AnnData objects as values")
 
