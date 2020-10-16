@@ -4,7 +4,7 @@
 
 `muon` introduces multimodal data containers (`MuData` class) allowing Python users to work with increasigly complex datasets efficiently and to build new workflows and computational tools around it.
 
-```py
+```
 MuData object with n_obs × n_vars = 10110 × 110101
  2 modalities
   atac: 10110 x 100001
