@@ -44,35 +44,42 @@ def embedding(
         No layer is used by default. If a valid `layer` is provided, this takes precedence
         over `use_raw=True`.
     """
-    if isinstance(data, AnnData) or basis in data.obsm:
+    if isinstance(data, AnnData):
         return sc.pl.embedding(data, basis=basis, color=color, use_raw=use_raw, **kwargs)
 
     # `data` is MuData
-    # and basis is not a joint embedding
-    try:
-        mod, basis_mod = basis.split(":")
-    except ValueError as e:
-        raise ValueError(f"Basis {basis} is not present in the MuData object (.obsm)")
+    if basis not in data.obsm and 'X_'+basis in data.obsm:
+        basis = 'X_'+basis
 
-    if mod not in data.mod:
-        raise ValueError(
-            f"Modality {mod} is not present in the MuData object with modalities {', '.join(data.mod)}"
-        )
+    if basis in data.obsm:
+        adata = data
+        basis_mod = basis
+    else:
+        # basis is not a joint embedding
+        try:
+            mod, basis_mod = basis.split(":")
+        except ValueError as e:
+            raise ValueError(f"Basis {basis} is not present in the MuData object (.obsm)")
 
-    adata = data.mod[mod]
-    if basis_mod not in adata.obsm:
-        if "X_" + basis_mod in adata.obsm:
-            basis_mod = "X_" + basis_mod
-        elif len(adata.obsm) > 0:
+        if mod not in data.mod:
             raise ValueError(
-                f"Basis {basis_mod} is not present in the modality {mod} with embeddings {', '.join(adata.obsm)}"
-            )
-        else:
-            raise ValueError(
-                f"Basis {basis_mod} is not present in the modality {mod} with no embeddings"
+                f"Modality {mod} is not present in the MuData object with modalities {', '.join(data.mod)}"
             )
 
-    obs = data.obs.loc[adata.obs_names]
+        adata = data.mod[mod]
+        if basis_mod not in adata.obsm:
+            if "X_" + basis_mod in adata.obsm:
+                basis_mod = "X_" + basis_mod
+            elif len(adata.obsm) > 0:
+                raise ValueError(
+                    f"Basis {basis_mod} is not present in the modality {mod} with embeddings {', '.join(adata.obsm)}"
+                )
+            else:
+                raise ValueError(
+                    f"Basis {basis_mod} is not present in the modality {mod} with no embeddings"
+                )
+
+    obs = data.obs.loc[adata.obs.index.values]
 
     if color is None:
         ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp)
