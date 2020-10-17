@@ -320,6 +320,17 @@ def rank_peaks_groups(
     followed by muon.atac.tl.add_genes_peaks_groups.
 
     See sc.tl.rank_genes_groups for details.
+
+    Parameters
+    ----------
+    data : Union[AnnData, MuData]
+        AnnData object with peak counts or MuData object with 'atac' modality.
+    groupby : str
+        The key of the observations grouping to consider.
+    peak_type : Optional[str]
+        Peak type to filter peaks by (e.g. promoter, distal, or intergenic)
+    distance_filter : Optional[Callable[[int], bool]]
+        Distance to the gene to filter peaks by
     """
 
     if isinstance(data, AnnData):
