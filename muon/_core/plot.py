@@ -48,8 +48,8 @@ def embedding(
         return sc.pl.embedding(data, basis=basis, color=color, use_raw=use_raw, **kwargs)
 
     # `data` is MuData
-    if basis not in data.obsm and 'X_'+basis in data.obsm:
-        basis = 'X_'+basis
+    if basis not in data.obsm and "X_" + basis in data.obsm:
+        basis = "X_" + basis
 
     if basis in data.obsm:
         adata = data
