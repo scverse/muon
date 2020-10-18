@@ -2,6 +2,7 @@ import sys
 from typing import Union, Optional, List, Iterable
 import logging
 from datetime import datetime
+from time import strftime
 
 import numpy as np
 from anndata import AnnData
@@ -298,6 +299,9 @@ def mofa(
     else:
         raise TypeError("Expected an MuData object")
 
+    if outfile is None:
+        outfile = os.path.join("/tmp", "mofa_{}.hdf5".format(strftime("%Y%m%d-%H%M%S")))
+
     ent = entry_point()
 
     lik = likelihoods
@@ -348,38 +352,26 @@ def mofa(
         outfile, save_data=save_data, save_parameters=save_parameters, expectations=expectations
     )
 
-    if outfile is None:
-        return None
-
-    # If outfile is not None, get embeddings and weights from the trained model
-    try:
-        import h5py
-    except ImportError:
-        h5py = None
-
-    if h5py:
-        f = h5py.File(outfile)
-        if copy:
-            data = data.copy()
-        data.obsm["X_mofa"] = np.concatenate(
-            [v[:, :] for k, v in f["expectations"]["Z"].items()], axis=1
+    f = h5py.File(outfile)
+    if copy:
+        data = data.copy()
+    data.obsm["X_mofa"] = np.concatenate(
+        [v[:, :] for k, v in f["expectations"]["Z"].items()], axis=1
+    ).T
+    if features_subset is None:
+        # Loadings can be saved only if all the features were used in training
+        data.varm["LFs"] = np.concatenate(
+            [v[:, :] for k, v in f["expectations"]["W"].items()], axis=1
         ).T
-        if features_subset is None:
-            # Loadings can be saved only if all the features were used in training
-            data.varm["LFs"] = np.concatenate(
-                [v[:, :] for k, v in f["expectations"]["W"].items()], axis=1
-            ).T
-        if copy:
-            return data
-        else:
-            if features_subset is None:
-                print(
-                    "Saved MOFA embeddings in .obsm['X_mofa'] slot and their loadings in .varm['LFs']."
-                )
-            else:
-                print("Saved MOFA embeddings in .obsm['X_mofa'] slot.")
+    if copy:
+        return data
     else:
-        print("Can not add embeddings and loadings to MuData object since h5py is not installed.")
+        if features_subset is None:
+            print(
+                "Saved MOFA embeddings in .obsm['X_mofa'] slot and their loadings in .varm['LFs']."
+            )
+        else:
+            print("Saved MOFA embeddings in .obsm['X_mofa'] slot.")
 
     return None
 
