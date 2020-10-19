@@ -4,6 +4,7 @@ import warnings
 from matplotlib.axes import Axes
 import numpy as np
 import pandas as pd
+from scipy.sparse import issparse
 import scanpy as sc
 from anndata import AnnData
 
@@ -123,8 +124,9 @@ def embedding(
                             f"Layer {layer} is not present for the modality {m}, using count matrix instead"
                         )
 
+                x = fmod_adata.X.toarray() if issparse(fmod_adata.X) else fmod_adata.X
                 obs = obs.join(
-                    pd.DataFrame(fmod_adata.X, columns=mod_keys, index=fmod_adata.obs_names),
+                    pd.DataFrame(x, columns=mod_keys, index=fmod_adata.obs_names),
                     how="left",
                 )
 
