@@ -96,9 +96,9 @@ class MuData:
                 self._var = pd.Dataframe(self._var)
 
             # Get global obsm
-            self.obsm = MuAxisArrays(self, 0, kwargs.get("obsm", {}))
+            self._obsm = MuAxisArrays(self, 0, kwargs.get("obsm", {}))
             # Get global varm
-            self.varm = MuAxisArrays(self, 1, kwargs.get("varm", {}))
+            self._varm = MuAxisArrays(self, 1, kwargs.get("varm", {}))
 
             # Get global varp
             self.varp = kwargs.get("varp", None)
@@ -125,16 +125,16 @@ class MuData:
         )
 
         # Make obs map for each modality
-        self.obsm = dict()
+        self._obsm = dict()
         for k, v in self.mod.items():
-            self.obsm[k] = self.obs.index.isin(v.obs.index)
-        self.obsm = MuAxisArrays(self, 0, self.obsm)
+            self._obsm[k] = self.obs.index.isin(v.obs.index)
+        self._obsm = MuAxisArrays(self, 0, self._obsm)
 
         # Make var map for each modality
-        self.varm = dict()
+        self._varm = dict()
         for k, v in self.mod.items():
-            self.varm[k] = self.var.index.isin(v.var.index)
-        self.varm = MuAxisArrays(self, 1, self.varm)
+            self._varm[k] = self.var.index.isin(v.var.index)
+        self._varm = MuAxisArrays(self, 1, self._varm)
 
     def _init_common(self):
         self._mudata_ref = None
@@ -184,9 +184,9 @@ class MuData:
             mudata_ref.mod, mudata_ref.obs.index[obsidx], mudata_ref.var.index[varidx]
         )
         self._obs = mudata_ref.obs.iloc[obsidx, :]
-        self.obsm = mudata_ref.obsm._view(self, (obsidx, ...))
+        self._obsm = mudata_ref.obsm._view(self, (obsidx, ...))
         self._var = mudata_ref.var.iloc[varidx, :]
-        self.varm = mudata_ref.varm._view(self, (varidx, ...))
+        self._varm = mudata_ref.varm._view(self, (varidx, ...))
 
         self.is_view = True
         self.file = mudata_ref.file
@@ -199,8 +199,8 @@ class MuData:
         self.mod = data.mod
         self._obs = data.obs
         self._var = data.var
-        self.obsm = MuAxisArrays(self, 0, convert_to_dict(data.obsm))
-        self.varm = MuAxisArrays(self, 1, convert_to_dict(data.varm))
+        self._obsm = MuAxisArrays(self, 0, convert_to_dict(data.obsm))
+        self._varm = MuAxisArrays(self, 1, convert_to_dict(data.varm))
         self.uns = data.uns
 
     @classmethod
@@ -508,6 +508,44 @@ class MuData:
         for k in self.mod:
             self.mod[k].var_names_make_unique()
 
+    # Multi-dimensional annotations (.obsm and .varm)
+
+    @property
+    def obsm(self) -> Union[MuAxisArrays, MuAxisArraysView]:
+        """
+        Multi-dimensional annotation of observation
+        """
+        return self._obsm
+
+    @obsm.setter
+    def obsm(self, value):
+        obsm = MuAxisArrays(self, 0, vals=convert_to_dict(value))
+        if self.is_view:
+            self._init_as_actual(self.copy())
+        self._obsm = obsm
+
+    @obsm.deleter
+    def obsm(self):
+        self.obsm = dict()
+
+    @property
+    def varm(self) -> Union[MuAxisArrays, MuAxisArraysView]:
+        """
+        Multi-dimensional annotation of variables
+        """
+        return self._varm
+
+    @varm.setter
+    def varm(self, value):
+        varm = MuAxisArrays(self, 1, vals=convert_to_dict(value))
+        if self.is_view:
+            self._init_as_actual(self.copy())
+        self._varm = varm
+
+    @varm.deleter
+    def varm(self):
+        self.varm = dict()
+
     # _keys methods to increase compatibility
     # with calls requiring those AnnData methods
 
@@ -549,11 +587,9 @@ class MuData:
     write = write_h5mu
 
     def _gen_repr(self, n_obs, n_vars, extensive: bool = False) -> str:
-        if self.isbacked:
-            backed_at = f" backed at {str(self.filename)!r}"
-        else:
-            backed_at = ""
-        descr = f"MuData object with n_obs × n_vars = {n_obs} × {n_vars}{backed_at}"
+        backed_at = f" backed at {str(self.filename)!r}" if self.isbacked else ""
+        view_of = "View of " if self.is_view else ""
+        descr = f"{view_of}MuData object with n_obs × n_vars = {n_obs} × {n_vars}{backed_at}"
         for attr in ["obs", "var", "obsm", "varm", "obsp", "varp"]:
             if hasattr(self, attr) and getattr(self, attr) is not None:
                 keys = list(getattr(self, attr).keys())
