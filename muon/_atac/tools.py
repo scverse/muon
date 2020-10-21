@@ -288,10 +288,16 @@ def add_genes_peaks_groups(
         return annotation
 
     annotation = adata.uns["atac"]["peak_annotation"]
+    names = adata.uns["rank_genes_groups"]["names"]
 
     adata.uns["rank_genes_groups"]["genes"] = {}
     for i in adata.uns["rank_genes_groups"]["names"].dtype.names:
-        group = adata.uns["rank_genes_groups"]["names"][i]
+        if hasattr(names, "take") and callable(names.take):
+            # E.g. recarray
+            group = names.take(i)
+        else:
+            # E.g. dict
+            group = names[i]
         genes = [
             ", ".join(
                 choose_peak_annotations(annotation, value, peak_type, distance_filter).index.values
