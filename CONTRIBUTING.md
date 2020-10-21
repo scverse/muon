@@ -15,6 +15,7 @@ When creating an issue about a problem that you've encountered (e.g. an error), 
 
 The code that is suggested to be merged into `muon` is expected to follow reasonable Python code styleguides such as the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html). Below there are a few ideas that may help to improve the code quality.
 
+- Format the code with [black](https://github.com/psf/black).
 - Make sure debugging code (e.g. `pdb.set_trace()`) is removed as well as respective dependencies (`import pdb`).
 - Use tools like `pylint` and `flake8` to check proposed code changes.
 - Make sure documentation is changed as well to reflect the changes. That may include external files as well such as respective README.md files.
