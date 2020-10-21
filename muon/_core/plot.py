@@ -138,6 +138,15 @@ def mofa(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
     """
     Scatter plot in MOFA factors coordinates
 
-    See sc.pl.embedding for details.
+    See mu.pl.embedding for details.
     """
     return embedding(mdata, basis="mofa", **kwargs)
+
+
+def umap(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
+    """
+    UMAP Scatter plot
+
+    See mu.pl.embedding for details.
+    """
+    return embedding(mdata, basis="umap", **kwargs)
