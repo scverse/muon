@@ -288,28 +288,56 @@ def add_genes_peaks_groups(
         return annotation
 
     annotation = adata.uns["atac"]["peak_annotation"]
-    names = adata.uns["rank_genes_groups"]["names"]
+    if "peak" not in annotation.columns:
+        raise KeyError("Peak annotation has to contain 'peak' column.")
+
+    # Add gene names
+    index_name = annotation.index.name
+    peaks_genes = annotation.reset_index(drop=False).loc[:, [index_name, "peak"]].set_index("peak")
 
     adata.uns["rank_genes_groups"]["genes"] = {}
     for i in adata.uns["rank_genes_groups"]["names"].dtype.names:
-        if hasattr(names, "take") and callable(names.take):
-            # E.g. recarray
-            group = names.take(i)
-        else:
-            # E.g. dict
-            group = names[i]
-        genes = [
-            ", ".join(
-                choose_peak_annotations(annotation, value, peak_type, distance_filter).index.values
-            )
-            for value in group
-        ]
+        genes = (
+            pd.DataFrame(adata.uns["rank_genes_groups"]["names"][i])
+            .rename({0: "peak"}, axis=1)
+            .join(peaks_genes, on="peak", how="inner", sort=False)
+            .groupby("peak", sort=False)[index_name]
+            .agg([(index_name, ", ".join)])[index_name]
+            .values
+        )
         adata.uns["rank_genes_groups"]["genes"][i] = genes
 
     # Convert to rec.array to match 'names', 'scores', and 'pvals'
     adata.uns["rank_genes_groups"]["genes"] = pd.DataFrame(
         adata.uns["rank_genes_groups"]["genes"]
-    ).to_records()
+    ).to_records(index=False)
+
+    # Filter names, pvals, and genes if necessary
+    if peak_type is not None or distance_filter is not None:
+        # Only leave peaks of required peak type
+        if peak_type is not None:
+            if "peak_type" not in annotation.columns:
+                raise KeyError("Peak annotation has to contain 'peak_type' column.")
+            annotation = annotation[annotation.peak_type == peak_type]
+
+        # Only leave peaks at required distance
+        if distance_filter is not None:
+            if "distance" not in annotation.columns:
+                raise KeyError("Peak annotation has to contain 'distance' column.")
+            annotation = annotation[distance_filter(annotation.distance)]
+
+        filtered_peaks = annotation.peak.values
+
+        raw_len = len(adata.uns["rank_genes_groups"]["names"])
+        for i in adata.uns["rank_genes_groups"]["names"].dtype.names:
+            filtered_idx = np.where(
+                [peak in filtered_peaks for peak in adata.uns["rank_genes_groups"]["names"][i]]
+            )[0]
+            for j in adata.uns["rank_genes_groups"].keys():
+                if len(adata.uns["rank_genes_groups"][j]) == raw_len:
+                    adata.uns["rank_genes_groups"][j] = adata.uns["rank_genes_groups"][j][
+                        filtered_idx
+                    ]
 
 
 def rank_peaks_groups(
