@@ -754,7 +754,7 @@ def count_fragments_features(
             f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {features.shape[0]} features..."
         )
 
-        for i in range(n_features):  # iterate over features (e.g. genes)
+        for i in tqdm(range(n_features)):  # iterate over features (e.g. genes)
             f = features.iloc[i]
             for fr in fragments.fetch(
                 f.Chromosome, f.Start - extend_upstream, f.End + extend_downstream
