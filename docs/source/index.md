@@ -1,5 +1,7 @@
 # Get to know muon
 
+`muon` is a Python framework for multimodal omics analysis. While there are many features that `muon` brings to the table, there are 3 key areas that its functionality is focused on.
+
 ## Multimodal data containers
 
 `muon` introduces multimodal data containers (`MuData` class) allowing Python users to work with increasigly complex datasets efficiently and to build new workflows and computational tools around it.
@@ -21,10 +23,14 @@ mu.tl.mofa(mdata)
 
 ## Methods crafted for omics
 
-`muon` features methods for specific omics such as ATAC-seq and CITE-seq making it an extendable solution and allowing for prospective growth in an open-source environment.
+`muon` features methods for specific omics such as ATAC-seq and CITE-seq making it an extendable solution and enabling growth in an open-source environment.
 
 ```py
+from muon import atac as ac
 ac.pp.tfidf(mdata.mod['atac'])
+
+from muon import prot as pt
+pt.pp.dsb(mdata.mod['prot'])
 ```
 
 Contents
