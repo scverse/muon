@@ -226,8 +226,8 @@ def add_peak_annotation_gene_names(
 # Gene names for peaks
 def add_genes_peaks_groups(
     data: Union[AnnData, MuData],
-    peak_type: Optional[str] = None,
-    distance_filter: Optional[Callable[[int], bool]] = None,
+    add_peak_type: bool = False,
+    add_distance: bool = False,
 ):
     """
     Add gene names to peaks ranked by clustering group
@@ -239,6 +239,15 @@ def add_genes_peaks_groups(
     To create annotation table, first run `muon.atac.tl.add_peak_annotation`.
     To add gene names instead of gene IDs, consider
     running `muon.atac.tl.add_peak_annotation_gene_names` then.
+
+    Parameters
+    ----------
+    data
+        AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+    add_peak_type : bool (False by default)
+        If to add peak type to the ranked peaks per group.
+    add_distance : bool (False by default)
+        If to add distance to the ranked peaks per group.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -257,94 +266,55 @@ def add_genes_peaks_groups(
             "There is no peak annotation yet. Run muon.atac.pp.add_peak_annotation first."
         )
 
-    def choose_peak_annotations(
-        annotation: pd.DataFrame,
-        peak: str,
-        peak_type: Optional[str] = None,
-        distance_filter: Optional[Callable[[int], bool]] = None,
-    ):
-        """
-        annotation (adata.uns['atac']['peak_annotation']), peak_type, and distance_filter
-        are fetched from the outer scope (add_genes_peaks_groups)
-        """
-        if "peak" not in annotation.columns:
-            raise KeyError("Peak annotation has to contain 'peak' column.")
-
-        # Choose all annotations for the peak
-        annotation = annotation[annotation.peak == peak]
-
-        # Pick required peak types
-        if peak_type is not None:
-            if "peak_type" not in annotation.columns:
-                raise KeyError("Peak annotation has to contain 'peak_type' column.")
-            annotation[annotation.peak_type == peak_type]
-
-        # Pick annotations at required distance
-        if distance_filter is not None:
-            if "distance" not in annotation.columns:
-                raise KeyError("Peak annotation has to contain 'distance' column.")
-            annotation = annotation[distance_filter(annotation.distance)]
-
-        return annotation
-
     annotation = adata.uns["atac"]["peak_annotation"]
     if "peak" not in annotation.columns:
         raise KeyError("Peak annotation has to contain 'peak' column.")
 
     # Add gene names
     index_name = annotation.index.name
-    peaks_genes = annotation.reset_index(drop=False).loc[:, [index_name, "peak"]].set_index("peak")
+    columns = [index_name]
+    if add_peak_type:
+        if "peak_type" not in annotation.columns:
+            raise KeyError("Peak annotation has to contain 'peak_type' column.")
+        columns.append("peak_type")
+        adata.uns["rank_genes_groups"]["peak_type"] = {}
+    if add_distance:
+        if "distance" not in annotation.columns:
+            raise KeyError("Peak annotation has to contain 'distance' column.")
+        columns.append("distance")
+        adata.uns["rank_genes_groups"]["distance"] = {}
+        annotation.distance = annotation.distance.astype(str)  # in order to join as strings
+    peaks_genes = annotation.reset_index(drop=False).loc[:, ["peak", *columns]].set_index("peak")
 
     adata.uns["rank_genes_groups"]["genes"] = {}
     for i in adata.uns["rank_genes_groups"]["names"].dtype.names:
-        genes = (
+        ann_ordered = (
             pd.DataFrame(adata.uns["rank_genes_groups"]["names"][i])
             .rename({0: "peak"}, axis=1)
             .join(peaks_genes, on="peak", how="inner", sort=False)
-            .groupby("peak", sort=False)[index_name]
-            .agg([(index_name, ", ".join)])[index_name]
-            .values
+            .groupby("peak", sort=False)
+            .agg(", ".join)
         )
+        genes = ann_ordered[index_name].values
         adata.uns["rank_genes_groups"]["genes"][i] = genes
+        if add_peak_type:
+            peak_types = ann_ordered.peak_type.values
+            adata.uns["rank_genes_groups"]["peak_type"][i] = peak_types
+        if add_distance:
+            peak_distances = ann_ordered.distance.values
+            adata.uns["rank_genes_groups"]["distance"][i] = peak_distances
 
     # Convert to rec.array to match 'names', 'scores', and 'pvals'
     adata.uns["rank_genes_groups"]["genes"] = pd.DataFrame(
         adata.uns["rank_genes_groups"]["genes"]
     ).to_records(index=False)
 
-    # Filter names, pvals, and genes if necessary
-    if peak_type is not None or distance_filter is not None:
-        # Only leave peaks of required peak type
-        if peak_type is not None:
-            if "peak_type" not in annotation.columns:
-                raise KeyError("Peak annotation has to contain 'peak_type' column.")
-            annotation = annotation[annotation.peak_type == peak_type]
-
-        # Only leave peaks at required distance
-        if distance_filter is not None:
-            if "distance" not in annotation.columns:
-                raise KeyError("Peak annotation has to contain 'distance' column.")
-            annotation = annotation[distance_filter(annotation.distance)]
-
-        filtered_peaks = annotation.peak.values
-
-        raw_len = len(adata.uns["rank_genes_groups"]["names"])
-        for i in adata.uns["rank_genes_groups"]["names"].dtype.names:
-            filtered_idx = np.where(
-                [peak in filtered_peaks for peak in adata.uns["rank_genes_groups"]["names"][i]]
-            )[0]
-            for j in adata.uns["rank_genes_groups"].keys():
-                if len(adata.uns["rank_genes_groups"][j]) == raw_len:
-                    adata.uns["rank_genes_groups"][j] = adata.uns["rank_genes_groups"][j][
-                        filtered_idx
-                    ]
-
 
 def rank_peaks_groups(
     data: Union[AnnData, MuData],
     groupby: str,
-    peak_type: Optional[str] = None,
-    distance_filter: Optional[Callable[[int], bool]] = None,
+    add_peak_type: bool = False,
+    add_distance: bool = False,
     **kwargs,
 ):
     """
@@ -361,10 +331,10 @@ def rank_peaks_groups(
         AnnData object with peak counts or MuData object with 'atac' modality.
     groupby : str
         The key of the observations grouping to consider.
-    peak_type : Optional[str]
-        Peak type to filter peaks by (e.g. promoter, distal, or intergenic)
-    distance_filter : Optional[Callable[[int], bool]]
-        Distance to the gene to filter peaks by
+    add_peak_type : bool (False by default)
+        If to add peak type to the ranked peaks per group
+    add_distance : bool (False by default)
+        If to add distance to the ranked peaks per group
     """
 
     if isinstance(data, AnnData):
@@ -376,7 +346,7 @@ def rank_peaks_groups(
 
     sc.tl.rank_genes_groups(adata, groupby, **kwargs)
 
-    add_genes_peaks_groups(adata, peak_type=peak_type, distance_filter=distance_filter)
+    add_genes_peaks_groups(adata, add_peak_type=add_peak_type, add_distance=add_distance)
 
 
 #
