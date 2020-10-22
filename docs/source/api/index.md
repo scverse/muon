@@ -5,17 +5,16 @@
    contain the root `toctree` directive.
 ```
 
-API reference
-================================
+
+# API reference
 
 ```eval_rst
-.. toctree::
-   :maxdepth: 10
-   :caption: Contents:
+.. contents:: :local:
+   :depth: 3
 ```
 
-Multimodal omics
-================
+
+## Multimodal omics
 
 ```eval_rst
 .. module: muon
@@ -30,8 +29,7 @@ Multimodal omics
    muon.utils
 ```
 
-ATAC submodule
-==============
+## ATAC submodule
 
 ```eval_rst
 .. module:: muon.atac
@@ -45,8 +43,7 @@ ATAC submodule
    atac.pl.embedding
 ```
 
-Protein submodule
-=================
+## Protein submodule
 
 ```eval_rst
 .. module:: muon.prot
@@ -58,8 +55,7 @@ Protein submodule
     prot.pp
 ```
 
-Input/Output
-================
+## Input/Output
 
 ```eval_rst
 
@@ -67,4 +63,3 @@ Input/Output
    :functions-only:
    :toctree: generated
 ```
-

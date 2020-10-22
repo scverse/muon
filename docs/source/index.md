@@ -1,6 +1,6 @@
 # Get to know muon
 
-`muon` is a Python framework for multimodal omics analysis. While there are many features that `muon` brings to the table, there are 3 key areas that its functionality is focused on.
+`muon` is a Python framework for multimodal omics analysis. While there are many features that `muon` brings to the table, there are three key areas that its functionality is focused on.
 
 ## Multimodal data containers
 
@@ -35,4 +35,12 @@ pt.pp.dsb(mdata.mod['prot'])
 
 Contents
 --------
-* [API Reference](api/index.md)
+```eval_rst
+.. toctree::
+   :maxdepth: 1
+   :titlesonly:
+
+   API Reference <api/index.md>
+   Input <io/input.md>
+```
+

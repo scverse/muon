@@ -35,6 +35,7 @@ extensions = [
     "recommonmark",
     "sphinx.ext.napoleon",
     "sphinx.ext.autosummary",
+    "sphinx.ext.autodoc",
     "sphinx_automodapi.automodapi",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.mathjax",
@@ -81,10 +82,10 @@ def setup(app):
         {
             #'url_resolver': lambda url: github_doc_root + url,
             "auto_toc_tree_section": "Contents",
+            "enable_auto_toc_tree": True,
             "enable_math": False,
             "enable_inline_math": False,
             "enable_eval_rst": True,
-            "enable_auto_doc_ref": True,
         },
         True,
     )
