@@ -12,7 +12,13 @@ from pandas.api.types import is_string_dtype, is_categorical_dtype
 import anndata
 from anndata import AnnData
 from anndata.utils import convert_to_dict
-from anndata._core.aligned_mapping import AxisArrays, AlignedViewMixin, AxisArraysBase
+from anndata._core.aligned_mapping import (
+    AxisArrays,
+    AlignedViewMixin,
+    AxisArraysBase,
+    PairwiseArrays,
+    PairwiseArraysView,
+)
 
 
 class MuAxisArraysView(AlignedViewMixin, AxisArraysBase):
@@ -87,9 +93,6 @@ class MuData:
             if isinstance(self._obs, abc.Mapping):
                 self._obs = pd.DataFrame(self._obs)
 
-            # Get global obsp
-            self.obsp = kwargs.get("obsp", None)
-
             # Get global variables
             self._var = kwargs.get("var", None)
             if isinstance(self._var, abc.Mapping):
@@ -100,8 +103,8 @@ class MuData:
             # Get global varm
             self._varm = MuAxisArrays(self, 1, kwargs.get("varm", {}))
 
-            # Get global varp
-            self.varp = kwargs.get("varp", None)
+            self._obsp = PairwiseArrays(self, 0, kwargs.get("obsp", {}))
+            self._varp = PairwiseArrays(self, 1, kwargs.get("varp", {}))
 
             # Restore proper .obs and .var
             self.update()
@@ -130,11 +133,15 @@ class MuData:
             self._obsm[k] = self.obs.index.isin(v.obs.index)
         self._obsm = MuAxisArrays(self, 0, self._obsm)
 
+        self._obsp = PairwiseArrays(self, 0, dict())
+
         # Make var map for each modality
         self._varm = dict()
         for k, v in self.mod.items():
             self._varm[k] = self.var.index.isin(v.var.index)
         self._varm = MuAxisArrays(self, 1, self._varm)
+
+        self._varp = PairwiseArrays(self, 1, dict())
 
     def _init_common(self):
         self._mudata_ref = None
@@ -154,10 +161,6 @@ class MuData:
         self.is_view = False
         self.obs_names = None  # required by AxisArrays
         self.var_names = None
-
-        # TODO
-        self.obsp = None
-        self.varp = None
 
     def _init_as_view(self, mudata_ref: "MuData", index):
         def slice_mapping(mapping, obsnames, varnames):
@@ -184,9 +187,11 @@ class MuData:
             mudata_ref.mod, mudata_ref.obs.index[obsidx], mudata_ref.var.index[varidx]
         )
         self._obs = mudata_ref.obs.iloc[obsidx, :]
-        self._obsm = mudata_ref.obsm._view(self, (obsidx, ...))
+        self._obsm = mudata_ref.obsm._view(self, (obsidx,))
+        self._obsp = mudata_ref.obsp._view(self, obsidx)
         self._var = mudata_ref.var.iloc[varidx, :]
-        self._varm = mudata_ref.varm._view(self, (varidx, ...))
+        self._varm = mudata_ref.varm._view(self, (varidx,))
+        self._varp = mudata_ref.varp._view(self, varidx)
 
         self.is_view = True
         self.file = mudata_ref.file
@@ -200,7 +205,9 @@ class MuData:
         self._obs = data.obs
         self._var = data.var
         self._obsm = MuAxisArrays(self, 0, convert_to_dict(data.obsm))
+        self._obsp = PairwiseArrays(self, 0, convert_to_dict(data.obsp))
         self._varm = MuAxisArrays(self, 1, convert_to_dict(data.varm))
+        self._varp = PairwiseArrays(self, 1, convert_to_dict(data.varp))
         self.uns = data.uns
 
     @classmethod
@@ -529,6 +536,24 @@ class MuData:
         self.obsm = dict()
 
     @property
+    def obsp(self) -> Union[PairwiseArrays, PairwiseArraysView]:
+        """
+        Pairwise annotatation of observations
+        """
+        return self._obsp
+
+    @obsp.setter
+    def obsp(self, value):
+        obsp = PairwiseArrays(self, 0, vals=convert_to_dict(value))
+        if self.is_vew:
+            self._init_as_actual(self.copy())
+        self._obsp = obsp
+
+    @obsp.deleter
+    def obsp(self):
+        self.obsp = dict()
+
+    @property
     def varm(self) -> Union[MuAxisArrays, MuAxisArraysView]:
         """
         Multi-dimensional annotation of variables
@@ -545,6 +570,24 @@ class MuData:
     @varm.deleter
     def varm(self):
         self.varm = dict()
+
+    @property
+    def varp(self) -> Union[PairwiseArrays, PairwiseArraysView]:
+        """
+        Pairwise annotatation of variables
+        """
+        return self._varp
+
+    @varp.setter
+    def varp(self, value):
+        varp = PairwiseArrays(self, 0, vals=convert_to_dict(value))
+        if self.is_vew:
+            self._init_as_actual(self.copy())
+        self._varp = varp
+
+    @varp.deleter
+    def varp(self):
+        self.varp = dict()
 
     # _keys methods to increase compatibility
     # with calls requiring those AnnData methods
