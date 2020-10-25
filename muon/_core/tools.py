@@ -4,6 +4,7 @@ from typing import Union, Optional, List, Iterable
 import logging
 from datetime import datetime
 from time import strftime
+from warnings import warn
 
 import numpy as np
 import h5py
@@ -95,6 +96,8 @@ def _set_mofa_data_from_mudata(
     # Subset features if required
     if features_subset is not None:
         for i, m in enumerate(mdata.mod.keys()):
+            if features_subset not in mdata.mod[m].var.columns:
+                raise KeyError(f"There is no column {features_subset} in .var for modality {m}")
             data[i] = data[i][:, mdata.mod[m].var[features_subset].values]
 
     # Save dimensionalities
@@ -199,7 +202,7 @@ def mofa(
     groups_label: bool = None,
     use_raw: bool = False,
     use_layer: bool = None,
-    features_subset: Optional[str] = None,
+    features_subset: Optional[str] = "highly_variable",
     likelihoods: Optional[Union[str, List[str]]] = None,
     n_factors: int = 10,
     scale_views: bool = False,
@@ -304,6 +307,11 @@ def mofa(
     if outfile is None:
         outfile = os.path.join("/tmp", "mofa_{}.hdf5".format(strftime("%Y%m%d-%H%M%S")))
 
+    if features_subset:
+        if features_subset not in data.var.columns:
+            warn(f"There is no column {features_subset}, using all the features (variables)")
+            features_subset = None
+
     ent = entry_point()
 
     lik = likelihoods
@@ -357,23 +365,25 @@ def mofa(
     f = h5py.File(outfile)
     if copy:
         data = data.copy()
+
+    # Factors
     data.obsm["X_mofa"] = np.concatenate(
         [v[:, :] for k, v in f["expectations"]["Z"].items()], axis=1
     ).T
-    if features_subset is None:
-        # Loadings can be saved only if all the features were used in training
-        data.varm["LFs"] = np.concatenate(
-            [v[:, :] for k, v in f["expectations"]["W"].items()], axis=1
-        ).T
+
+    # Weights
+    w = np.concatenate([v[:, :] for k, v in f["expectations"]["W"].items()], axis=1).T
+    if features_subset:
+        # Set the weights of features that were not used to zero
+        data.varm["LFs"] = np.zeros(shape=(data.n_vars, w.shape[1]))
+        data.varm["LFs"][data.var[features_subset]] = w
+    else:
+        data.varm["LFs"] = w
+
     if copy:
         return data
     else:
-        if features_subset is None:
-            print(
-                "Saved MOFA embeddings in .obsm['X_mofa'] slot and their loadings in .varm['LFs']."
-            )
-        else:
-            print("Saved MOFA embeddings in .obsm['X_mofa'] slot.")
+        print("Saved MOFA embeddings in .obsm['X_mofa'] slot and their loadings in .varm['LFs'].")
 
     return None
 
