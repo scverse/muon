@@ -498,10 +498,10 @@ def snf(mdata: MuData, key: str = "connectivities", k: int = 20, iterations: int
 #
 
 
-def cluster(
+def _cluster(
     data: Union[MuData, AnnData],
     resolution: Optional[Union[float, Sequence[float], Mapping[str, float]]] = None,
-    layer_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
+    mod_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
     random_state: int = 0,
     key_added: str = "louvain",
     neighbors_key: str = None,
@@ -558,18 +558,18 @@ def cluster(
 
         gs[mod] = g
 
-    if layer_weights:
-        if isinstance(layer_weights, Mapping):
-            lws = [layer_weights.get(mod, 1) for mod in mdata.mod]
-        elif isinstance(layer_weights, Sequence) and not isinstance(layer_weights, str):
-            assert len(layer_weights) == len(
+    if mod_weights:
+        if isinstance(mod_weights, Mapping):
+            layer_weights = [mod_weights.get(mod, 1) for mod in mdata.mod]
+        elif isinstance(mod_weights, Sequence) and not isinstance(mod_weights, str):
+            assert len(mod_weights) == len(
                 mdata.mod
-            ), f"Length of layers_weights ({len(layer_weights)}) does not match the number of modalities ({len(mdata.mod)})"
-            lws = layer_weights
+            ), f"Length of layers_weights ({len(mod_weights)}) does not match the number of modalities ({len(mdata.mod)})"
+            layer_weights = mod_weights
         else:
-            lws = [layer_weights for _ in mdata.mod]
+            layer_weights = [mod_weights for _ in mdata.mod]
     else:
-        lws = None
+        layer_weights = None
 
     if partition_type is None:
         partition_type = alg.RBConfigurationVertexPartition
@@ -606,7 +606,7 @@ def cluster(
 
     improv = optimiser.optimise_partition_multiplex(
         partitions=parts,
-        layer_weights=lws,
+        layer_weights=layer_weights,
         **kwargs,
     )
 
@@ -630,7 +630,7 @@ def cluster(
 def leiden(
     data: Union[MuData, AnnData],
     resolution: Optional[Union[float, Sequence[float], Mapping[str, float]]] = None,
-    layer_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
+    mod_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
     random_state: int = 0,
     key_added: str = "leiden",
     neighbors_key: str = None,
@@ -642,13 +642,56 @@ def leiden(
     """
     Cluster cells using the Leiden algorithm.
 
+    This runs only the multiplex Leiden algorithm on the MuData object
+    using connectivities of individual modalities
+    (see `documentation <https://leidenalg.readthedocs.io/en/stable/multiplex.html>`_ for more details).
+    For that, :func:`scanpy.pp.neighbors` should be run first for each modality.
+
+    For taking use of ``mdata.obsp['connectivities']``, it's :func:`scanpy.tl.leiden` that should be used.
     See :func:`scanpy.tl.leiden` for details.
+
+    Parameters
+    ----------
+    data
+        :class:`muon.MuData` object.
+    resolution
+        Resolution parameter controlling coarseness of the clustering
+        (higher values -> more clusters).
+        To use different resolution per modality, dictionary ``{mod: value}``
+        or list/tuple ``[value_mod1, value_mod2, ...]``.
+        Single value to use the same resolution for all modalities.
+    mod_weights
+        Weight each modality controlling its contribution
+        (higher values -> more important).
+        To use different weight per modality, dictionary ``{mod: value}``
+        or list/tuple ``[value_mod1, value_mod2, ...]``.
+        Single value to use the same weight for all modalities.
+    random_state
+        Random seed for the optimization.
+    key_added
+        `mdata.obs` key where cluster labels to be added.
+    neighbors_key
+        Use neighbors connectivities as adjacency.
+        If not specified, look for ``.obsp['connectivities']`` in each modality.
+        If specified, look for
+        ``.obsp[.uns[neighbors_key]['connectivities_key']]`` in each modality
+        for connectivities.
+    directed
+        Treat the graph as directed or undirected.
+    partition_type
+        Type of partition to use,
+        :class:`~leidenalg.RBConfigurationVertexPartition` by default.
+        See :func:`~leidenalg.find_partition` for more details.
+    partition_kwargs
+        Arguments to be passed to the ``partition_type``.
+    **kwargs
+        Arguments to be passed to ``optimizer.optimise_partition_multiplex()``.
     """
 
-    return cluster(
+    return _cluster(
         data=data,
         resolution=resolution,
-        layer_weights=layer_weights,
+        mod_weights=mod_weights,
         random_state=random_state,
         key_added=key_added,
         neighbors_key=neighbors_key,
@@ -663,7 +706,7 @@ def leiden(
 def louvain(
     data: Union[MuData, AnnData],
     resolution: Optional[Union[float, Sequence[float], Mapping[str, float]]] = None,
-    layer_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
+    mod_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
     random_state: int = 0,
     key_added: str = "louvain",
     neighbors_key: str = None,
@@ -675,13 +718,56 @@ def louvain(
     """
     Cluster cells using the Louvain algorithm.
 
+    This runs only the multiplex Louvain algorithm on the MuData object
+    using connectivities of individual modalities
+    (see `documentation <https://louvain-igraph.readthedocs.io/en/latest/multiplex.html>`_ for more details).
+    For that, :func:`scanpy.pp.neighbors` should be run first for each modality.
+
+    For taking use of ``mdata.obsp['connectivities']``, it's :func:`scanpy.tl.louvain` that should be used.
     See :func:`scanpy.tl.louvain` for details.
+
+    Parameters
+    ----------
+    data
+        :class:`muon.MuData` object.
+    resolution
+        Resolution parameter controlling coarseness of the clustering
+        (higher values -> more clusters).
+        To use different resolution per modality, dictionary ``{mod: value}``
+        or list/tuple ``[value_mod1, value_mod2, ...]``.
+        Single value to use the same resolution for all modalities.
+    mod_weights
+        Weight each modality controlling its contribution
+        (higher values -> more important).
+        To use different weight per modality, dictionary ``{mod: value}``
+        or list/tuple ``[value_mod1, value_mod2, ...]``.
+        Single value to use the same weight for all modalities.
+    random_state
+        Random seed for the optimization.
+    key_added
+        `mdata.obs` key where cluster labels to be added.
+    neighbors_key
+        Use neighbors connectivities as adjacency.
+        If not specified, look for ``.obsp['connectivities']`` in each modality.
+        If specified, look for
+        ``.obsp[.uns[neighbors_key]['connectivities_key']]`` in each modality
+        for connectivities.
+    directed
+        Treat the graph as directed or undirected.
+    partition_type
+        Type of partition to use,
+        :class:`~louvain.RBConfigurationVertexPartition` by default.
+        See :func:`~louvain.find_partition` for more details.
+    partition_kwargs
+        Arguments to be passed to the ``partition_type``.
+    **kwargs
+        Arguments to be passed to ``optimizer.optimise_partition_multiplex()``.
     """
 
-    return cluster(
+    return _cluster(
         data=data,
         resolution=resolution,
-        layer_weights=layer_weights,
+        mod_weights=mod_weights,
         random_state=random_state,
         key_added=key_added,
         neighbors_key=neighbors_key,
