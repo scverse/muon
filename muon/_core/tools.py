@@ -1,15 +1,39 @@
 import sys
 import os
-from typing import Union, Optional, List, Iterable
+
 import logging
 from datetime import datetime
 from time import strftime
 from warnings import warn
 
 import numpy as np
+import pandas as pd
 import h5py
+from natsort import natsorted
 from anndata import AnnData
 from .mudata import MuData
+
+from typing import Union, Optional, List, Iterable, Mapping, Sequence, Type, Any, Literal
+from types import MappingProxyType
+
+try:
+    from louvain.VertexPartition import MutableVertexPartition as LouvainMutableVertexPartition
+except ImportError:
+
+    class LouvainMutableVertexPartition:
+        pass
+
+    LouvainMutableVertexPartition.__module__ = "louvain.VertexPartition"
+
+try:
+    from leidenalg.VertexPartition import MutableVertexPartition as LeidenMutableVertexPartition
+except ImportError:
+
+    class LeidenMutableVertexPartition:
+        pass
+
+    LeidenMutableVertexPartition.__module__ = "leidenalg.VertexPartition"
+
 
 #
 # Multi-omics factor analysis (MOFA)
@@ -466,3 +490,203 @@ def snf(mdata: MuData, key: str = "connectivities", k: int = 20, iterations: int
     w = _normalize(w)
 
     mdata.obsp[key] = w
+
+
+#
+# Clustering: Louvain and Leiden
+#
+
+
+def cluster(
+    data: Union[MuData, AnnData],
+    resolution: Optional[Union[float, Sequence[float], Mapping[str, float]]] = None,
+    layer_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
+    random_state: int = 0,
+    key_added: str = "louvain",
+    neighbors_key: str = None,
+    directed: bool = True,
+    partition_type: Optional[
+        Union[Type[LeidenMutableVertexPartition], Type[LouvainMutableVertexPartition]]
+    ] = None,
+    partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
+    algorithm: Literal["leiden", "louvain"] = "leiden",
+    **kwargs,
+):
+    """
+    Cluster cells using the Leiden or Louvain algorithm.
+
+    See :func:`scanpy.tl.leiden` and :func:`scanpy.tl.louvain` for details.
+    """
+
+    from scanpy.tools._utils import _choose_graph
+    from scanpy._utils import get_igraph_from_adjacency
+
+    if algorithm == "louvain":
+        import louvain
+
+        alg = louvain
+    elif algorithm == "leiden":
+        import leidenalg
+
+        alg = leidenalg
+    else:
+        raise ValueError(f"Algorithms should be either 'louvain' or 'leiden', not '{algorithm}'")
+
+    if isinstance(data, AnnData):
+        sc_tl_cluster = sc.tl.leiden if algorithm == "leiden" else sc.tl.louvain
+        return sc_tl_cluster(
+            data,
+            resolution=resolution,
+            random_state=random_state,
+            key_added=key_added,
+            neighbors_key=neighbors_key,
+            **kwargs,
+        )
+    elif isinstance(data, MuData):
+        mdata = data
+    else:
+        raise TypeError("Expected a MuData object")
+
+    partition_kwargs = dict(partition_kwargs)
+
+    gs = {}
+
+    for mod in mdata.mod:
+        adjacency = _choose_graph(mdata.mod[mod], None, neighbors_key)
+        g = get_igraph_from_adjacency(adjacency, directed=directed)
+
+        gs[mod] = g
+
+    if layer_weights:
+        if isinstance(layer_weights, Mapping):
+            lws = [layer_weights.get(mod, 1) for mod in mdata.mod]
+        elif isinstance(layer_weights, Sequence) and not isinstance(layer_weights, str):
+            assert len(layer_weights) == len(
+                mdata.mod
+            ), f"Length of layers_weights ({len(layer_weights)}) does not match the number of modalities ({len(mdata.mod)})"
+            lws = layer_weights
+        else:
+            lws = [layer_weights for _ in mdata.mod]
+    else:
+        lws = None
+
+    if partition_type is None:
+        partition_type = alg.RBConfigurationVertexPartition
+
+    optimiser = alg.Optimiser()
+    if random_state:
+        optimiser.set_rng_seed(random_state)
+
+    # The same as leiden.find_partition_multiplex() (louvain.find_partition_multiplex())
+    # but allows to specify resolution for each modality
+    if resolution:
+        if isinstance(resolution, Mapping):
+            # Specific resolution for each modality
+            parts = [
+                partition_type(gs[mod], resolution_parameter=resolution[mod], **partition_kwargs)
+                for mod in mdata.mod
+            ]
+        elif isinstance(resolution, Sequence) and not isinstance(resolution, str):
+            assert len(resolution) == len(
+                mdata.mod
+            ), f"Length of resolution ({len(resolution)}) does not match the number of modalities ({len(mdata.mod)})"
+            parts = [
+                partition_type(gs[mod], resolution_parameter=resolution[i], **partition_kwargs)
+                for i, mod in enumerate(mdata.mod)
+            ]
+        else:
+            # Single resolution for all modalities
+            parts = [
+                partition_type(gs[mod], resolution_parameter=resolution, **partition_kwargs)
+                for mod in mdata.mod
+            ]
+    else:
+        parts = [partition_type(gs[mod], **partition_kwargs) for mod in mdata.mod]
+
+    improv = optimiser.optimise_partition_multiplex(
+        partitions=parts,
+        layer_weights=lws,
+        **kwargs,
+    )
+
+    # All partitions are the same
+    groups = np.array(parts[0].membership)
+
+    mdata.obs[key_added] = pd.Categorical(
+        values=groups.astype("U"),
+        categories=natsorted(map(str, np.unique(groups))),
+    )
+    mdata.uns[algorithm] = {}
+    mdata.uns[algorithm]["params"] = dict(
+        resolution=resolution,
+        random_state=random_state,
+        partition_improvement=improv,
+    )
+
+    return None
+
+
+def leiden(
+    data: Union[MuData, AnnData],
+    resolution: Optional[Union[float, Sequence[float], Mapping[str, float]]] = None,
+    layer_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
+    random_state: int = 0,
+    key_added: str = "leiden",
+    neighbors_key: str = None,
+    directed: bool = True,
+    partition_type: Optional[Type[LeidenMutableVertexPartition]] = None,
+    partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
+    **kwargs,
+):
+    """
+    Cluster cells using the Leiden algorithm.
+
+    See :func:`scanpy.tl.leiden` for details.
+    """
+
+    return cluster(
+        data=data,
+        resolution=resolution,
+        layer_weights=layer_weights,
+        random_state=random_state,
+        key_added=key_added,
+        neighbors_key=neighbors_key,
+        directed=directed,
+        partition_type=partition_type,
+        partition_kwargs=partition_kwargs,
+        algorithm="leiden",
+        **kwargs,
+    )
+
+
+def louvain(
+    data: Union[MuData, AnnData],
+    resolution: Optional[Union[float, Sequence[float], Mapping[str, float]]] = None,
+    layer_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
+    random_state: int = 0,
+    key_added: str = "louvain",
+    neighbors_key: str = None,
+    directed: bool = True,
+    partition_type: Optional[Type[LouvainMutableVertexPartition]] = None,
+    partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
+    **kwargs,
+):
+    """
+    Cluster cells using the Louvain algorithm.
+
+    See :func:`scanpy.tl.louvain` for details.
+    """
+
+    return cluster(
+        data=data,
+        resolution=resolution,
+        layer_weights=layer_weights,
+        random_state=random_state,
+        key_added=key_added,
+        neighbors_key=neighbors_key,
+        directed=directed,
+        partition_type=partition_type,
+        partition_kwargs=partition_kwargs,
+        algorithm="louvain",
+        **kwargs,
+    )
