@@ -14,7 +14,7 @@ from natsort import natsorted
 from anndata import AnnData
 from .mudata import MuData
 
-from typing import Union, Optional, List, Iterable, Mapping, Sequence, Type, Any, Literal
+from typing import Union, Optional, List, Iterable, Mapping, Sequence, Type, Any
 from types import MappingProxyType
 
 try:
@@ -510,7 +510,7 @@ def cluster(
         Union[Type[LeidenMutableVertexPartition], Type[LouvainMutableVertexPartition]]
     ] = None,
     partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
-    algorithm: Literal["leiden", "louvain"] = "leiden",
+    algorithm: str = "leiden",  # Literal["leiden", "louvain"]
     **kwargs,
 ):
     """
