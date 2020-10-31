@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 Input data
-============
+==========
 
 A default way to import ``muon`` and omic-specific modules (when necessary) is the following:
 ::
@@ -73,4 +73,4 @@ Snap files
 
 It can be then combined with AnnData with gene expression counts in one MuData object.
 ::
-	mdata = mu.MuData({'atac': adata_atac, 'rna': adata_rna})
+	mdata = mu.MuData({'atac': atac, 'rna': rna})
