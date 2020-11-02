@@ -6,7 +6,7 @@ Get to know muon
 Multimodal data containers
 --------------------------
 
-``muon`` introduces multimodal data containers (`MuData` class) allowing Python users to work with increasigly complex datasets efficiently and to build new workflows and computational tools around it.
+``muon`` introduces multimodal data containers (:class:`muon.MuData` class) allowing Python users to work with increasigly complex datasets efficiently and to build new workflows and computational tools around it.
 ::
 	MuData object with n_obs × n_vars = 10110 × 110101
 	 2 modalities
@@ -40,5 +40,10 @@ Methods crafted for omics
    :maxdepth: 1
 
    io/input
+   io/mudata
+   omics/multi
+   omics/atac
+   omics/citeseq
+   io/output
    api/index
 

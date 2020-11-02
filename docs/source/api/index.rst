@@ -42,9 +42,9 @@ ATAC submodule
 .. autosummary::
    :toctree: generated
 
-   atac.pl.pca
-   atac.pl.umap
-   atac.pl.embedding
+   atac.pp
+   atac.tl
+   atac.pl
 
 
 Protein submodule
