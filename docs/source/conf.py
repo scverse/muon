@@ -74,10 +74,10 @@ html_theme = "sphinx_rtd_theme"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-html_logo = "../img/muon_header.png"
+html_logo = "../img/muon_logo.png"
 html_theme_options = {
-    'logo_only': True,
-    'display_version': False,
+    "logo_only": True,
+    "display_version": False,
 }
 
 # app setup hook
@@ -95,4 +95,4 @@ def setup(app):
         True,
     )
     app.add_transform(AutoStructify)
-    app.add_css_file('styles.css')
+    app.add_css_file("styles.css")
