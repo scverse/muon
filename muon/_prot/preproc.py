@@ -180,7 +180,9 @@ def dsb(
             ctrl_idx = np.where(cells.var_names.isin(set(isotype_controls)))[0]
             if len(ctrl_idx) < len(isotype_controls):
                 warn("Some isotype controls are not present in the data.")
-            covar = pca.fit_transform(np.hstack(cells_scaled[:, ctrl_idx], bgmeans))
+            covar = pca.fit_transform(
+                np.hstack((cells_scaled[:, ctrl_idx], bgmeans.reshape(-1, 1)))
+            )
         else:
             covar = bgmeans[:, np.newaxis]
 
