@@ -109,6 +109,8 @@ class MuData:
             # Restore proper .obs and .var
             self.update()
 
+            self.uns = kwargs.get("uns", {})
+
             return
 
         # Initialise global observations
