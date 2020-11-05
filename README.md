@@ -4,11 +4,11 @@
 
 ## Data structure
 
-In the same vein as [scanpy](https://github.com/theislab/scanpy) and [AnnData](https://github.com/theislab/anndata) are designed to work with scRNA-seq data in Python, `muon` is designed to provide functionality to load, process, and store multimodal omics data.
+In the same vein as [scanpy](https://github.com/theislab/scanpy) and [AnnData](https://github.com/theislab/anndata) are designed to work with scRNA-seq data in Python, `muon` and `MuData` are designed to provide functionality to load, process, and store multimodal omics data.
 
 
 ```
-muon
+MuData
   .obs     -- annotation of observations (cells, samples)
   .var     -- annotation of features (genes, genomic loci, etc.)
   .obsm    -- multidimensional cell annotation, 
@@ -20,8 +20,10 @@ muon
   .mod
     AnnData
       .X    -- data matrix (cells x features)
-      .var  -- annotation of features (genes, genomics sites or windows)
       .obs  -- cells metadata (assay-specific)
+      .var  -- annotation of features (genes, peaks, genomic sites)
+      .obsm
+      .varm
       .uns
   .uns
 ```
