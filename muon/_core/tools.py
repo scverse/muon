@@ -1,5 +1,6 @@
 import sys
 import os
+from functools import reduce
 
 import logging
 from datetime import datetime
@@ -50,6 +51,7 @@ def _set_mofa_data_from_mudata(
     likelihoods=None,
     features_subset=None,
     save_metadata=None,
+    use_obs=None,
 ):
     """
     Input the data in MuData format
@@ -63,6 +65,8 @@ def _set_mofa_data_from_mudata(
     use_layer : optional: use a specific layer of AnnData as input values (supersedes use_raw option)
     likelihoods : optional: likelihoods to use (guessed from the data if not provided)
     features_subset : optional: .var column with a boolean value to select genes (e.g. "highly_variable"), None by default
+    save_metadata : optional: save metadata for samples (cells) and for features
+    use_obs : optional: 'union' or 'intersection', relevant when not all samples (cells) are the same across views
     """
 
     try:
@@ -77,6 +81,17 @@ def _set_mofa_data_from_mudata(
     if not hasattr(model, "data_opts"):
         # print("Data options not defined before setting the data, using default values...")
         model.set_data_options()
+
+    # Use the union or the intersection of observations
+    obs_names = mdata.obs.index.values
+    if use_obs:
+        if use_obs == "intersection":
+            common_obs = reduce(np.intersect1d, [v.obs_names.values for k, v in mdata.mod.items()])
+            mdata = mdata[common_obs]
+        elif use_obs == "union":  # expand matrices later
+            pass
+        else:
+            raise ValueError("Expected `use_obs` to be 'union' or 'intersection")
 
     # Check groups_label is defined properly
     n_groups = 1  # no grouping by default
@@ -100,7 +115,7 @@ def _set_mofa_data_from_mudata(
                 if callable(getattr(adata.layers[use_layer], "todense", None)):
                     data.append(np.array(adata.layers[use_layer].todense()))
                 else:
-                    data.append(adata.layers[use_layer])
+                    data.append(adata.layers[use_layer].copy())
             else:
                 print("Error: Layer {} does not exist".format(use_layer))
                 sys.stdout.flush()
@@ -116,7 +131,32 @@ def _set_mofa_data_from_mudata(
             if callable(getattr(adata.X, "todense", None)):
                 data.append(np.array(adata.X.todense()))
             else:
-                data.append(adata.X)
+                data.append(adata.X.copy())
+
+    # Expand samples (cells) if union is required
+    if use_obs == "union":
+        n = mdata.shape[0]
+        mods = tuple(mdata.mod.keys())
+        obs_names = mdata.obs.index.values
+        n = len(obs_names)
+        for i, x in enumerate(data):
+            m = mods[i]
+
+            # empty matrix of right dimensions
+            x = np.empty(shape=(n, x.shape[1]))
+            x[:] = np.nan
+
+            # use pandas data frames indices to expand obs
+            orig = mdata[m].obs.loc[:, []].copy()
+            expanded = orig.reindex(obs_names)
+
+            # find indices in the expanded matrix to copy orig data
+            expanded["ix"] = range(n)
+            ix = expanded.join(orig, how="right").ix.values
+
+            # set expanded data with part of the orig data
+            x[ix, :] = mdata[m].X
+            data[i] = x
 
     # Subset features if required
     if features_subset is not None:
@@ -144,7 +184,7 @@ def _set_mofa_data_from_mudata(
     else:
         model.data_opts["features_names"] = [adata.var_names for adata in mdata.mod.values()]
 
-    if save_metadata:
+    if save_metadata and mdata.var.shape[1] > 0:
         if features_subset is not None:
             model.data_opts["features_metadata"] = [
                 adata.var[adata.var[features_subset].values] for adata in mdata.mod.values()
@@ -157,7 +197,7 @@ def _set_mofa_data_from_mudata(
         model.data_opts["groups_names"] = ["group1"]
         model.data_opts["samples_names"] = [mdata.obs.index.values.tolist()]
         model.data_opts["samples_groups"] = ["group1"] * N
-        if save_metadata:
+        if save_metadata and mdata.obs.shape[1] > 0:
             model.data_opts["samples_metadata"] = [mdata.obs]
     else:
         # While grouping the pandas.DataFrame, the group_label would be sorted.
@@ -227,7 +267,8 @@ def mofa(
     groups_label: bool = None,
     use_raw: bool = False,
     use_layer: bool = None,
-    features_subset: Optional[str] = "highly_variable",
+    use_var: Optional[str] = "highly_variable",
+    use_obs: Optional[str] = None,
     likelihoods: Optional[Union[str, List[str]]] = None,
     n_factors: int = 10,
     scale_views: bool = False,
@@ -264,8 +305,10 @@ def mofa(
             use raw slot of AnnData as input values
     use_layer : optional
             use a specific layer of AnnData as input values (supersedes use_raw option)
-    features_subset : optional
+    use_var : optional
             .var column with a boolean value to select genes (e.g. "highly_variable"), None by default
+    use_obs : optional
+            strategy to deal with samples (cells) not being the same across modalities ("union" or "intersection", throw error by default)
     likelihoods : optional
             likelihoods to use, default is guessed from the data
     n_factors : optional
@@ -332,10 +375,24 @@ def mofa(
     if outfile is None:
         outfile = os.path.join("/tmp", "mofa_{}.hdf5".format(strftime("%Y%m%d-%H%M%S")))
 
-    if features_subset:
-        if features_subset not in data.var.columns:
-            warn(f"There is no column {features_subset}, using all the features (variables)")
-            features_subset = None
+    if use_var:
+        if use_var not in data.var.columns:
+            warn(f"There is no column {use_var} in the provided object")
+            use_var = None
+
+    if isinstance(data, MuData):
+        common_obs = reduce(np.intersect1d, [v.obs_names.values for k, v in mdata.mod.items()])
+        if len(common_obs) != mdata.n_vars:
+            if not use_obs:
+                raise IndexError(
+                    "Not all the observations are the same across modalities. Please run `mdata.intersect_obs()` to subset the data or devise a strategy with `use_obs` ('union' or 'intersection')"
+                )
+            elif use_obs not in ["union", "intersection"]:
+                raise ValueError(
+                    f"Expected `use_obs` argument to be 'union' or 'intersection', not '{use_obs}'"
+                )
+        else:
+            use_obs = None
 
     ent = entry_point()
 
@@ -355,8 +412,9 @@ def mofa(
         use_raw=use_raw,
         use_layer=use_layer,
         likelihoods=lik,
-        features_subset=features_subset,
+        features_subset=use_var,
         save_metadata=save_metadata,
+        use_obs=use_obs,
     )
     ent.set_model_options(
         ard_factors=ard_factors,
@@ -392,16 +450,21 @@ def mofa(
         data = data.copy()
 
     # Factors
-    data.obsm["X_mofa"] = np.concatenate(
-        [v[:, :] for k, v in f["expectations"]["Z"].items()], axis=1
-    ).T
+    z = np.concatenate([v[:, :] for k, v in f["expectations"]["Z"].items()], axis=1).T
+    if use_obs and use_obs == "intersection":  # data is MuData and common_obsm is available
+        # Set factor values outside of the obs intersection to nan
+        data.obsm["X_mofa"] = np.empty(shape=(data.n_obs, z.shape[1]))
+        data.obsm["X_mofa"][:] = np.nan
+        data.obsm["X_mofa"][data.obs.index.isin(common_obs)] = z
+    else:
+        data.obsm["X_mofa"] = z
 
     # Weights
     w = np.concatenate([v[:, :] for k, v in f["expectations"]["W"].items()], axis=1).T
-    if features_subset:
+    if use_var:
         # Set the weights of features that were not used to zero
         data.varm["LFs"] = np.zeros(shape=(data.n_vars, w.shape[1]))
-        data.varm["LFs"][data.var[features_subset]] = w
+        data.varm["LFs"][data.var[use_var]] = w
     else:
         data.varm["LFs"] = w
 
