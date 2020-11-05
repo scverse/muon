@@ -382,7 +382,7 @@ def mofa(
 
     if isinstance(data, MuData):
         common_obs = reduce(np.intersect1d, [v.obs_names.values for k, v in mdata.mod.items()])
-        if len(common_obs) != mdata.n_vars:
+        if len(common_obs) != mdata.n_obs:
             if not use_obs:
                 raise IndexError(
                     "Not all the observations are the same across modalities. Please run `mdata.intersect_obs()` to subset the data or devise a strategy with `use_obs` ('union' or 'intersection')"
