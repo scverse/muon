@@ -16,8 +16,26 @@ Multimodal data containers
 
    *
 
-``.obs`` & ``.var``
----------------------
+
+.mod
+----
+
+Modalities are stored in a collection accessible via the ``.mod`` attribute of the ``MuData`` object with names of modalities as keys and ``AnnData`` objects as values.
+::
+	list(mdata.mod.keys())
+	# => ['atac', 'rna']
+
+
+Individual modalities can be accessed with their names via the ``.mod`` attribute or via the ``MuData`` object itself as a shorthand:
+::
+	mdata.mod['rna']
+	# or
+	mdata['rna']
+	# => AnnData object
+
+
+.obs & .var
+-----------
 
 Samples (cells) annotation is accessible via the ``.obs`` attribute and by default includes copies of columns from ``.obs`` data frames of individual modalities. Same goes for ``.var``, which contains annotation of variables (features). When those columns are changed in ``AnnData`` objects of modalities, the changes have to be fetched with the ``.update()`` method:
 ::
@@ -25,8 +43,8 @@ Samples (cells) annotation is accessible via the ``.obs`` attribute and by defau
 
 
 
-``.obsm``
----------
+.obsm
+-----
 
 Multidimensional annotations of samples (cells) are accessible in the ``.obsm`` attribute. For instance, that can be UMAP coordinates that were learnt jointly on all modalities. Or `MOFA <https://biofam.github.io/MOFA2/>`_ embeddings — a generalisation of PCA to multiple omics.
 ::
