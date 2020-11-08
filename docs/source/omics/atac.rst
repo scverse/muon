@@ -8,7 +8,7 @@ ATAC-seq
 ATAC stands for an *assay for transposase-accessible chromatin*. Count matrices for this data type typically include transposase cuts counts aggregated in peaks as well as bins (windows along the genome) or features such as transcription start sites of genes.
 
 .. contents:: :local:
-    :depth: 3
+	:depth: 3
 
 .. toctree::
    :maxdepth: 10
@@ -39,4 +39,28 @@ Another option is to use log-normalisation correcting for the total number of co
 Since scATAC-seq count matrix is very sparse and most non-zero values in it are `1` and `2`, some workflows also binarise the matrix prior to its downstream analysis:
 ::
 	ac.pp.binarize(atac)
+
+
+Differentially accessible peaks
+-------------------------------
+
+Peaks can be tested for differential accessibility in groups of cells with :func:`muon.atac.tl.rank_peaks_groups` in the same way as genes can be tested for differential expression with ``scanpy.tl.rank_genes_groups``. The former function is actually using the latter under the hood so its behaviour is reproducible and familiar to the user but also automatically adds gene names with :func:`muon.atac.tl.add_genes_peaks_groups` so that the result is more interpretable:
+::
+	ac.tl.rank_peaks_groups(atac, 'leiden')
+	# => adds 'rank_genes_groups' in .uns
+
+	result = atac.uns['rank_genes_groups']
+	groups = result['names'].dtype.names
+
+	# One of the ways to format result as a table
+	import pandas as pd
+	pd.DataFrame(
+	  {
+	    group + "_" + key[:1]: result[key][group]
+	      for group in groups
+	      for key in ["names", "genes", "pvals"]
+	  }
+	)
+
+
 

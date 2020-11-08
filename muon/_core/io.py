@@ -30,8 +30,6 @@ def read_10x_h5(filename: Union[str, Path], extended: bool = True, *args, **kwar
     - attempt to locate peak annotation file and add peak annotation;
     - attempt to locate fragments file.
 
-    Ideally it is merged later to scanpy.read_10x_h5().
-
     Parameters
     ----------
     filename : str
@@ -85,8 +83,6 @@ def read_10x_mtx(path: Union[str, Path], extended: bool = True, *args, **kwargs)
     - attempt to read `interval` field for features;
     - (for ATAC-seq) attempt to locate peak annotation file and add peak annotation;
     - (for ATAC-seq) attempt to locate fragments file.
-
-    Ideally it is merged later to scanpy.read_10x_mtx().
 
     Parameters
     ----------

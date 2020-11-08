@@ -29,7 +29,7 @@ There are various ways in which the data can be provided to ``muon`` to create a
 Count matrices
 --------------
 
-Read `Cell Ranger <https://support.10xgenomics.com/single-cell-multiome-atac-gex/software/pipelines/latest/what-is-cell-ranger-arc>`_ HDF5 files, ``raw_feature_bc_matrix.h5`` and ``filtered_feature_bc_matrix.h5``, which contain counts for features across all modalities:
+Read `Cell Ranger <https://support.10xgenomics.com/single-cell-multiome-atac-gex/software/pipelines/latest/what-is-cell-ranger-arc>`_ HDF5 files, ``raw_feature_bc_matrix.h5`` and ``filtered_feature_bc_matrix.h5``, which contain counts for features across all modalities, with :func:`muon.read_10x_h5`:
 ::
 	mdata = mu.read_10x_h5("filtered_feature_bc_matrix.h5")
 	# -> MuData object
@@ -44,7 +44,7 @@ If feature counts for a particular omics are of interest, they can be fetched us
 	# -> AnnData with protein counts ("Antibody capture")
 
 
-``.read_10x_mtx()`` methods work in the same way for directories with files ``matrix.mtx``, ``features.tsv.gz``, and ``barcodes.tsv.gz``. Output from other tools can be formatted in the same way to be loaded with these functions.
+:func:`muon.read_10x_mtx()` methods work in the same way for directories with files ``matrix.mtx``, ``features.tsv.gz``, and ``barcodes.tsv.gz``. Output from other tools can be formatted in the same way to be loaded with these functions.
 
 AnnData objects
 ---------------

@@ -37,10 +37,9 @@ Individual modalities can be accessed with their names via the ``.mod`` attribut
 .obs & .var
 -----------
 
-Samples (cells) annotation is accessible via the ``.obs`` attribute and by default includes copies of columns from ``.obs`` data frames of individual modalities. Same goes for ``.var``, which contains annotation of variables (features). When those columns are changed in ``AnnData`` objects of modalities, the changes have to be fetched with the ``.update()`` method:
+Samples (cells) annotation is accessible via the ``.obs`` attribute and by default includes copies of columns from ``.obs`` data frames of individual modalities. Same goes for ``.var``, which contains annotation of variables (features). When those slots are changed in ``AnnData`` objects of modalities, e.g. new columns are added or samples (cells) are filtered out, the changes have to be fetched with the ``.update()`` method:
 ::
 	mdata.update()
-
 
 
 .obsm
