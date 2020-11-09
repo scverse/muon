@@ -1,5 +1,5 @@
 from typing import Union
-from pathlib import Path
+from os import PathLike
 import os
 from os.path import basename
 
@@ -20,7 +20,7 @@ from .._atac.tools import initialise_default_files
 #
 
 
-def read_10x_h5(filename: Union[str, Path], extended: bool = True, *args, **kwargs) -> MuData:
+def read_10x_h5(filename: PathLike, extended: bool = True, *args, **kwargs) -> MuData:
     """
     Read data from 10X Genomics-formatted HDF5 file
 
@@ -73,7 +73,7 @@ def read_10x_h5(filename: Union[str, Path], extended: bool = True, *args, **kwar
     return mdata
 
 
-def read_10x_mtx(path: Union[str, Path], extended: bool = True, *args, **kwargs) -> MuData:
+def read_10x_mtx(path: PathLike, extended: bool = True, *args, **kwargs) -> MuData:
     """
     Read data from 10X Genomics-formatted files
     (matrix.mtx.gz, features.tsv.gz, barcodes.tsv.gz)
@@ -113,7 +113,7 @@ def read_10x_mtx(path: Union[str, Path], extended: bool = True, *args, **kwargs)
 #
 
 
-def write_h5mu(filename: Union[str, Path], mdata: MuData, *args, **kwargs):
+def write_h5mu(filename: PathLike, mdata: MuData, *args, **kwargs):
     """
     Write MuData object to the HDF5 file
 
@@ -167,7 +167,7 @@ def write_h5mu(filename: Union[str, Path], mdata: MuData, *args, **kwargs):
         mdata.file.open(filename, "r+")
 
 
-def write_h5ad(filename: Union[str, Path], mod: str, data: Union[MuData, AnnData]):
+def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
     """
     Write AnnData object to the HDF5 file with a MuData container
 
@@ -240,7 +240,7 @@ def write_h5ad_raw(f, key, raw):
     write_attribute(f, f"{key}/varm", raw.varm)
 
 
-def write(filename: Union[str, Path], data: Union[MuData, AnnData]):
+def write(filename: PathLike, data: Union[MuData, AnnData]):
     """
     Write MuData or AnnData to an HDF5 file
 
@@ -284,8 +284,8 @@ def write(filename: Union[str, Path], data: Union[MuData, AnnData]):
             else:
                 raise ValueError(
                     "If a single modality to be written from a .h5mu file, \
-					provide it after the filename separated by slash symbol:\
-					.h5mu/rna or .h5mu/mod/rna"
+                    provide it after the filename separated by slash symbol:\
+                    .h5mu/rna or .h5mu/mod/rna"
                 )
         elif m[1] == "h5ad":
             return data.write(filepath)
@@ -298,7 +298,7 @@ def write(filename: Union[str, Path], data: Union[MuData, AnnData]):
 #
 
 
-def read_h5mu(filename: Union[str, Path], backed: Union[str, bool, None] = None):
+def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
     """
     Read MuData object from HDF5 file
     """
@@ -373,7 +373,7 @@ def read_h5mu_mod_backed(g: "h5py.Group", manager: MuDataFileManager) -> dict:
 
 
 def read_h5ad(
-    filename: Union[str, Path],
+    filename: PathLike,
     mod: str,
     backed: Union[str, bool, None] = None,
 ) -> AnnData:
@@ -434,7 +434,7 @@ def read_h5ad(
 read_anndata = read_h5ad
 
 
-def read(filename: Union[str, Path]) -> Union[MuData, AnnData]:
+def read(filename: PathLike) -> Union[MuData, AnnData]:
     """
     Read MuData object from HDF5 file
     or AnnData object (a single modality) inside it
@@ -469,8 +469,8 @@ def read(filename: Union[str, Path]) -> Union[MuData, AnnData]:
         else:
             raise ValueError(
                 "If a single modality to be read from a .h5mu file, \
-				provide it after the filename separated by slash symbol:\
-				.h5mu/rna or .h5mu/mod/rna"
+                provide it after the filename separated by slash symbol:\
+                .h5mu/rna or .h5mu/mod/rna"
             )
     elif m[1] == "h5ad":
         return ad.read_h5ad(filepath)
