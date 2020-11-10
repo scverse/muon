@@ -434,7 +434,7 @@ def read_h5ad(
 read_anndata = read_h5ad
 
 
-def read(filename: PathLike) -> Union[MuData, AnnData]:
+def read(filename: PathLike, **kwargs) -> Union[MuData, AnnData]:
     """
     Read MuData object from HDF5 file
     or AnnData object (a single modality) inside it
@@ -459,13 +459,13 @@ def read(filename: PathLike) -> Union[MuData, AnnData]:
     if m[1] == "h5mu":
         if all(i == 0 for i in map(len, m[2:])):
             # Ends with .h5mu
-            return read_h5mu(filepath)
+            return read_h5mu(filepath, **kwargs)
         elif m[3] == "":
             # .h5mu/<modality>
-            return read_h5ad(filepath, m[2])
+            return read_h5ad(filepath, m[2], **kwargs)
         elif m[2] == "mod":
             # .h5mu/mod/<modality>
-            return read_h5ad(filepath, m[3])
+            return read_h5ad(filepath, m[3], **kwargs)
         else:
             raise ValueError(
                 "If a single modality to be read from a .h5mu file, \
@@ -473,6 +473,6 @@ def read(filename: PathLike) -> Union[MuData, AnnData]:
                 .h5mu/rna or .h5mu/mod/rna"
             )
     elif m[1] == "h5ad":
-        return ad.read_h5ad(filepath)
+        return ad.read_h5ad(filepath, **kwargs)
     else:
-        raise ValueError()
+        raise ValueError("The file format is not recognised, expected to be an .h5mu or .h5ad file")

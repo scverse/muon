@@ -27,6 +27,7 @@ def get_gene_annotation_from_rna(data: Union[AnnData, MuData]):
         features.columns = ["Chromosome", "Start", "End"]
         features["gene_id"] = adata.var.gene_ids.values
         features["gene_name"] = adata.var.index.values
+        features.index = adata.var.index
         # Remove genes with no coordinates indicated
         features = features.loc[~features.Start.isnull()]
         features.Start = features.Start.astype(int)

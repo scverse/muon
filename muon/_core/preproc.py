@@ -1,5 +1,6 @@
 from typing import Union, Callable, Optional, Sequence
 from functools import reduce
+from warnings import warn
 
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -25,6 +26,11 @@ def intersect_obs(mdata: MuData):
     mdata: MuData
             MuData object
     """
+
+    if mdata.isbacked:
+        warn(
+            "MuData object is backed. It might be required to re-read the object with `backed=False` to make the intersection work."
+        )
 
     common_obs = reduce(np.intersect1d, [m.obs_names for m in mdata.mod.values()])
 
@@ -162,11 +168,7 @@ def filter_var(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
     for layer in adata.layers:
         adata.layers[layer] = adata.layers[layer][:, var_subset]
 
-    # Subset raw
-    if adata.raw is not None:
-        adata.raw._X = adata.raw.X[:, var_subset]
-        adata.raw._var = adata.raw.X[var_subset]
-        adata.raw._X = adata.raw.X[var_subset]
+    # NOTE: .raw is not subsetted
 
     # Subset .varm
     for k, v in adata.varm.items():

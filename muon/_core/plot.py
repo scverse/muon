@@ -62,7 +62,7 @@ def embedding(
         # basis is not a joint embedding
         try:
             mod, basis_mod = basis.split(":")
-        except ValueError as e:
+        except ValueError:
             raise ValueError(f"Basis {basis} is not present in the MuData object (.obsm)")
 
         if mod not in data.mod:
