@@ -222,6 +222,7 @@ def _set_mofa_data_from_mudata(
         )
         # List of names of groups for samples ordered as they are in the original data, i.e. [group2, group1, group1, ...]
         model.data_opts["samples_groups"] = mdata.obs[groups_label].values.astype(str)
+
         if save_metadata:
             # List of metadata tables for each group of samples
             model.data_opts["samples_metadata"] = [g for _, g in mdata.obs.groupby(groups_label)]
@@ -282,6 +283,7 @@ def mofa(
     gpu_mode: bool = False,
     Y_ELBO_TauTrick: bool = True,
     mefisto_covariate:  Optional[str] = None,
+    mefisto_covariates_names: Optional[str] = None,
     mefisto_scale_cov: bool = False, 
     mefisto_start_opt: int =20, 
     mefisto_n_grid: int =20, 
@@ -449,13 +451,15 @@ def mofa(
     )
 
     if mefisto_covariate is not None:
-        ent.set_covariates(mefisto_covariate)
+        if mefisto_covariates_names is None:
+            if isinstance(mefisto_covariate, str) or (isinstance(mefisto_covariate, list) and isinstance(mefisto_covariate[0], str)):
+                mefisto_covariates_names = mefisto_covariate
+        ent.set_covariates(mefisto_covariate, covariates_names = mefisto_covariates_names)
         ent.set_smooth_options(scale_cov = mefisto_scale_cov, start_opt=mefisto_start_opt,
             n_grid=mefisto_n_grid, opt_freq=mefisto_opt_freq, model_groups = mefisto_model_groups,
             warping = mefisto_warping, warping_freq = mefisto_warping_freq, warping_ref = mefisto_warping_ref,
             warping_open_begin = mefisto_warping_open_begin, warping_open_end = mefisto_warping_open_end,
             sparseGP = mefisto_sparseGP, frac_inducing = mefisto_frac_inducing)
-
 
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Building the model...")
     ent.build()
@@ -489,6 +493,12 @@ def mofa(
         data.varm["LFs"][data.var[use_var]] = w
     else:
         data.varm["LFs"] = w
+
+    # aligned times
+    if mefisto_covariate is not None and mefisto_warping:
+        for c in range(ent.dimensionalities['C']):
+            cnm = ent.smooth_opts['covariates_names'][c] + "_warped"
+            data.obs[cnm] = ent.model.getNodes()['Sigma'].sample_cov_transformed[:,c]
 
     if copy:
         return data
