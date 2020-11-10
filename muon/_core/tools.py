@@ -281,6 +281,19 @@ def mofa(
     convergence_mode: str = "fast",
     gpu_mode: bool = False,
     Y_ELBO_TauTrick: bool = True,
+    mefisto_covariate:  Optional[str] = None,
+    mefisto_scale_cov: bool = False, 
+    mefisto_start_opt: int =20, 
+    mefisto_n_grid: int =20, 
+    mefisto_opt_freq: int =10, 
+    mefisto_model_groups: bool= True,
+    mefisto_warping: bool = False,
+    mefisto_warping_freq: int = 20, 
+    mefisto_warping_ref: int = 0,
+    mefisto_warping_open_begin: bool = True,
+    mefisto_warping_open_end: bool = True,
+    mefisto_sparseGP: bool = False,
+    mefisto_frac_inducing: Optional[float] = None,
     save_parameters: bool = False,
     save_data: bool = True,
     save_metadata: bool = True,
@@ -434,6 +447,15 @@ def mofa(
         outfile=outfile,
         save_interrupted=save_interrupted,
     )
+
+    if mefisto_covariate is not None:
+        ent.set_covariates(mefisto_covariate)
+        ent.set_smooth_options(scale_cov = mefisto_scale_cov, start_opt=mefisto_start_opt,
+            n_grid=mefisto_n_grid, opt_freq=mefisto_opt_freq, model_groups = mefisto_model_groups,
+            warping = mefisto_warping, warping_freq = mefisto_warping_freq, warping_ref = mefisto_warping_ref,
+            warping_open_begin = mefisto_warping_open_begin, warping_open_end = mefisto_warping_open_end,
+            sparseGP = mefisto_sparseGP, frac_inducing = mefisto_frac_inducing)
+
 
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Building the model...")
     ent.build()
