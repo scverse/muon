@@ -448,12 +448,23 @@ def mofa(
 
     # Factors
     z = np.concatenate([v[:, :] for k, v in f["expectations"]["Z"].items()], axis=1).T
+
+    # Samples are grouped per sample group
+    # so the rows of the Z matrix have to be re-ordered
+    if groups_label:
+        zs = np.concatenate([v[:] for k, v in f["samples"].items()], axis=0).astype(str)
+
     if use_obs and use_obs == "intersection":  # data is MuData and common_obs is available
+        if groups_label:
+            z = pd.DataFrame(z, index=zs).loc[common_obs].to_numpy()
         # Set factor values outside of the obs intersection to nan
         data.obsm["X_mofa"] = np.empty(shape=(data.n_obs, z.shape[1]))
         data.obsm["X_mofa"][:] = np.nan
+        # Samples
         data.obsm["X_mofa"][data.obs.index.isin(common_obs)] = z
     else:
+        if groups_label:
+            z = pd.DataFrame(z, index=zs).loc[mdata.obs.index.values].to_numpy()
         data.obsm["X_mofa"] = z
 
     # Weights
