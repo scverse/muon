@@ -203,15 +203,12 @@ def _set_mofa_data_from_mudata(
         # While grouping the pandas.DataFrame, the group_label would be sorted.
         # Hence the naive implementation `mdata.obs[groups_label].unique()` to get group names
         # wouldn't match samples_names if the samples are not ordered according to their group beforehand.
+        samples_groups = (
+            mdata.obs.reset_index(drop=False).groupby(groups_label)[groups_label].apply(list)
+        )
 
         # List of names of groups, i.e. [group1, group2, ...]
-        model.data_opts["groups_names"] = [
-            str(g)
-            for g in mdata.obs.reset_index(drop=False)
-            .groupby(groups_label)[groups_label]
-            .apply(list)
-            .index.values
-        ]
+        model.data_opts["groups_names"] = [str(g) for g in samples_groups.index.values]
         # Nested list of names of samples, one inner list per group, i.e. [[group1_sample1, group1_sample2, ...], ...]
         model.data_opts["samples_names"] = (
             mdata.obs.reset_index(drop=False)
@@ -220,8 +217,8 @@ def _set_mofa_data_from_mudata(
             .apply(list)
             .tolist()
         )
-        # List of names of groups for samples ordered as they are in the original data, i.e. [group2, group1, group1, ...]
-        model.data_opts["samples_groups"] = mdata.obs[groups_label].values.astype(str)
+        # List of names of groups for samples ordered as they are when split according to their group
+        model.data_opts["samples_groups"] = np.concatenate(samples_groups.values)
         if save_metadata:
             # List of metadata tables for each group of samples
             model.data_opts["samples_metadata"] = [g for _, g in mdata.obs.groupby(groups_label)]
@@ -451,7 +448,7 @@ def mofa(
 
     # Factors
     z = np.concatenate([v[:, :] for k, v in f["expectations"]["Z"].items()], axis=1).T
-    if use_obs and use_obs == "intersection":  # data is MuData and common_obsm is available
+    if use_obs and use_obs == "intersection":  # data is MuData and common_obs is available
         # Set factor values outside of the obs intersection to nan
         data.obsm["X_mofa"] = np.empty(shape=(data.n_obs, z.shape[1]))
         data.obsm["X_mofa"][:] = np.nan
