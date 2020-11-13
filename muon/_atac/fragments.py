@@ -2,6 +2,8 @@ from collections import OrderedDict
 from typing import Optional, Union
 import numpy as np
 import pandas as pd
+import logging
+from datetime import datetime
 from tqdm import tqdm
 from scipy.sparse import lil_matrix
 from anndata import AnnData
@@ -27,7 +29,7 @@ from . import utils as atacutils
 #
 
 def import_pysam():
-    """Helper function to print helpful message if pysam not available"""
+    """Print helpful message if pysam not available"""
     try:
         import pysam
         return pysam
@@ -124,20 +126,15 @@ def count_fragments_features(
                 "Argument `features` is required. It should be a BED-like DataFrame with gene coordinates and names."
             )
 
-    if "files" not in adata.uns or "fragments" not in adata.uns["files"]:
-        raise KeyError(
-            "There is no fragments file located yet. Run muon.atac.tl.locate_fragments first."
-        )
-
-    pysam = import_pysam()
-
     n = adata.n_obs
     n_features = features.shape[0]
 
     # Dictionary with matrix positions
     d = {k: v for k, v in zip(adata.obs.index, range(n))}
 
-    fragments = pysam.TabixFile(adata.uns["files"]["fragments"], parser=pysam.asBed())
+    # Open connection to fragments file
+    fragments = locate_fragments(adata, return_fragments=True)
+
     try:
         # List of lists matrix is quick and convenient to fill by row
         mx = lil_matrix((n_features, n), dtype=int)
@@ -172,46 +169,9 @@ def count_fragments_features(
         fragments.close()
 
 
-def region_pileup(
-        fragments: "pysam.libctabix.TabixFile",
-        cells,
-        chromosome: str,
-        start: int,
-        end: int
-) -> AnnData:
-    """
-    Pile up reads in regions. Returns a cell x position `AnnData` object that can be used for QC.
-
-    Parameters
-    ----------
-    fragments
-        `pysam` connection to a tabix indexed fragments file.
-    chromosome
-        Name of the chromosome to extract
-    start
-        Start position
-    end
-        End position
-    """
-    pysam = import_pysam()
-
-    n = cells.shape[0]
-    n_features = end - start
-    if n_features < 0:
-        raise ValueError(f"Start must be smaller than end. (Start = {start}, End = {end})")
-
-    # Dictionary with matrix positions
-    d = {k: v for k, v in zip(cells, range(n))}
-
-    mx = np.zeros((n, n_features), dtype=int)
-
-    fragments = pysam.TabixFile(file, parser=pysam.asBed())
-
-    # Check if chromosome present in the fragments file
-    if chromosome not in fragments.contigs:
-        raise ValueError(f"Chromosome {chromosome} is not present in fragments file chromosomes: {fragments.contigs}")
-
-    # logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {features.shape[0]} features...")
+def _region_pileup(mx, fragments, d, chromosome, start, end):
+    """Add fragments to existing matrix"""
+    n_features = mx.shape[1]
 
     for fr in fragments.fetch(
         chromosome, start, end
@@ -224,6 +184,50 @@ def region_pileup(
             mx[rowind, colind_start:colind_end] += score
         except:
             pass
+
+
+def region_pileup(
+        fragments: "pysam.libctabix.TabixFile",
+        cells: np.array,
+        chromosome: str,
+        start: int,
+        end: int
+) -> AnnData:
+    """
+    Pile up reads in regions. Returns a cell x position `AnnData` object that can be used for QC.
+
+    Parameters
+    ----------
+    fragments
+        `pysam` connection to a tabix indexed fragments file.
+    cells
+        List of cells to fetch
+    chromosome
+        Name of the chromosome to extract
+    start
+        Start position
+    end
+        End position
+    """
+
+    n = cells.shape[0]
+    n_features = end - start
+    if n_features < 0:
+        raise ValueError(f"Start must be smaller than end. (Start = {start}, End = {end})")
+
+    # Dictionary with matrix positions
+    d = {k: v for k, v in zip(cells, range(n))}
+
+    mx = np.zeros((n, n_features), dtype=int)
+
+    # Check if chromosome present in the fragments file
+    if chromosome not in fragments.contigs:
+        raise ValueError(f"Chromosome {chromosome} is not present in fragments file chromosomes: {fragments.contigs}")
+
+    # logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {features.shape[0]} features...")
+
+    # Actually fetch the fragments
+    _region_pileup(mx, fragments, d, chromosome, start, end)
 
     fragments.close()
 
@@ -264,14 +268,13 @@ def _tss_pileup(
 
     n = adata.n_obs
     n_features = extend_downstream + extend_upstream + 1
+    # Not sparse since we expect most positions to be filled
+    mx = np.zeros((n, n_features), dtype=int)
 
     # Dictionary with matrix positions
     d = {k: v for k, v in zip(adata.obs.index, range(n))}
 
-    # Not sparse since we expect most positions to be filled
-    mx = np.zeros((n, n_features), dtype=int)
-
-    fragments = pysam.TabixFile(adata.uns["files"]["fragments"], parser=pysam.asBed())
+    fragments = locate_fragments(adata, return_fragments=True)
 
     # Subset the features to the chromosomes present in the fragments file
     chromosomes = fragments.contigs
@@ -285,17 +288,10 @@ def _tss_pileup(
 
         f = features.iloc[i]
         tss_start = f.Start - extend_upstream  # First position of the TSS region
-        for fr in fragments.fetch(
-            f.Chromosome, f.Start - extend_upstream, f.Start + extend_downstream
-        ):
-            try:
-                rowind = d[fr.name]  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
-                score = int(fr.score)  # number of cuts per fragment (e.g. 2)
-                colind_start = max(fr.start - tss_start, 0)
-                colind_end = min(fr.end - tss_start, n_features)  # ends are non-inclusive in bed
-                mx[rowind, colind_start:colind_end] += score
-            except:
-                pass
+        tss_end = f.Start + extend_downstream  # Last position of the TSS region
+
+        # Actually fetch the fragments
+        _region_pileup(mx, fragments, d, f.Chromosome, tss_start, tss_end)
 
     fragments.close()
 
@@ -332,13 +328,11 @@ def fetch_regions_to_df(
         Return the coordinates with their relative position to the middle of the features.
     """
 
-    pysam = import_pysam()
-
     if isinstance(features, str):
         features = atacutils.parse_region_string(features)
-
-    fragments = pysam.TabixFile(fragment_path, parser=pysam.asBed())
     n_features = features.shape[0]
+
+    fragments = locate_fragments(adata, return_fragments=True)
 
     dfs = []
     for i in tqdm(

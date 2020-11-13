@@ -16,7 +16,7 @@ from anndata import AnnData
 from . import utils as atacutils
 from .._core.mudata import MuData
 from .._core.utils import get_gene_annotation_from_rna
-from .fragments import locate_fragments
+from .fragments import locate_fragments, _tss_pileup, fetch_regions_to_df
 
 #
 # Computational methods for transforming and analysing count data
