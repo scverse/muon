@@ -6,6 +6,7 @@ from tqdm import tqdm
 from scipy.sparse import lil_matrix
 from anndata import AnnData
 from .._core.mudata import MuData
+from . import utils as atacutils
 
 #
 # Fragments
@@ -56,12 +57,7 @@ def locate_fragments(data: Union[AnnData, MuData], fragments: Optional[str] = No
     """
     frag = None
     try:
-        if isinstance(data, AnnData):
-            adata = data
-        elif isinstance(data, MuData) and "atac" in data.mod:
-            adata = data.mod["atac"]
-        else:
-            raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+        adata = atacutils.fetch_atac_mod(data)
 
         if fragments is None:
             # Check if a path is already present
@@ -113,12 +109,7 @@ def count_fragments_features(
         extend_downstream
                 Number of nucleotides to extend every gene downstream (0 by default)
     """
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     if features is None:
         # Try to gene gene annotation in the data.mod['rna']
@@ -344,7 +335,7 @@ def fetch_regions_to_df(
     pysam = import_pysam()
 
     if isinstance(features, str):
-        features = utils.parse_region_string(features)
+        features = atacutils.parse_region_string(features)
 
     fragments = pysam.TabixFile(fragment_path, parser=pysam.asBed())
     n_features = features.shape[0]

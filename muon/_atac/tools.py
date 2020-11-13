@@ -13,6 +13,7 @@ import scanpy as sc
 from tqdm import tqdm
 from scipy.sparse.linalg import svds
 from anndata import AnnData
+from . import utils as atacutils
 from .._core.mudata import MuData
 from .._core.utils import get_gene_annotation_from_rna
 from .fragments import locate_fragments
@@ -35,12 +36,7 @@ def lsi(data: Union[AnnData, MuData], scale_embeddings=True, n_comps=50):
     n_comps: int (default: 50)
             Number of components to calculate with SVD
     """
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     # In an unlikely scnenario when there are less 50 features, set n_comps to that value
     n_comps = min(n_comps, adata.X.shape[1])
@@ -98,13 +94,7 @@ def add_peak_annotation(
     return_annotation
             If return adata.uns['atac']['peak_annotation']. False by default.
     """
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-        # TODO: check that ATAC-seq slot is present with this name
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     if isinstance(annotation, str):
         pa = pd.read_csv(annotation, sep=sep)
@@ -246,12 +236,7 @@ def add_genes_peaks_groups(
     add_distance : bool (False by default)
         If to add distance to the ranked peaks per group.
     """
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     if "rank_genes_groups" not in adata.uns:
         raise KeyError(
@@ -334,12 +319,7 @@ def rank_peaks_groups(
         If to add distance to the ranked peaks per group
     """
 
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData):
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     sc.tl.rank_genes_groups(adata, groupby, **kwargs)
 
@@ -485,12 +465,7 @@ def get_sequences(data: Union[AnnData, MuData], bed: str, fasta_file: str, bed_f
             "Pybedtools is not available. Install pybedtools from PyPI (`pip install pybedtools`) or from GitHub (`pip install git+https://github.com/daler/pybedtools`)"
         )
 
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     if "files" not in adata.uns or "genome" not in adata.uns["files"]:
         if fasta_file is not None:
@@ -534,12 +509,7 @@ def locate_file(data: Union[AnnData, MuData], key: str, file: str):
     file
             A path to the file (e.g. ./atac_fragments.tsv.gz).
     """
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     if not os.path.exists(file):
         raise FileNotFoundError(f"File {file} does not exist")
@@ -565,9 +535,6 @@ def locate_genome(data: Union[AnnData, MuData], fasta_file: str):
     fasta_file
             A path to the file (e.g. ./atac_fragments.tsv.gz).
     """
-    if not isinstance(data, AnnData) and not (isinstance(data, MuData) and "atac" in data.mod):
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
-
     locate_file(data, "genome", fasta_file)
 
 
@@ -582,12 +549,7 @@ def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path
     - attempt to locate fragments file (atac_fragments.tsv.gz)
     """
 
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     # 2) Add peak annotation
 
@@ -649,12 +611,7 @@ def tss_enrichment(
 
 
     """
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     if features is None:
         # Try to gene gene annotation in the data.mod['rna']
@@ -757,12 +714,7 @@ def nucleosome_signal(
     mononuleosomal_upper_bound
         Number of bases up to which a fragment counts as mononuleosomal. Default: 294
     """
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     if "files" not in adata.uns or "fragments" not in adata.uns["files"]:
         raise KeyError(
