@@ -301,6 +301,7 @@ class MuData:
         """
         Update global observations/variables with observations/variables for each modality
         """
+        prev_index = getattr(self, attr).index
 
         # Check if the are same obs_names/var_names in different modalities
         # If there are, join_common=True request can not be satisfied
@@ -383,13 +384,27 @@ class MuData:
 
         # Add data from global .obs/.var columns
         # This might reduce the size of .obs/.var if observations/variables were removed
-        setattr(self, "_" + attr, data_mod.join(data_global, how="left"))
+        setattr(self, "_" + attr, data_mod.join(data_global, how="left", sort=False))
 
         # Update .obsm/.varm
         for k, v in self.mod.items():
             getattr(self, attr + "m")[k] = getattr(self, attr).index.isin(getattr(v, attr).index)
 
-        # TODO: update .obsp/.varp (size might have changed)
+        keep_index = prev_index.isin(getattr(self, attr).index)
+
+        if keep_index.sum() != len(prev_index):
+            for mx_key, mx in getattr(self, attr + "m").items():
+                if mx_key not in self.mod.keys():  # not a modality name
+                    getattr(self, attr + "m")[mx_key] = getattr(self, attr + "m")[mx_key][
+                        keep_index, :
+                    ]
+
+            # Update .obsp/.varp (size might have changed)
+            for mx_key, mx in getattr(self, attr + "p").items():
+                if mx_key not in self.mod.keys():  # not a modality name
+                    getattr(self, attr + "p")[mx_key] = getattr(self, attr + "p")[mx_key][
+                        keep_index, keep_index
+                    ]
 
     def _shrink_attr(self, attr: str):
         """
@@ -514,8 +529,16 @@ class MuData:
         """
         Call .var_names_make_unique() method on each AnnData object
         """
+        mod_var_sum = np.sum([a.n_vars for a in self.mod.values()])
+        if mod_var_sum != self.n_vars:
+            self.update_var()
+
         for k in self.mod:
             self.mod[k].var_names_make_unique()
+
+        # Update .var.index in the MuData
+        var_names = [var for a in self.mod.values() for var in a.var_names.values]
+        self._var.index = var_names
 
     # Multi-dimensional annotations (.obsm and .varm)
 

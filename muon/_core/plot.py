@@ -5,8 +5,11 @@ from matplotlib.axes import Axes
 import numpy as np
 import pandas as pd
 from scipy.sparse import issparse
+import matplotlib.pyplot as plt
+import seaborn as sns
 import scanpy as sc
 from anndata import AnnData
+
 
 from .mudata import MuData
 
@@ -24,9 +27,9 @@ def embedding(
 
     Produce a scatter plot in the define basis,
     which can also be a basis inside any modality,
-    e.g. "rna:X_pca".
+    e.g. ``"rna:X_pca"``.
 
-    See sc.pl.embedding for details.
+    See :func:`scanpy.pl.embedding` for details.
 
     Parameters
     ----------
@@ -59,7 +62,7 @@ def embedding(
         # basis is not a joint embedding
         try:
             mod, basis_mod = basis.split(":")
-        except ValueError as e:
+        except ValueError:
             raise ValueError(f"Basis {basis} is not present in the MuData object (.obsm)")
 
         if mod not in data.mod:
@@ -130,7 +133,7 @@ def embedding(
                     how="left",
                 )
 
-    ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp)
+    ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp, uns=adata.uns)
     return sc.pl.embedding(ad, basis=basis_mod, color=color, **kwargs)
 
 
@@ -138,7 +141,7 @@ def mofa(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
     """
     Scatter plot in MOFA factors coordinates
 
-    See mu.pl.embedding for details.
+    See :func:`muon.pl.embedding` for details.
     """
     return embedding(mdata, basis="mofa", **kwargs)
 
@@ -147,6 +150,119 @@ def umap(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
     """
     UMAP Scatter plot
 
-    See mu.pl.embedding for details.
+    See :func:`muon.pl.embedding` for details.
     """
     return embedding(mdata, basis="umap", **kwargs)
+
+
+#
+# Histogram
+#
+
+
+def histogram(
+    data: Union[AnnData, MuData],
+    keys: Union[str, Sequence[str]],
+    groupby: Optional[Union[str]] = None,
+    **kwags,
+):
+    """
+    Plot Histogram of Fragment lengths within specified region.
+    Parameters
+    ----------
+    data
+        AnnData object with peak counts or multimodal MuData object.
+    keys
+        Keys to plot.
+    groupby
+        Column name(s) of .obs slot of the AnnData object according to which the plot is split.
+    """
+
+    if not isinstance(data, AnnData) and not isinstance(data, MuData):
+        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+    if isinstance(keys, str):
+        keys = [keys]
+
+    obs_keys = [i for i in keys if i in data.obs.columns]
+    var_keys = [i for i in keys if i in data.var.index.values]
+    assert len(obs_keys) + len(var_keys) == len(
+        keys
+    ), "Keys should be columns of .obs or some of .var_names"
+
+    df = data.obs.loc[:, obs_keys]
+
+    # Fetch respective features
+    if len(var_keys) > 0:
+        if isinstance(data, MuData):
+            # Find the respective modality
+            keys_in_mod = {m: [key in data.mod[m].var_names for key in keys] for m in data.mod}
+        else:  # AnnData
+            adata = data
+            keys_in_mod = {"adata": [key in adata.var_names for key in keys]}
+
+        for m, m_bool in keys_in_mod.items():
+            if isinstance(data, MuData):
+                adata = data.mod[m]
+            if np.sum(m_bool) > 0:
+                # Some keys in this modality
+                mod_keys = np.array(keys)[keys_in_mod[m]]
+
+                if adata.raw is not None:
+                    x = adata.raw[:, mod_keys].X
+                else:
+                    x = adata[:, mod_keys].X
+
+                x = x.toarray() if issparse(x) else x
+                x_df = pd.DataFrame(x, index=adata.obs_names, columns=mod_keys)
+                df = pd.concat([df, x_df], axis=1)
+
+    # Handle sns.distplot deprecation and sns.histplot addition
+    hist = sns.histplot if hasattr(sns, "histplot") else sns.distplot
+
+    if groupby is None:
+        df = df.melt()
+        g = sns.FacetGrid(df, col="variable", sharey=False, sharex=False)
+        g.map(hist, "value", **kwags)
+        [x.set_xlabel(keys[i]) for i, x in enumerate(g.axes[0])]
+        [x.set_title("") for i, x in enumerate(g.axes[0])]
+
+    elif groupby is not None:
+        if isinstance(groupby, str):
+            groupby = [groupby]
+
+        if len(groupby) > 2:
+            raise ValueError("Maximum 2 categories in groupby")
+        elif len(groupby) == 2 and len(keys) > 1:
+            raise ValueError("Maximum 1 category in groupby with more than 1 key")
+
+        if len(groupby) == 1:
+            df = pd.concat((df, data.obs.loc[:, groupby]), axis=1)
+            df = df.melt(id_vars=groupby[0], ignore_index=False)
+            g = sns.FacetGrid(df, col=groupby[0], row="variable", sharey=False, sharex=False)
+            g.map(hist, "value", **kwags)
+            [
+                x.set_xlabel(keys[row])
+                for row in range(len(g.axes))
+                for i, x in enumerate(g.axes[row])
+            ]
+            [
+                x.set_title(f"{groupby[0]} {g.col_names[i]}")
+                for row in range(len(g.axes))
+                for i, x in enumerate(g.axes[row])
+            ]
+
+        else:
+            # 1 key, 2 groupby arguments
+            g = sns.FacetGrid(df, col=groupby[0], row=groupby[1], sharey=False, sharex=False)
+            g.map(hist, keys[0], **kwags)
+            [x.set_xlabel(keys[0]) for row in range(len(g.axes)) for i, x in enumerate(g.axes[row])]
+            [
+                x.set_title(f"{groupby[0]} {g.row_names[col]} | {groupby[1]} {g.row_names[row]}")
+                for row in range(len(g.axes))
+                for col, x in enumerate(g.axes[row])
+            ]
+
+    plt.show()
+
+    return None
