@@ -278,15 +278,15 @@ def mofa(
     convergence_mode: str = "fast",
     gpu_mode: bool = False,
     Y_ELBO_TauTrick: bool = True,
-    mefisto_covariate:  Optional[str] = None,
+    mefisto_covariate: Optional[str] = None,
     mefisto_covariates_names: Optional[str] = None,
-    mefisto_scale_cov: bool = False, 
-    mefisto_start_opt: int =20, 
-    mefisto_n_grid: int =20, 
-    mefisto_opt_freq: int =10, 
-    mefisto_model_groups: bool= True,
+    mefisto_scale_cov: bool = False,
+    mefisto_start_opt: int = 20,
+    mefisto_n_grid: int = 20,
+    mefisto_opt_freq: int = 10,
+    mefisto_model_groups: bool = True,
     mefisto_warping: bool = False,
-    mefisto_warping_freq: int = 20, 
+    mefisto_warping_freq: int = 20,
     mefisto_warping_ref: int = 0,
     mefisto_warping_open_begin: bool = True,
     mefisto_warping_open_end: bool = True,
@@ -448,14 +448,25 @@ def mofa(
 
     if mefisto_covariate is not None:
         if mefisto_covariates_names is None:
-            if isinstance(mefisto_covariate, str) or (isinstance(mefisto_covariate, list) and isinstance(mefisto_covariate[0], str)):
+            if isinstance(mefisto_covariate, str) or (
+                isinstance(mefisto_covariate, list) and isinstance(mefisto_covariate[0], str)
+            ):
                 mefisto_covariates_names = mefisto_covariate
-        ent.set_covariates(mefisto_covariate, covariates_names = mefisto_covariates_names)
-        ent.set_smooth_options(scale_cov = mefisto_scale_cov, start_opt=mefisto_start_opt,
-            n_grid=mefisto_n_grid, opt_freq=mefisto_opt_freq, model_groups = mefisto_model_groups,
-            warping = mefisto_warping, warping_freq = mefisto_warping_freq, warping_ref = mefisto_warping_ref,
-            warping_open_begin = mefisto_warping_open_begin, warping_open_end = mefisto_warping_open_end,
-            sparseGP = mefisto_sparseGP, frac_inducing = mefisto_frac_inducing)
+        ent.set_covariates(mefisto_covariate, covariates_names=mefisto_covariates_names)
+        ent.set_smooth_options(
+            scale_cov=mefisto_scale_cov,
+            start_opt=mefisto_start_opt,
+            n_grid=mefisto_n_grid,
+            opt_freq=mefisto_opt_freq,
+            model_groups=mefisto_model_groups,
+            warping=mefisto_warping,
+            warping_freq=mefisto_warping_freq,
+            warping_ref=mefisto_warping_ref,
+            warping_open_begin=mefisto_warping_open_begin,
+            warping_open_end=mefisto_warping_open_end,
+            sparseGP=mefisto_sparseGP,
+            frac_inducing=mefisto_frac_inducing,
+        )
 
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Building the model...")
     ent.build()
@@ -503,9 +514,9 @@ def mofa(
 
     # aligned times
     if mefisto_covariate is not None and mefisto_warping:
-        for c in range(ent.dimensionalities['C']):
-            cnm = ent.smooth_opts['covariates_names'][c] + "_warped"
-            data.obs[cnm] = ent.model.getNodes()['Sigma'].sample_cov_transformed[:,c]
+        for c in range(ent.dimensionalities["C"]):
+            cnm = ent.smooth_opts["covariates_names"][c] + "_warped"
+            data.obs[cnm] = ent.model.getNodes()["Sigma"].sample_cov_transformed[:, c]
 
     if copy:
         return data
