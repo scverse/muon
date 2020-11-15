@@ -17,8 +17,10 @@ Multi-omics factor analysis
 Multi-omic factor analysis (MOFA) is a group factor analysis method that allows to learn an interpretable latent space jointly on multiple modalities. Intuitively, it can be viewed as a generalisation of PCA for multi-omics data. More information about this method can be found `on the MOFA website <https://biofam.github.io/MOFA2/>`_.
 
 While there are quite a few options to configure the method for the task in question, running it with default options is simple with :func:`muon.tl.mofa`:
-::
-	mu.tl.mofa(mdata)
+
+	>>> mu.tl.mofa(mdata)
+	>>> "X_mofa" in mdata.obsm
+	True
 
 For example, the number of factors to learn can be adjusted with ``n_factors``, and training can be launched on the GPU when available with ``gpu_mode=True``. 
 

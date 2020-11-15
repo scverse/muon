@@ -41,9 +41,8 @@ Methods crafted for omics
 
    io/input
    io/mudata
+   omics/uni
    omics/multi
-   omics/atac
-   omics/citeseq
    io/output
    api/index
 
