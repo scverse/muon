@@ -204,7 +204,9 @@ def _set_mofa_data_from_mudata(
         # Hence the naive implementation `mdata.obs[groups_label].unique()` to get group names
         # wouldn't match samples_names if the samples are not ordered according to their group beforehand.
         samples_groups = (
-            mdata.obs.reset_index(drop=False).groupby(groups_label)[groups_label].apply(list)
+            mdata.obs.reset_index(drop=False)
+            .groupby(groups_label, sort=False)[groups_label]
+            .apply(list)
         )
 
         # List of names of groups, i.e. [group1, group2, ...]
@@ -213,7 +215,7 @@ def _set_mofa_data_from_mudata(
         model.data_opts["samples_names"] = (
             mdata.obs.reset_index(drop=False)
             .rename(columns={mdata.obs.index.name: "index"})
-            .groupby(groups_label)["index"]
+            .groupby(groups_label, sort=False)["index"]
             .apply(list)
             .tolist()
         )
@@ -221,7 +223,23 @@ def _set_mofa_data_from_mudata(
         model.data_opts["samples_groups"] = np.concatenate(samples_groups.values)
         if save_metadata:
             # List of metadata tables for each group of samples
-            model.data_opts["samples_metadata"] = [g for _, g in mdata.obs.groupby(groups_label)]
+            model.data_opts["samples_metadata"] = [
+                g for _, g in mdata.obs.groupby(groups_label, sort=False)
+            ]
+
+    # Use the order of samples according to the groups in the model.data_opts["samples_groups"]
+    if groups_label:
+        for m in range(M):
+            data[m] = data[m][
+                np.concatenate(
+                    mdata.obs.reset_index(drop=False)
+                    .reset_index(drop=False)
+                    .groupby(groups_label, sort=False)["index"]
+                    .apply(np.array)
+                    .tolist()
+                ),
+                :,
+            ]
 
     # If everything successful, print verbose message
     for m in range(M):
