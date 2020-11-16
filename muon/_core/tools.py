@@ -534,7 +534,10 @@ def mofa(
     if mefisto_covariate is not None and mefisto_warping:
         for c in range(ent.dimensionalities["C"]):
             cnm = ent.smooth_opts["covariates_names"][c] + "_warped"
-            data.obs[cnm] = ent.model.getNodes()["Sigma"].sample_cov_transformed[:, c]
+            cval = ent.model.getNodes()["Sigma"].sample_cov_transformed[:, c]
+            if groups_label:
+                cval = pd.DataFrame(cval, index=zs).loc[common_obs].to_numpy()
+            data.obs[cnm] = cval
 
     if copy:
         return data
