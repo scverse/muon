@@ -232,7 +232,7 @@ def _set_mofa_data_from_mudata(
         for m in range(M):
             data[m] = data[m][
                 np.concatenate(
-                    mdata.obs.reset_index(drop=False)
+                    mdata.obs.reset_index(drop=True)
                     .reset_index(drop=False)
                     .groupby(groups_label, sort=False)["index"]
                     .apply(np.array)
