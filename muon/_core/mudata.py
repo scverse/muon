@@ -161,8 +161,6 @@ class MuData:
         self.filename = None
         self.filemode = None
         self.is_view = False
-        self.obs_names = None  # required by AxisArrays
-        self.var_names = None
 
     def _init_as_view(self, mudata_ref: "MuData", index):
         def slice_mapping(mapping, obsnames, varnames):
