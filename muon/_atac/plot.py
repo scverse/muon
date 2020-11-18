@@ -206,7 +206,9 @@ def dotplot(
     var_names: Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]],
     groupby: Optional[Union[str]] = None,
     average: Optional[str] = "total",
+    func: Optional[str] = "mean",
     use_raw: Optional[Union[bool]] = None,
+    layer: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -229,10 +231,15 @@ def dotplot(
         raise TypeError("Expected var_names to be a string or an iterable.")
 
     x, attr_names, tmp_names = _average_peaks(
-        adata=adata, keys=keys, average=average, use_raw=use_raw
+        adata=adata,
+        keys=keys,
+        average=average,
+        func=func,
+        use_raw=use_raw,
+        layer=layer,
     )
     ad = AnnData(x, obs=adata.obs)
-    sc.pl.dotplot(ad, var_names=attr_names, groupby=groupby, use_raw=use_raw, **kwargs)
+    sc.pl.dotplot(ad, var_names=attr_names, groupby=groupby, **kwargs)
 
     return None
 
