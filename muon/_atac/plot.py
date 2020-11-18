@@ -3,17 +3,26 @@ from typing import Union, Optional, List, Iterable, Mapping, Sequence
 import warnings
 
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
+import pandas as pd
+from scipy.sparse import issparse
 import scanpy as sc
 from anndata import AnnData
+
+import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+import seaborn as sns
+
 from .._core.mudata import MuData
 from . import tools
-import seaborn as sns
 
 
 def _average_peaks(
-    adata: AnnData, keys: List[str], average: str, func: str, use_raw: bool, layer: Optional[str]
+    adata: AnnData,
+    keys: List[str],
+    average: Optional[str],
+    func: str,
+    use_raw: bool,
+    layer: Optional[str],
 ):
     # Define the function to be used for aggregation
     if average:
@@ -88,10 +97,26 @@ def _average_peaks(
                     warnings.warn(
                         f"Plotting individual peaks since {average} was not recognised. Try using 'total' or 'peak_type'."
                     )
-                attr_names += peak_sel.peak.values
+                attr_names += list(peaks.values)
+                if layer:
+                    x_peaks = adata[:, peaks].layers[layer]
+                elif use_raw:
+                    x_peaks = adata.raw[:, peaks].X
+                else:
+                    x_peaks = adata[:, peaks].X
+                if issparse(x_peaks):
+                    x_peaks = x_peaks.toarray()
+                x_peaks = pd.DataFrame(np.asarray(x_peaks), columns=peaks.values, index=x.index)
+                x = pd.concat([x, x_peaks], axis=1)
 
         else:
             attr_names.append(key)
+            if layer:
+                x[key] = np.asarray(adata[:, key].layers[layer]).reshape(-1)
+            elif use_raw:
+                x[key] = np.asarray(adata.raw[:, key].X).reshape(-1)
+            else:
+                x[key] = np.asarray(adata[:, key].X).reshape(-1)
 
     return (x, attr_names, tmp_names)
 
