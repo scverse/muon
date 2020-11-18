@@ -12,7 +12,12 @@ from . import tools
 import seaborn as sns
 
 
-def _average_peaks(adata: AnnData, keys: List[str], average: str, use_raw: bool):
+def _average_peaks(
+    adata: AnnData, keys: List[str], average: str, func: str, use_raw: bool, layer: Optional[str]
+):
+    # Define the function to be used for aggregation
+    if average:
+        avg_func = getattr(np, func)
     # New keys will be placed here
     attr_names = []
     tmp_names = []
@@ -40,10 +45,16 @@ def _average_peaks(adata: AnnData, keys: List[str], average: str, use_raw: bool)
                 tmp_names.append(attr_name)
 
                 if attr_name not in adata.obs.columns:
-                    if use_raw:
-                        x[attr_name] = np.asarray(adata.raw[:, peaks].X.mean(axis=1)).reshape(-1)
+                    if layer:
+                        x[attr_name] = np.asarray(
+                            avg_func(adata[:, peaks].layers[layer], axis=1)
+                        ).reshape(-1)
+                    elif use_raw:
+                        x[attr_name] = np.asarray(avg_func(adata.raw[:, peaks].X, axis=1)).reshape(
+                            -1
+                        )
                     else:
-                        x[attr_name] = np.asarray(adata[:, peaks].X.mean(axis=1)).reshape(-1)
+                        x[attr_name] = np.asarray(avg_func(adata[:, peaks].X, axis=1)).reshape(-1)
 
             elif average == "peak_type":
                 peak_types = peak_sel.peak_type
@@ -60,10 +71,16 @@ def _average_peaks(adata: AnnData, keys: List[str], average: str, use_raw: bool)
                     tmp_names.append(attr_name)
 
                     if attr_name not in adata.obs.columns:
-                        if use_raw:
-                            x[attr_name] = np.asarray(adata.raw[:, p].X.mean(axis=1)).reshape(-1)
+                        if layer:
+                            x[attr_name] = np.asarray(
+                                avg_func(adata[:, p].layers[layer], axis=1)
+                            ).reshape(-1)
+                        elif use_raw:
+                            x[attr_name] = np.asarray(avg_func(adata.raw[:, p].X, axis=1)).reshape(
+                                -1
+                            )
                         else:
-                            x[attr_name] = np.asarray(adata[:, p].X.mean(axis=1)).reshape(-1)
+                            x[attr_name] = np.asarray(avg_func(adata[:, p].X, axis=1)).reshape(-1)
 
             else:
                 # No averaging, one plot per peak
@@ -84,7 +101,9 @@ def embedding(
     basis: str,
     color: Optional[Union[str, List[str]]] = None,
     average: Optional[str] = "total",
+    func: Optional[str] = "mean",
     use_raw: bool = True,
+    layer: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -107,14 +126,16 @@ def embedding(
         else:
             raise TypeError("Expected color to be a string or an iterable.")
 
-        x, attr_names, _ = _average_peaks(adata=adata, keys=keys, average=average, use_raw=use_raw)
+        x, attr_names, _ = _average_peaks(
+            adata=adata, keys=keys, average=average, func=func, use_raw=use_raw, layer=layer
+        )
         ad = AnnData(x, obs=adata.obs, obsm=adata.obsm)
         sc.pl.embedding(ad, basis=basis, color=attr_names, **kwargs)
 
         return None
 
     else:
-        return sc.pl.embedding(adata, basis=basis, use_raw=use_raw, **kwargs)
+        return sc.pl.embedding(adata, basis=basis, use_raw=use_raw, layer=layer, **kwargs)
 
     return None
 
