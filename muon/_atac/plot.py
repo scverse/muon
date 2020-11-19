@@ -32,7 +32,7 @@ def _average_peaks(
     tmp_names = []
     x = adata.obs.loc[:, []]
     for key in keys:
-        if key not in adata.obs_names and key not in adata.obs.columns:
+        if key not in adata.var_names and key not in adata.obs.columns:
             if "atac" not in adata.uns or "peak_annotation" not in adata.uns["atac"]:
                 raise KeyError(
                     f"There is no feature or feature annotation {key}. If it is a gene name, load peak annotation with muon.atac.pp.add_peak_annotation first."
@@ -112,11 +112,15 @@ def _average_peaks(
         else:
             attr_names.append(key)
             if layer:
-                x[key] = np.asarray(adata[:, key].layers[layer]).reshape(-1)
+                x_peak = adata[:, key].layers[layer]
             elif use_raw:
-                x[key] = np.asarray(adata.raw[:, key].X).reshape(-1)
+                x_peak = adata.raw[:, key].X
             else:
-                x[key] = np.asarray(adata[:, key].X).reshape(-1)
+                x_peak = adata[:, key].X
+            if issparse(x_peak):
+                x_peak = x_peak.toarray()
+            x_peak = x_peak.reshape(-1)
+            x[key] = x_peak
 
     return (x, attr_names, tmp_names)
 
