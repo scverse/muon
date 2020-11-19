@@ -9,6 +9,7 @@ from scipy.sparse import lil_matrix
 from anndata import AnnData
 from .._core.mudata import MuData
 from . import utils as atacutils
+from .._core.utils import get_gene_annotation_from_rna
 
 #
 # Fragments
