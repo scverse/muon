@@ -1,7 +1,7 @@
 Multi-omics
 ===========
 
-`muon` brings multimodal data objects and multimodal integration methods together.
+``muon`` brings multimodal data objects and multimodal integration methods together.
 
 .. contents:: :local:
     :depth: 3

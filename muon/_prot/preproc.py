@@ -4,7 +4,7 @@ from warnings import warn
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import issparse
+from scipy.sparse import issparse, csr_matrix
 from anndata import AnnData
 
 from .. import MuData
@@ -195,3 +195,32 @@ def dsb(
     else:
         cells.X = cells_scaled
     return toreturn
+
+
+def clr(adata: AnnData, inplace: bool = True) -> Union[None, MuData]:
+    """
+    Apply the centered log ratio (CLR) transformation
+    to normalize counts in adata.X.
+
+    Args:
+        data: AnnData object with protein expression counts.
+        inplace: Whether to update adata.X inplace.
+    """
+    sparse = False
+    if issparse(adata.X):
+        sparse = True
+    # Geometric mean of ADT counts
+    x = adata.X
+    g_mean = np.exp(np.log1p(x).sum(axis=0) / x.shape[0])
+    # Centered log ratio
+    clr = np.log1p(x / g_mean)
+
+    if sparse:
+        clr = csr_matrix(clr)
+
+    if not inplace:
+        adata = adata.copy()
+
+    adata.X = clr
+
+    return None if inplace else adata
