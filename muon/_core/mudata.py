@@ -527,7 +527,10 @@ class MuData:
 
     def var_names_make_unique(self):
         """
-        Call .var_names_make_unique() method on each AnnData object
+        Call .var_names_make_unique() method on each AnnData object.
+
+        If there are var_names, which are the same for multiple modalities,
+        append modality name to all var_names.
         """
         mod_var_sum = np.sum([a.n_vars for a in self.mod.values()])
         if mod_var_sum != self.n_vars:
@@ -535,6 +538,20 @@ class MuData:
 
         for k in self.mod:
             self.mod[k].var_names_make_unique()
+
+        # Check if there are variables with the same name in different modalities
+        common_vars = []
+        mods = list(self.mod.keys())
+        for i in range(len(self.mod) - 1):
+            ki = mods[i]
+            for j in range(i + 1, len(self.mod)):
+                kj = mods[j]
+                common_vars.append(
+                    np.intersect1d(self.mod[ki].var_names.values, self.mod[kj].var_names.values)
+                )
+        if any(map(lambda x: len(x) > 0, common_vars)):
+            for k in self.mod:
+                self.mod[k].var_names = k + ":" + self.mod[k].var_names.astype(str)
 
         # Update .var.index in the MuData
         var_names = [var for a in self.mod.values() for var in a.var_names.values]
