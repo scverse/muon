@@ -1,14 +1,171 @@
-from typing import Union, Callable, Optional, Sequence
+from typing import Union, Callable, Optional, Sequence, Dict
 from functools import reduce
 from warnings import warn
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, issparse
+from scipy.spatial.distance import pdist, squareform
+from scipy.special import softmax
+from sklearn.neighbors import NearestNeighbors
 
 from anndata import AnnData
+from scanpy.tools._utils import _choose_representation
+from scanpy import Neighbors
 from .._core.mudata import MuData
 
 # Computational methods for preprocessing
+
+
+def weighted_neigbors(
+    mdata: MuData,
+    n_neighbors: Optional[int] = None,
+    n_multineighbors: int = 200,
+    neighbor_keys: Optional[Dict[str, Optional[str]]] = None,
+    key_added: Optional[str] = None,
+    eps=1e-4,
+    copy=False,
+):
+    mdata = mdata.copy() if copy else mdata
+    if neighbor_keys is None:
+        modalities = mdata.mod.keys()
+        neighbor_keys = {}
+    else:
+        modalities = neighbor_keys.keys()
+    neighbors_params = {}
+    reps = {}
+    observations = mdata.obs.index
+
+    mod_neighbors = np.empty((len(modalities),), dtype=np.uint16)
+    for i, mod in enumerate(modalities):
+        nkey = neighbor_keys.get(mod, "neighbors")
+        try:
+            nparams = mdata[mod].uns[nkey]
+        except KeyError:
+            raise ValueError(
+                f'Did not find .uns["{nkey}"] for modality "{mod}". Run `sc.pp.neighbors` on all modalities first.'
+            )
+
+        use_rep = nparams["params"].get("use_rep", None)
+        n_pcs = nparams["params"].get("n_pcs", None)
+        mod_neighbors[i] = nparams["params"].get("n_neighbors", 0)
+
+        neighbors_params[mod] = nparams
+        reps[mod] = _choose_representation(mdata[mod], use_rep, n_pcs)
+        observations = observations.intersection(mdata[mod].obs.index)
+
+    if n_neighbors is None:
+        mod_neighbors = mod_neighbors[mod_neighbors > 0]
+        n_neighbors = int(round(np.mean(mod_neighbors), 0))
+
+    ratios = np.full((len(observations), len(modalities)), -np.inf, dtype=np.float64)
+    sigmas = {}
+    for i1, mod1 in enumerate(modalities):
+        observations1 = observations.intersection(mdata[mod1].obs.index)
+        ratioidx = np.where(observations.isin(observations1))[0]
+        nparams1 = neighbors_params[mod1]
+        X = reps[mod1]
+        distances = squareform(pdist(X if not issparse(X) else X.toarray(), "euclidean"))
+        if nparams["params"].get("metric") in ("euclidean", "l2"):
+            neighbordistances = mdata[mod1].obsp[nparams1["distances_key"]]
+            nndistances = np.empty((neighbordistances.shape[0],), neighbordistances.dtype)
+            # neighborsdistances is a sparse matrix, we can either convert to dense, or loop
+            for i in range(neighbordistances.shape[0]):
+                nndistances[i] = neighbordistances[i, :].data.min()
+        else:
+            nbrs = NearestNeighbors(n_neighbors=n_neighbors + 1, metric="precomputed")
+            nbrs.fit(distances)
+            neighbordistances = nbrs.kneighbors_graph(distances, mode="distance")
+            np.fill_diagonal(distances, np.inf)
+            nndistances = np.min(distances, axis=1)
+            np.fill_diagonal(distances, 0)
+        jac_dist = squareform(pdist((neighbordistances > 0).toarray(), "jaccard"))
+        jac_dist[jac_dist == 1] = -np.inf
+        sigma_candidates = np.lexsort((-distances, -jac_dist))[:, 1:21]
+        csigmas = np.asarray(
+            np.mean(np.take_along_axis(distances, sigma_candidates, -1), axis=-1)
+        ).squeeze()
+
+        currtheta = None
+        thetas = np.full(
+            (len(observations1), len(modalities) - 1), -np.inf, dtype=neighbordistances.dtype
+        )
+
+        lasti = 0
+        for i2, mod2 in enumerate(modalities):
+            nparams2 = neighbors_params[mod2]
+            neighbordistances = mdata[mod2].obsp[nparams2["distances_key"]]
+            observations2 = observations1.intersection(mdata[mod2].obs.index)
+            Xidx = np.where(observations1.isin(observations2))[0]
+            r = np.empty(shape=(len(observations2), X.shape[1]), dtype=neighbordistances.dtype)
+            # alternative to the loop would be broadcasting, but this requires converting the sparse
+            # connectivity matrix to a dense ndarray and producing a temporary 3d array of size
+            # n_cells x n_cells x n_genes => requires a lot of memory
+            for i, cell in enumerate(Xidx):
+                r[i, :] = np.asarray(
+                    np.mean(X[neighbordistances[cell, :].nonzero()[1], :], axis=0)
+                ).squeeze()
+
+            theta = np.exp(
+                -np.maximum(np.linalg.norm(X[Xidx, :] - r, ord=2, axis=-1) - nndistances[Xidx], 0)
+                / (csigmas[Xidx] - nndistances[Xidx])
+            )
+            if i1 == i2:
+                currtheta = theta
+            else:
+                thetas[:, lasti] = theta
+                lasti += 1
+        ratios[ratioidx, i1] = currtheta / (np.max(thetas, axis=1) + eps)
+        sigmas[mod1] = csigmas
+    weights = softmax(ratios, axis=1)
+    weighted = np.zeros((mdata.n_obs, mdata.n_obs), dtype=np.float64)
+    for i, m in enumerate(modalities):
+        observations1 = observations.intersection(mdata[m].obs.index)
+        idx = np.where(observations.isin(observations1))[0]
+        nparams = neighbors_params[m]
+        use_rep = nparams["params"].get("use_rep")
+        n_pcs = nparams["params"].get("n_pcs")
+        rep = reps[m]
+        if issparse(rep):
+            rep = rep.toarray()
+        neighbordistances = squareform(pdist(rep, "euclidean"))
+        nbrs = NearestNeighbors(n_neighbors=n_multineighbors + 1, metric="precomputed")
+        nbrs.fit(neighbordistances)
+        connectivities = nbrs.kneighbors_graph(neighbordistances)
+        x, y = connectivities.nonzero()
+        weighted[idx[x], idx[y]] += (
+            np.exp(-neighbordistances / sigmas[m][:, np.newaxis]) * weights[idx, i, np.newaxis]
+        )[x, y]
+    np.fill_diagonal(weighted, 1)  # numerical inaccuracies
+    mnn = NearestNeighbors(n_neighbors=n_neighbors + 1, metric="precomputed")
+    weighted_dist = np.sqrt(0.5 * (1 - weighted))
+    mnn.fit(weighted_dist)
+    connectivities = mnn.kneighbors_graph(weighted_dist, mode="connectivity")
+    neighbordistances = mnn.kneighbors_graph(weighted_dist, mode="distance")
+
+    if key_added is None:
+        key_added = "neighbors"
+        conns_key = "connectivities"
+        dists_key = "distances"
+    else:
+        conns_key = key_added + "_connectivities"
+        dists_key = key_added + "_distances"
+    neighbors_dict = {"connectivities_key": conns_key, "distances_key": dists_key}
+    neighbors_dict["params"] = {
+        "n_neighbors": n_neighbors,
+        "n_multineighbors": n_multineighbors,
+        "metric": "euclidean",
+        "eps": eps,
+    }
+    if use_rep is not None:
+        neighbors_dict["params"]["use_rep"] = use_rep
+    if n_pcs is not None:
+        neighbors_dict["params"]["n_pcs"] = n_pcs
+    mdata.obsp[dists_key] = neighbordistances
+    mdata.obsp[conns_key] = connectivities
+    mdata.uns[key_added] = neighbors_dict
+
+    return mdata if copy else None
+
 
 # Utility functions: intersecting observations
 
