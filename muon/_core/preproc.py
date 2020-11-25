@@ -3,8 +3,8 @@ from functools import reduce
 from warnings import warn
 
 import numpy as np
-from scipy.sparse import csr_matrix, issparse
-from scipy.spatial.distance import pdist, squareform
+from scipy.sparse import csr_matrix, lil_matrix, issparse
+from scipy.spatial.distance import cdist, pdist, squareform
 from scipy.special import softmax
 from sklearn.neighbors import NearestNeighbors
 
@@ -16,7 +16,7 @@ from .._core.mudata import MuData
 # Computational methods for preprocessing
 
 
-def weighted_neigbors(
+def weighted_neighbors(
     mdata: MuData,
     n_neighbors: Optional[int] = None,
     n_multineighbors: int = 200,
@@ -70,7 +70,14 @@ def weighted_neigbors(
             nndistances = np.empty((neighbordistances.shape[0],), neighbordistances.dtype)
             # neighborsdistances is a sparse matrix, we can either convert to dense, or loop
             for i in range(neighbordistances.shape[0]):
-                nndistances[i] = neighbordistances[i, :].data.min()
+                nndist = neighbordistances[i, :].data
+                if nndist.size == 0:
+                    raise ValueError(
+                        f"Cell {i} in modality {mod1} does not have any neighbors. "
+                        "This could be due to subsetting after nearest neighbors calculation. "
+                        "Make sure to subset before calculating nearest neighbors."
+                    )
+                nndistances[i] = nndist.min()
         else:
             nbrs = NearestNeighbors(n_neighbors=n_neighbors + 1, metric="precomputed")
             nbrs.fit(distances)
@@ -78,12 +85,21 @@ def weighted_neigbors(
             np.fill_diagonal(distances, np.inf)
             nndistances = np.min(distances, axis=1)
             np.fill_diagonal(distances, 0)
-        jac_dist = squareform(pdist((neighbordistances > 0).toarray(), "jaccard"))
-        jac_dist[jac_dist == 1] = -np.inf
-        sigma_candidates = np.lexsort((-distances, -jac_dist))[:, 1:21]
-        csigmas = np.asarray(
-            np.mean(np.take_along_axis(distances, sigma_candidates, -1), axis=-1)
-        ).squeeze()
+
+        # the following code is somewhat non-intuitive in an attempt to keep the memory usage at
+        # a manageable level
+        distances = np.stack(
+            (distances, squareform(pdist((neighbordistances > 0).toarray(), "jaccard"))), axis=-1
+        )
+        distances[distances[..., -1] == 1, -1] = -np.inf
+        distances = np.partition(
+            distances.view([("distance", distances.dtype), ("jaccard", distances.dtype)]),
+            kth=21,
+            axis=1,
+            order=("jaccard", "distance"),
+        ).view(distances.dtype)[:, :21, 0]
+        distances = np.partition(distances, kth=0, axis=1)[:, 1:]
+        csigmas = distances.mean(axis=1)
 
         currtheta = None
         thetas = np.full(
@@ -116,31 +132,56 @@ def weighted_neigbors(
                 lasti += 1
         ratios[ratioidx, i1] = currtheta / (np.max(thetas, axis=1) + eps)
         sigmas[mod1] = csigmas
+
     weights = softmax(ratios, axis=1)
-    weighted = np.zeros((mdata.n_obs, mdata.n_obs), dtype=np.float64)
+    neighbordistances = lil_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
     for i, m in enumerate(modalities):
         observations1 = observations.intersection(mdata[m].obs.index)
         idx = np.where(observations.isin(observations1))[0]
-        nparams = neighbors_params[m]
-        use_rep = nparams["params"].get("use_rep")
-        n_pcs = nparams["params"].get("n_pcs")
         rep = reps[m]
+        nbrs = NearestNeighbors(n_neighbors=n_multineighbors, metric="euclidean")
+        nbrs.fit(rep)
+        neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += nbrs.kneighbors_graph()
+    neighbordistances = neighbordistances.tocsr()
+
+    neighbordistances.data[:] = 0
+    for i, m in enumerate(modalities):
+        observations1 = observations.intersection(mdata[m].obs.index)
+        idx = np.where(observations.isin(observations1))[0]
+        rep = reps[m]
+        csigmas = sigmas[m]
         if issparse(rep):
-            rep = rep.toarray()
-        neighbordistances = squareform(pdist(rep, "euclidean"))
-        nbrs = NearestNeighbors(n_neighbors=n_multineighbors + 1, metric="precomputed")
-        nbrs.fit(neighbordistances)
-        connectivities = nbrs.kneighbors_graph(neighbordistances)
-        x, y = connectivities.nonzero()
-        weighted[idx[x], idx[y]] += (
-            np.exp(-neighbordistances / sigmas[m][:, np.newaxis]) * weights[idx, i, np.newaxis]
-        )[x, y]
-    np.fill_diagonal(weighted, 1)  # numerical inaccuracies
-    mnn = NearestNeighbors(n_neighbors=n_neighbors + 1, metric="precomputed")
-    weighted_dist = np.sqrt(0.5 * (1 - weighted))
-    mnn.fit(weighted_dist)
-    connectivities = mnn.kneighbors_graph(weighted_dist, mode="connectivity")
-    neighbordistances = mnn.kneighbors_graph(weighted_dist, mode="distance")
+            neighdist = lambda cell, nz: -cdist(
+                rep[cell, :].toarray(), rep[nz, :].toarray(), metric="euclidean"
+            )
+        else:
+            neighdist = lambda cell, nz: -cdist(
+                rep[np.newaxis, cell, :], rep[nz, :], metric="euclidean"
+            )
+        for cell, j in enumerate(idx):
+            row = slice(neighbordistances.indptr[cell], neighbordistances.indptr[cell + 1])
+            nz = neighbordistances.indices[row]
+            neighbordistances.data[row] += (
+                np.exp(neighdist(cell, nz) / csigmas[cell]).squeeze() * weights[cell, i]
+            )
+    neighbordistances.data = np.sqrt(0.5 * (1 - neighbordistances.data))
+
+    # NearestNeighbors wants sorted data, it will copy the matrix if it's not sorted
+    for i, m in enumerate(modalities):
+        observations1 = observations.intersection(mdata[m].obs.index)
+        idx = np.where(observations.isin(observations1))[0]
+        for cell, j in enumerate(idx):
+            rowidx = slice(neighbordistances.indptr[cell], neighbordistances.indptr[cell + 1])
+            row = neighbordistances.data[rowidx]
+            nz = neighbordistances.indices[rowidx]
+            idx = np.argsort(row)
+            row[:] = row[idx]
+            nz[:] = nz[idx]
+
+    mnn = NearestNeighbors(n_neighbors=n_neighbors, metric="precomputed")
+    mnn.fit(neighbordistances)
+    connectivities = mnn.kneighbors_graph(mode="connectivity")
+    neighbordistances = mnn.kneighbors_graph(mode="distance")
 
     if key_added is None:
         key_added = "neighbors"
