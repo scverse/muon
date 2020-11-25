@@ -33,6 +33,24 @@ If the variability inside groups of observations (samples or cells) is of intere
 	mu.tl.mofa(mdata, groups_label='batch')
 
 
+Dealing with missing observations
++++++++++++++++++++++++++++++++++
+
+Some observations might not be present in some modalities. While :func:`muon.pp.intersect_obs` can be used to make sure only common observations are preserved in all the modalities, MOFA+ also provides an interface to deal with missing data. There are two strategies: ``use_obs='intersection'`` to only use common observations for the training and ``use_obs='union'`` to use all the observations filling the missing piecies with missing values.
+::
+	mu.tl.mofa(mdata, use_obs='union')
+	# or 
+	mu.tl.mofa(mdata, use_obs='intersection')
+
+
+Using GPU
++++++++++
+
+Traning a factor model on a GPU would allow to reduce the computational time. MOFA+ uses `CuPy <https://cupy.dev/>`_ in order to take advantage of NVIDIA CUDA acceleration:
+::
+	mu.tl.mofa(mdata, gpu_mode=True)
+
+
 Multiplex clustering
 --------------------
 
