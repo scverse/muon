@@ -296,20 +296,9 @@ def mofa(
     convergence_mode: str = "fast",
     gpu_mode: bool = False,
     Y_ELBO_TauTrick: bool = True,
-    mefisto_covariate: Optional[str] = None,
-    mefisto_covariates_names: Optional[str] = None,
-    mefisto_scale_cov: bool = False,
-    mefisto_start_opt: int = 20,
-    mefisto_n_grid: int = 20,
-    mefisto_opt_freq: int = 10,
-    mefisto_model_groups: bool = True,
-    mefisto_warping: bool = False,
-    mefisto_warping_freq: int = 20,
-    mefisto_warping_ref: int = 0,
-    mefisto_warping_open_begin: bool = True,
-    mefisto_warping_open_end: bool = True,
-    mefisto_sparseGP: bool = False,
-    mefisto_frac_inducing: Optional[float] = None,
+    smooth_covariate: Optional[str] = None,
+    smooth_warping: bool = False,
+    smooth_kwargs: Optional[Mapping[str, Any]] = None,
     save_parameters: bool = False,
     save_data: bool = True,
     save_metadata: bool = True,
@@ -362,6 +351,16 @@ def mofa(
             if to use GPU mode
     Y_ELBO_TauTrick : optional
             if to use ELBO Tau trick to speed up computations
+    smooth_covariate : optional
+            use a covariate (column in .obs) to learn smooth factors (MEFISTO)
+    smooth_warping : optional
+            if to learn the alignment of covariates (e.g. time points) from different groups;
+            by default, the first group is used as a reference, which can be adjusted by setting
+            the REF_GROUP in smooth_kwargs = { "warping_ref": REF_GROUP } (MEFISTO)
+    smooth_kwargs : optional
+            additional arguments for MEFISTO (covariates_names, scale_cov, start_opt, n_grid, opt_freq,
+            warping_freq, warping_ref, warping_open_begin, warping_open_end,
+            sparseGP, frac_inducing, model_groups)
     save_parameters : optional
             if to save training parameters
     save_data : optional
@@ -445,6 +444,7 @@ def mofa(
         save_metadata=save_metadata,
         use_obs=use_obs,
     )
+    logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting model options...")
     ent.set_model_options(
         ard_factors=ard_factors,
         ard_weights=ard_weights,
@@ -452,6 +452,7 @@ def mofa(
         spikeslab_factors=spikeslab_factors,
         factors=n_factors,
     )
+    logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting training options...")
     ent.set_train_options(
         iter=n_iterations,
         convergence_mode=convergence_mode,
@@ -464,26 +465,53 @@ def mofa(
         save_interrupted=save_interrupted,
     )
 
-    if mefisto_covariate is not None:
-        if mefisto_covariates_names is None:
-            if isinstance(mefisto_covariate, str) or (
-                isinstance(mefisto_covariate, list) and isinstance(mefisto_covariate[0], str)
-            ):
-                mefisto_covariates_names = mefisto_covariate
-        ent.set_covariates(mefisto_covariate, covariates_names=mefisto_covariates_names)
+    # MEFISTO options
+
+    smooth_kwargs_default = dict(
+        covariates_names=smooth_covariate,
+        scale_cov=False,
+        start_opt=20,
+        n_grid=20,
+        opt_freq=10,
+        model_groups=True,
+        warping_freq=20,
+        warping_ref=0,
+        warping_open_begin=True,
+        warping_open_end=True,
+        sparseGP=False,
+        frac_inducing=None,
+    )
+
+    # warping_ref has to be an integer
+    if smooth_kwargs and "warping_ref" in smooth_kwargs:
+        warping_ref = smooth_kwargs["warping_ref"]
+        if not (isinstance("warping_ref", int)):
+            warping_ref = np.where(np.array(ent.data_opts["groups_names"]) == warping_ref)[0]
+            if len(warping_ref) == 0:
+                raise KeyError(
+                    f"Expected 'warping_ref' for be a group name but there is no group {warping_ref}"
+                )
+            smooth_kwargs["warping_ref"] = warping_ref[0]
+
+    # Add default options where they are not provided
+    smooth_kwargs = {**smooth_kwargs_default, **smooth_kwargs}
+
+    if smooth_covariate is not None:
+        logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Adding smooth options...")
+        ent.set_covariates(smooth_covariate, covariates_names=smooth_kwargs["covariates_names"])
         ent.set_smooth_options(
-            scale_cov=mefisto_scale_cov,
-            start_opt=mefisto_start_opt,
-            n_grid=mefisto_n_grid,
-            opt_freq=mefisto_opt_freq,
-            model_groups=mefisto_model_groups,
-            warping=mefisto_warping,
-            warping_freq=mefisto_warping_freq,
-            warping_ref=mefisto_warping_ref,
-            warping_open_begin=mefisto_warping_open_begin,
-            warping_open_end=mefisto_warping_open_end,
-            sparseGP=mefisto_sparseGP,
-            frac_inducing=mefisto_frac_inducing,
+            scale_cov=smooth_kwargs["scale_cov"],
+            start_opt=smooth_kwargs["start_opt"],
+            n_grid=smooth_kwargs["n_grid"],
+            opt_freq=smooth_kwargs["opt_freq"],
+            model_groups=smooth_kwargs["model_groups"],
+            warping=smooth_warping,
+            warping_freq=smooth_kwargs["warping_freq"],
+            warping_ref=smooth_kwargs["warping_ref"],
+            warping_open_begin=smooth_kwargs["warping_open_begin"],
+            warping_open_end=smooth_kwargs["warping_open_end"],
+            sparseGP=smooth_kwargs["sparseGP"],
+            frac_inducing=smooth_kwargs["frac_inducing"],
         )
 
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Building the model...")
@@ -531,7 +559,7 @@ def mofa(
         data.varm["LFs"] = w
 
     # aligned times
-    if mefisto_covariate is not None and mefisto_warping:
+    if smooth_covariate is not None and smooth_warping:
         for c in range(ent.dimensionalities["C"]):
             cnm = ent.smooth_opts["covariates_names"][c] + "_warped"
             cval = ent.model.getNodes()["Sigma"].sample_cov_transformed[:, c]
