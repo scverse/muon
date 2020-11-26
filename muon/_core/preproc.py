@@ -1,19 +1,105 @@
 from typing import Union, Callable, Optional, Sequence, Dict
 from functools import reduce
 from warnings import warn
+from collections import OrderedDict
 
 import numpy as np
 from scipy.sparse import csr_matrix, lil_matrix, issparse
-from scipy.spatial.distance import cdist, pdist, squareform
+from scipy.spatial.distance import cdist
 from scipy.special import softmax
-from sklearn.neighbors import NearestNeighbors
+from sklearn.utils import check_random_state
 
 from anndata import AnnData
 from scanpy.tools._utils import _choose_representation
-from scanpy import Neighbors
+from scanpy.neighbors import _compute_connectivities_umap
+import umap
+from umap.umap_ import nearest_neighbors
+from numba import njit, prange
+
 from .._core.mudata import MuData
 
 # Computational methods for preprocessing
+
+_euclidean = njit(umap.distances.euclidean.py_func, inline="always", fastmath=True)
+
+
+@njit(inline="always")
+def _sparse_csr_jaccard_metric(x, y, indices, indptr, data):
+    xrowidx = indices[indptr[x] : (indptr[x + 1])]
+    xrowidx = xrowidx[data[xrowidx] != 0]
+    yrowidx = indices[indptr[y] : (indptr[y + 1])]
+    yrowidx = yrowidx[data[yrowidx] != 0]
+
+    # numba does not have np.isin yet... https://github.com/numba/numba/pull/4815
+    # assumes that indices are sorted and unique
+    intersect = 0
+    lasty = yrowidx[0]
+    lastyidx = 0
+    for xidx in xrowidx:
+        if xidx > lasty:
+            if lastyidx < yrowidx.size:
+                lastyidx += 1
+                lasty = yrowidx[lastyidx]
+            else:
+                break
+        if xidx == lasty:
+            intersect += 1
+
+    union = xrowidx.size + yrowidx.size - intersect
+    return (union - intersect) / union
+
+
+@njit
+def _jaccard_euclidean_metric(
+    x: int,
+    y: int,
+    X: np.ndarray,
+    neighbors_indices: np.ndarray,
+    neighbors_indptr: np.ndarray,
+    neighbors_data: np.ndarray,
+    N: int,
+    bbox_norm: float,
+):
+    return (
+        0
+        if x[0] == y[0]
+        else _sparse_csr_jaccard_metric(
+            x[0], y[0], neighbors_indices, neighbors_indptr, neighbors_data
+        )
+        * N
+        + (bbox_norm - _euclidean(X[x[0], :], X[y[0], :])) / bbox_norm
+    )
+
+
+@njit(parallel=True)
+def _sparse_csr_fast_knn_(
+    N: int, indptr: np.ndarray, indices: np.ndarray, data: np.ndarray, n_neighbors: int
+):
+    knn_indptr = np.arange(N * n_neighbors, step=n_neighbors, dtype=indptr.dtype)
+    knn_indices = np.zeros((N * n_neighbors,), dtype=indices.dtype)
+    knn_data = np.zeros((N * n_neighbors,), dtype=data.dtype)
+
+    for i in prange(indptr.size - 1):
+        start = indptr[i]
+        end = indptr[i + 1]
+        rowidx = indices[start:end]
+        rowdata = data[rowidx]
+
+        idx = np.argsort(rowdata)  # would like to use argpartition, but not supported by numba
+        startidx = i * n_neighbors
+        endidx = (i + 1) * n_neighbors
+        # numba's parallel loops only support reductions, not assignment
+        knn_indices[startidx:endidx] += rowidx[idx[:n_neighbors]]
+        knn_data[startidx:endidx] += rowdata[idx[:n_neighbors]]
+    return knn_data, knn_indices, knn_indptr
+
+
+def _sparse_csr_fast_knn(X: csr_matrix, n_neighbors: int):  # numba doesn't know about SciPy
+    data, indices, indptr = _sparse_csr_fast_knn_(
+        X.shape[0], X.indptr, X.indices, X.data, n_neighbors
+    )
+    indptr = np.concatenate((indptr, (indices.size,)))
+    return csr_matrix((data, indices, indptr), X.shape)
 
 
 def weighted_neighbors(
@@ -22,9 +108,11 @@ def weighted_neighbors(
     n_multineighbors: int = 200,
     neighbor_keys: Optional[Dict[str, Optional[str]]] = None,
     key_added: Optional[str] = None,
-    eps=1e-4,
-    copy=False,
+    eps: float = 1e-4,
+    copy: bool = False,
+    random_state: Optional[Union[int, np.random.RandomState]] = None,
 ):
+    random_state = check_random_state(random_state)
     mdata = mdata.copy() if copy else mdata
     if neighbor_keys is None:
         modalities = mdata.mod.keys()
@@ -64,42 +152,58 @@ def weighted_neighbors(
         ratioidx = np.where(observations.isin(observations1))[0]
         nparams1 = neighbors_params[mod1]
         X = reps[mod1]
-        distances = squareform(pdist(X if not issparse(X) else X.toarray(), "euclidean"))
-        if nparams["params"].get("metric") in ("euclidean", "l2"):
-            neighbordistances = mdata[mod1].obsp[nparams1["distances_key"]]
-            nndistances = np.empty((neighbordistances.shape[0],), neighbordistances.dtype)
-            # neighborsdistances is a sparse matrix, we can either convert to dense, or loop
-            for i in range(neighbordistances.shape[0]):
-                nndist = neighbordistances[i, :].data
-                if nndist.size == 0:
-                    raise ValueError(
-                        f"Cell {i} in modality {mod1} does not have any neighbors. "
-                        "This could be due to subsetting after nearest neighbors calculation. "
-                        "Make sure to subset before calculating nearest neighbors."
-                    )
-                nndistances[i] = nndist.min()
-        else:
-            nbrs = NearestNeighbors(n_neighbors=n_neighbors + 1, metric="precomputed")
-            nbrs.fit(distances)
-            neighbordistances = nbrs.kneighbors_graph(distances, mode="distance")
-            np.fill_diagonal(distances, np.inf)
-            nndistances = np.min(distances, axis=1)
-            np.fill_diagonal(distances, 0)
+        neighbordistances = mdata[mod1].obsp[nparams1["distances_key"]]
+        nndistances = np.empty((neighbordistances.shape[0],), neighbordistances.dtype)
+        # neighborsdistances is a sparse matrix, we can either convert to dense, or loop
+        for i in range(neighbordistances.shape[0]):
+            nndist = neighbordistances[i, :].data
+            if nndist.size == 0:
+                raise ValueError(
+                    f"Cell {i} in modality {mod1} does not have any neighbors. "
+                    "This could be due to subsetting after nearest neighbors calculation. "
+                    "Make sure to subset before calculating nearest neighbors."
+                )
+            nndistances[i] = nndist.min()
 
-        # the following code is somewhat non-intuitive in an attempt to keep the memory usage at
-        # a manageable level
-        distances = np.stack(
-            (distances, squareform(pdist((neighbordistances > 0).toarray(), "jaccard"))), axis=-1
+        # We want to get the k-nn by Jaccard distance, but break ties using Euclidean distance.
+        # The naive version would be to compute pairwise Jaccard and Euclidean distances for
+        # all points, but this is low and needs lots of memory. We want to use an efficient
+        # k-nn algorithm, however no package that I know of supports tie-breaking k-nn, so we
+        # use a custom distance. Jaccard distance is always between 0 and 1 and has discrete
+        # increments of at least 1/N, where N is the number of data points. If we scale the
+        # Jaccard distances by N, the minimum Jaccard distance will be 1. If we scale all Euclidean
+        # distances to be less than one, we can define a combined distance as the sum of the
+        # scaled Jaccard and one minus the Euclidean distances. This is not a proper metric, but
+        # UMAP's nearest neighbor search uses NN-descent, which works with arbitrary similarity
+        # measures.
+        # The scaling factor for the Euclidean distance is given by the length of the diagonal
+        # of the bounding box of the data. This can be computed in linear time by just taking
+        # the minimal and maximal coordinates of each dimension.
+        N = X.shape[0]
+        bbox_norm = np.linalg.norm(np.ptp(X, axis=0), ord=2)
+        neighbordistances.sort_indices()
+        nn_indices, _, _ = nearest_neighbors(
+            np.arange(N)[:, np.newaxis],
+            n_neighbors=21,
+            metric_kwds=OrderedDict(
+                [
+                    ("X", X),
+                    ("neighbors_indices", neighbordistances.indices),
+                    ("neighbors_indptr", neighbordistances.indptr),
+                    ("neighbors_data", neighbordistances.data),
+                    ("N", N),
+                    ("bbox_norm", bbox_norm),
+                ]
+            ),
+            metric=_jaccard_euclidean_metric,
+            random_state=random_state,
+            angular=False,
         )
-        distances[distances[..., -1] == 1, -1] = -np.inf
-        distances = np.partition(
-            distances.view([("distance", distances.dtype), ("jaccard", distances.dtype)]),
-            kth=21,
-            axis=1,
-            order=("jaccard", "distance"),
-        ).view(distances.dtype)[:, :21, 0]
-        distances = np.partition(distances, kth=0, axis=1)[:, 1:]
-        csigmas = distances.mean(axis=1)
+        nn_indices = nn_indices[:, 1:]  # the point itself is its nearest neighbor
+
+        csigmas = np.empty((N,), dtype=neighbordistances.dtype)
+        for i, neighbors in enumerate(nn_indices):
+            csigmas[i] = cdist(X[np.newaxis, i, :], X[neighbors, :], metric="euclidean").mean()
 
         currtheta = None
         thetas = np.full(
@@ -136,12 +240,27 @@ def weighted_neighbors(
     weights = softmax(ratios, axis=1)
     neighbordistances = lil_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
     for i, m in enumerate(modalities):
+        metric = neighbors_params[m].get("metric", "euclidean")
         observations1 = observations.intersection(mdata[m].obs.index)
         idx = np.where(observations.isin(observations1))[0]
         rep = reps[m]
-        nbrs = NearestNeighbors(n_neighbors=n_multineighbors, metric="euclidean")
-        nbrs.fit(rep)
-        neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += nbrs.kneighbors_graph()
+        nn_indices, distances, _ = nearest_neighbors(
+            rep,
+            n_neighbors=n_multineighbors + 1,
+            metric=metric,
+            metric_kwds={},
+            random_state=random_state,
+            angular=False,
+        )
+        graph = csr_matrix(
+            (
+                distances[:, 1:].reshape(-1),
+                nn_indices[:, 1:].reshape(-1),
+                np.concatenate((nn_indices[:, 0] * n_multineighbors, (nn_indices[:, 1:].size,))),
+            ),
+            shape=(rep.shape[0], rep.shape[0]),
+        )
+        neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
     neighbordistances = neighbordistances.tocsr()
 
     neighbordistances.data[:] = 0
@@ -166,22 +285,15 @@ def weighted_neighbors(
             )
     neighbordistances.data = np.sqrt(0.5 * (1 - neighbordistances.data))
 
-    # NearestNeighbors wants sorted data, it will copy the matrix if it's not sorted
-    for i, m in enumerate(modalities):
-        observations1 = observations.intersection(mdata[m].obs.index)
-        idx = np.where(observations.isin(observations1))[0]
-        for cell, j in enumerate(idx):
-            rowidx = slice(neighbordistances.indptr[cell], neighbordistances.indptr[cell + 1])
-            row = neighbordistances.data[rowidx]
-            nz = neighbordistances.indices[rowidx]
-            idx = np.argsort(row)
-            row[:] = row[idx]
-            nz[:] = nz[idx]
-
-    mnn = NearestNeighbors(n_neighbors=n_neighbors, metric="precomputed")
-    mnn.fit(neighbordistances)
-    connectivities = mnn.kneighbors_graph(mode="connectivity")
-    neighbordistances = mnn.kneighbors_graph(mode="distance")
+    neighbordistances = _sparse_csr_fast_knn(neighbordistances, n_neighbors + 1)
+    _, connectivities = _compute_connectivities_umap(
+        knn_indices=neighbordistances.indices.reshape(
+            (neighbordistances.shape[0], n_neighbors + 1)
+        ),
+        knn_dists=neighbordistances.data.reshape((neighbordistances.shape[0], n_neighbors + 1)),
+        n_obs=neighbordistances.shape[0],
+        n_neighbors=n_neighbors + 1,
+    )
 
     if key_added is None:
         key_added = "neighbors"
