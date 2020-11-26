@@ -55,9 +55,9 @@ Multiplex clustering
 --------------------
 
 Familiar clustering algorithms can be run based on neighbours information from different modalities with :func:`muon.tl.leiden` or :func:`muon.tl.louvain`. Resolution can be set for each modality individually. More than that, contribution of each modality can also be weighted.
-::
-	mu.tl.leiden(mdata, resolution=[2., .5])
-	mu.tl.louvain(mdata, mod_weights=[1., .5])
+
+	>>> mu.tl.leiden(mdata, resolution=[2., .5])
+	>>> mu.tl.louvain(mdata, mod_weights=[1., .5])
 
 
 See more information on the multiplex versions of `leiden <https://leidenalg.readthedocs.io/en/stable/multiplex.html>`_ and `louvain <https://louvain-igraph.readthedocs.io/en/stable/multiplex.html>`_ algorithms on their respective documentation pages.

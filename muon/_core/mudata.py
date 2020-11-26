@@ -161,8 +161,6 @@ class MuData:
         self.filename = None
         self.filemode = None
         self.is_view = False
-        self.obs_names = None  # required by AxisArrays
-        self.var_names = None
 
     def _init_as_view(self, mudata_ref: "MuData", index):
         def slice_mapping(mapping, obsnames, varnames):
@@ -480,6 +478,17 @@ class MuData:
         self._update_attr("obs")
 
     @property
+    def obs_names(self) -> pd.Index:
+        """
+        Names of variables (alias for `.obs.index`)
+
+        This property is read-only.
+        To be modified, obs_names of individual modalities
+        should be changed, and .update_obs() should be called then.
+        """
+        return self.obs.index
+
+    @property
     def var(self) -> pd.DataFrame:
         """
         Annotation of variables
@@ -559,6 +568,17 @@ class MuData:
         # Update .var.index in the MuData
         var_names = [var for a in self.mod.values() for var in a.var_names.values]
         self._var.index = var_names
+
+    @property
+    def var_names(self) -> pd.Index:
+        """
+        Names of variables (alias for `.var.index`)
+
+        This property is read-only.
+        To be modified, var_names of individual modalities
+        should be changed, and .update_var() should be called then.
+        """
+        return self.var.index
 
     # Multi-dimensional annotations (.obsm and .varm)
 
