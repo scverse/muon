@@ -550,6 +550,9 @@ class MuData:
                     np.intersect1d(self.mod[ki].var_names.values, self.mod[kj].var_names.values)
                 )
         if any(map(lambda x: len(x) > 0, common_vars)):
+            warnings.warn(
+                "Modality names will be prepended to var_names since there are identical var_names in different modalities."
+            )
             for k in self.mod:
                 self.mod[k].var_names = k + ":" + self.mod[k].var_names.astype(str)
 
