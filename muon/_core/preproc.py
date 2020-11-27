@@ -21,6 +21,7 @@ from .._core.mudata import MuData
 # Computational methods for preprocessing
 
 _euclidean = njit(umap.distances.euclidean.py_func, inline="always", fastmath=True)
+_sparse_euclidean = njit(umap.sparse.sparse_euclidean.py_func, inline="always")
 
 
 @njit(inline="always")
@@ -71,6 +72,36 @@ def _jaccard_euclidean_metric(
     )
 
 
+@njit
+def _jaccard_sparse_euclidean_metric(
+    x: int,
+    y: int,
+    X_indices: np.ndarray,
+    X_indptr: np.ndarray,
+    X_data: np.ndarray,
+    neighbors_indices: np.ndarray,
+    neighbors_indptr: np.ndarray,
+    neighbors_data: np.ndarray,
+    N: int,
+    bbox_norm: float,
+):
+    if x[0] == y[0]:
+        return 0
+
+    from_inds = X_indices[X_indptr[x[0]] : X_indptr[x[0] + 1]]
+    from_data = X_data[X_indptr[x[0]] : X_indptr[x[0] + 1]]
+
+    to_inds = X_indices[X_indptr[y[0]] : X_indptr[y[0] + 1]]
+    to_data = X_data[X_indptr[y[0]] : X_indptr[y[0] + 1]]
+
+    euclidean = _sparse_euclidean(from_inds, from_data, to_inds, to_data)
+    jac = _sparse_csr_jaccard_metric(
+        x[0], y[0], neighbors_indices, neighbors_indptr, neighbors_data
+    )
+
+    return jac * N + (bbox_norm - euclidean) / bbox_norm
+
+
 @njit(parallel=True)
 def _sparse_csr_fast_knn_(
     N: int, indptr: np.ndarray, indices: np.ndarray, data: np.ndarray, n_neighbors: int
@@ -102,6 +133,21 @@ def _sparse_csr_fast_knn(X: csr_matrix, n_neighbors: int):  # numba doesn't know
     return csr_matrix((data, indices, indptr), X.shape)
 
 
+@njit(parallel=True)
+def _sparse_csr_ptp_(N: int, indptr: np.ndarray, indices: np.ndarray, data: np.ndarray):
+    minelems = np.zeros((N,), dtype=data.dtype)
+    maxelems = np.zeros((N,), dtype=data.dtype)
+    for row in range(indptr.size - 1):
+        cols = indices[indptr[row] : indptr[row + 1]]
+        minelems[cols] = np.minimum(minelems[cols], data[indices[indptr[row] : indptr[row + 1]]])
+        maxelems[cols] = np.maximum(maxelems[cols], data[indices[indptr[row] : indptr[row + 1]]])
+    return maxelems - minelems
+
+
+def _sparse_csr_ptp(X: csr_matrix):
+    return _sparse_csr_ptp_(X.shape[1], X.indptr, X.indices, X.data)
+
+
 def weighted_neighbors(
     mdata: MuData,
     n_neighbors: Optional[int] = None,
@@ -110,9 +156,9 @@ def weighted_neighbors(
     key_added: Optional[str] = None,
     eps: float = 1e-4,
     copy: bool = False,
-    random_state: Optional[Union[int, np.random.RandomState]] = None,
-):
-    random_state = check_random_state(random_state)
+    random_state: Optional[Union[int, np.random.RandomState]] = 42,
+) -> Optional[MuData]:
+    randomstate = check_random_state(random_state)
     mdata = mdata.copy() if copy else mdata
     if neighbor_keys is None:
         modalities = mdata.mod.keys()
@@ -124,10 +170,12 @@ def weighted_neighbors(
     observations = mdata.obs.index
 
     mod_neighbors = np.empty((len(modalities),), dtype=np.uint16)
+    mod_reps = {}
+    mod_n_pcs = {}
     for i, mod in enumerate(modalities):
         nkey = neighbor_keys.get(mod, "neighbors")
         try:
-            nparams = mdata[mod].uns[nkey]
+            nparams = mdata.mod[mod].uns[nkey]
         except KeyError:
             raise ValueError(
                 f'Did not find .uns["{nkey}"] for modality "{mod}". Run `sc.pp.neighbors` on all modalities first.'
@@ -138,8 +186,9 @@ def weighted_neighbors(
         mod_neighbors[i] = nparams["params"].get("n_neighbors", 0)
 
         neighbors_params[mod] = nparams
-        reps[mod] = _choose_representation(mdata[mod], use_rep, n_pcs)
-        observations = observations.intersection(mdata[mod].obs.index)
+        reps[mod] = _choose_representation(mdata.mod[mod], use_rep, n_pcs)
+        mod_reps[mod] = use_rep
+        mod_n_pcs[mod] = n_pcs
 
     if n_neighbors is None:
         mod_neighbors = mod_neighbors[mod_neighbors > 0]
@@ -148,11 +197,11 @@ def weighted_neighbors(
     ratios = np.full((len(observations), len(modalities)), -np.inf, dtype=np.float64)
     sigmas = {}
     for i1, mod1 in enumerate(modalities):
-        observations1 = observations.intersection(mdata[mod1].obs.index)
+        observations1 = observations.intersection(mdata.mod[mod1].obs.index)
         ratioidx = np.where(observations.isin(observations1))[0]
         nparams1 = neighbors_params[mod1]
         X = reps[mod1]
-        neighbordistances = mdata[mod1].obsp[nparams1["distances_key"]]
+        neighbordistances = mdata.mod[mod1].obsp[nparams1["distances_key"]]
         nndistances = np.empty((neighbordistances.shape[0],), neighbordistances.dtype)
         # neighborsdistances is a sparse matrix, we can either convert to dense, or loop
         for i in range(neighbordistances.shape[0]):
@@ -180,30 +229,49 @@ def weighted_neighbors(
         # of the bounding box of the data. This can be computed in linear time by just taking
         # the minimal and maximal coordinates of each dimension.
         N = X.shape[0]
-        bbox_norm = np.linalg.norm(np.ptp(X, axis=0), ord=2)
+        bbox_norm = np.linalg.norm(_sparse_csr_ptp(X) if issparse(X) else np.ptp(X, axis=0), ord=2)
         neighbordistances.sort_indices()
+        if issparse(X):
+            metric = _jaccard_sparse_euclidean_metric
+            metric_kwds = OrderedDict(
+                X_indices=X.indices,
+                X_indptr=X.indptr,
+                X_data=X.data,
+                neighbors_indices=neighbordistances.indices,
+                neighbors_indptr=neighbordistances.indptr,
+                neighbors_data=neighbordistances.data,
+                N=N,
+                bbox_norm=bbox_norm,
+            )
+        else:
+            metric = _jaccard_euclidean_metric
+            metric_kwds = OrderedDict(
+                X=X,
+                neighbors_indices=neighbordistances.indices,
+                neighbors_indptr=neighbordistances.indptr,
+                neighbors_data=neighbordistances.data,
+                N=N,
+                bbox_norm=bbox_norm,
+            )
         nn_indices, _, _ = nearest_neighbors(
             np.arange(N)[:, np.newaxis],
             n_neighbors=21,
-            metric_kwds=OrderedDict(
-                [
-                    ("X", X),
-                    ("neighbors_indices", neighbordistances.indices),
-                    ("neighbors_indptr", neighbordistances.indptr),
-                    ("neighbors_data", neighbordistances.data),
-                    ("N", N),
-                    ("bbox_norm", bbox_norm),
-                ]
-            ),
-            metric=_jaccard_euclidean_metric,
-            random_state=random_state,
+            metric=metric,
+            metric_kwds=metric_kwds,
+            random_state=randomstate,
             angular=False,
         )
         nn_indices = nn_indices[:, 1:]  # the point itself is its nearest neighbor
 
         csigmas = np.empty((N,), dtype=neighbordistances.dtype)
-        for i, neighbors in enumerate(nn_indices):
-            csigmas[i] = cdist(X[np.newaxis, i, :], X[neighbors, :], metric="euclidean").mean()
+        if issparse(X):
+            for i, neighbors in enumerate(nn_indices):
+                csigmas[i] = cdist(
+                    X[i : (i + 1), :].toarray(), X[neighbors, :].toarray(), metric="euclidean"
+                ).mean()
+        else:
+            for i, neighbors in enumerate(nn_indices):
+                csigmas[i] = cdist(X[i : (i + 1), :], X[neighbors, :], metric="euclidean").mean()
 
         currtheta = None
         thetas = np.full(
@@ -213,8 +281,8 @@ def weighted_neighbors(
         lasti = 0
         for i2, mod2 in enumerate(modalities):
             nparams2 = neighbors_params[mod2]
-            neighbordistances = mdata[mod2].obsp[nparams2["distances_key"]]
-            observations2 = observations1.intersection(mdata[mod2].obs.index)
+            neighbordistances = mdata.mod[mod2].obsp[nparams2["distances_key"]]
+            observations2 = observations1.intersection(mdata.mod[mod2].obs.index)
             Xidx = np.where(observations1.isin(observations2))[0]
             r = np.empty(shape=(len(observations2), X.shape[1]), dtype=neighbordistances.dtype)
             # alternative to the loop would be broadcasting, but this requires converting the sparse
@@ -241,7 +309,7 @@ def weighted_neighbors(
     neighbordistances = lil_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
     for i, m in enumerate(modalities):
         metric = neighbors_params[m].get("metric", "euclidean")
-        observations1 = observations.intersection(mdata[m].obs.index)
+        observations1 = observations.intersection(mdata.mod[m].obs.index)
         idx = np.where(observations.isin(observations1))[0]
         rep = reps[m]
         nn_indices, distances, _ = nearest_neighbors(
@@ -249,7 +317,7 @@ def weighted_neighbors(
             n_neighbors=n_multineighbors + 1,
             metric=metric,
             metric_kwds={},
-            random_state=random_state,
+            random_state=randomstate,
             angular=False,
         )
         graph = csr_matrix(
@@ -265,7 +333,7 @@ def weighted_neighbors(
 
     neighbordistances.data[:] = 0
     for i, m in enumerate(modalities):
-        observations1 = observations.intersection(mdata[m].obs.index)
+        observations1 = observations.intersection(mdata.mod[m].obs.index)
         idx = np.where(observations.isin(observations1))[0]
         rep = reps[m]
         csigmas = sigmas[m]
@@ -308,11 +376,11 @@ def weighted_neighbors(
         "n_multineighbors": n_multineighbors,
         "metric": "euclidean",
         "eps": eps,
+        "random_state": random_state,
+        "use_rep": mod_reps,
+        "n_pcs": mod_n_pcs,
+        "method": "umap",
     }
-    if use_rep is not None:
-        neighbors_dict["params"]["use_rep"] = use_rep
-    if n_pcs is not None:
-        neighbors_dict["params"]["n_pcs"] = n_pcs
     mdata.obsp[dists_key] = neighbordistances
     mdata.obsp[conns_key] = connectivities
     mdata.uns[key_added] = neighbors_dict
