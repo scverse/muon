@@ -373,6 +373,12 @@ def neighbors(
 
     weights = softmax(ratios, axis=1)
     neighbordistances = csr_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
+    if (
+        mdata.n_obs ** 2 > np.iinfo(neighbordistances.indptr.dtype).max
+        or mdata.n_obs ** 2 > np.iinfo(neighbordistances.indices.dtype).max
+    ):  # work around scipy bug https://github.com/scipy/scipy/issues/13155
+        neighbordistances.indptr = neighbordistances.indptr.astype(np.int64)
+        neighbordistances.indices = neighbordistances.indices.astype(np.int64)
     for i, m in enumerate(modalities):
         cmetric = neighbors_params[m].get("metric", "euclidean")
         observations1 = observations.intersection(mdata.mod[m].obs.index)
@@ -396,10 +402,13 @@ def neighbors(
             ),
             shape=(rep.shape[0], rep.shape[0]),
         )
-        with warnings.catch_warnings():
-            # based on benchmarks, csr_matrix is twice as fast as lil_matrix here
-            warnings.simplefilter("ignore", category=SparseEfficiencyWarning)
-            neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
+        if idx.size == mdata.n_obs and neighbordistances.size == 0:
+            neighbordistances = graph
+        else:
+            with warnings.catch_warnings():
+                # based on benchmarks, csr_matrix is twice as fast as lil_matrix here
+                warnings.simplefilter("ignore", category=SparseEfficiencyWarning)
+                neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
 
     neighbordistances.data[:] = 0
     for i, m in enumerate(modalities):
