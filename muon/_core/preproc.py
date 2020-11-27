@@ -148,7 +148,7 @@ def _sparse_csr_ptp(X: csr_matrix):
     return _sparse_csr_ptp_(X.shape[1], X.indptr, X.indices, X.data)
 
 
-def weighted_neighbors(
+def neighbors(
     mdata: MuData,
     n_neighbors: Optional[int] = None,
     n_multineighbors: int = 200,
@@ -158,6 +158,37 @@ def weighted_neighbors(
     copy: bool = False,
     random_state: Optional[Union[int, np.random.RandomState]] = 42,
 ) -> Optional[MuData]:
+    """
+    Multimodal nearest neighbor search.
+
+    This implements the multimodal nearest neighbor method of Hao et al. and Swanson et al. The neighbor search
+    efficiency on this heavily relies on UMAP. In particular, you may want to decrease n_multineighbors for large
+    data set to avoid excessive peak memory use.
+
+    References:
+        Hao et al, 2020 (`doi:10.1101/2020.10.12.335331 <https://dx.doi.org/10.1101/2020.10.12.335331>`_)
+        Swanson et al, 2020 (`doi:10.1101/2020.09.04.283887 <https://dx.doi.org/10.1101/2020.09.04.283887`_)
+
+    Args:
+        mdata: MuData object. Per-modality nearest neighbor search must have already been performed for all modalities
+            that are to be used for multimodal nearest neighbor search.
+        n_neighbors: Number of nearest neighbors to find. If ``None``, will be set to the arithmetic mean of per-modality
+            neighbors.
+        n_multineighbors: Number of nearest neighbors in each modality to consider as candidates for multimodal nearest
+            neighbors. Only points in the union of per-modality nearest neighbors are candidates for multimodal nearest
+            neighbors.
+        neighbor_keys: Keys in .uns where per-modality neighborhood information is stored. Defaults to ``"neighbors"``.
+            If set, only the modalities present in ``neighbor_keys`` will be used for multimodal nearest neighbor search.
+        key_added: If not specified, the multimodal neighbors data is stored in ``.uns["neighbors"]``, distances and
+            connectivities are stored in ``.obsp["distances"]`` and ``.obsp["connectivities"]``, respectively. If specified, the
+            neighbors data is added to ``.uns[key_added]``, distances are stored in ``.obsp[key_added + "_distances"]`` and
+            connectivities in ``.obsp[key_added + "_connectivities"]``.
+        eps: Small number to avoid numerical errors.
+        copy: Return a copy instead of writing to ``mdata``.
+        random_state: Random seed.
+
+    Returns: Depending on ``copy``, returns or updates ``mdata``.
+    """
     randomstate = check_random_state(random_state)
     mdata = mdata.copy() if copy else mdata
     if neighbor_keys is None:

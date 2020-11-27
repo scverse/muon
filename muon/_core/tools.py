@@ -963,6 +963,59 @@ def umap(
     method: Literal["umap", "rapids"] = "umap",
     neighbors_key: Optional[str] = None,
 ) -> Optional[MuData]:
+    """
+    Embed the multimodal neighborhood graph using UMAP (McInnes et al, 2018).
+
+    UMAP (Uniform Manifold Approximation and Projection) is a manifold learning
+    technique suitable for visualizing high-dimensional data. We use ScanPy's
+    implementation.
+
+    References:
+        McInnes et al, 2018 (`arXiv:1802.03426` <https://arxiv.org/abs/1802.03426>`_)
+
+    Args:
+        mdata: MuData object. Multimodal nearest neighbor search must have already
+            been performed.
+        min_dist: The effective minimum distance between embedded points. Smaller
+            values will result in a more clustered/clumped embedding where nearby points
+            on the manifold are drawn closer together, while larger values will result
+            on a more even dispersal of points. The value should be set relative to
+            the ``spread`` value, which determines the scale at which embedded points
+            will be spread out. The default of in the ``umap-learn`` package is 0.1.
+        spread: The effective scale of embedded points. In combination with ``min_dist``
+            this determines how clustered/clumped the embedded points are.
+        n_components: The number of dimensions of the embedding.
+        maxiter: The number of iterations (epochs) of the optimization. Called ``n_epochs``
+            in the original UMAP.
+        alpha: The initial learning rate for the embedding optimization.
+        gamma: Weighting applied to negative samples in low dimensional embedding
+            optimization. Values higher than one will result in greater weight
+            being given to negative samples.
+        negative_sample_rate: The number of negative edge/1-simplex samples to use per
+            positive edge/1-simplex sample in optimizing the low dimensional embedding.
+        init_pos: How to initialize the low dimensional embedding. Called ``init`` in the
+            original UMAP. Options are:
+            - 'spectral': use a spectral embedding of the graph.
+            - 'random': assign initial embedding positions at random.
+            - A numpy array of initial embedding positions.
+        random_state: Random seed.
+        a: More specific parameters controlling the embedding. If ``None`` these
+            values are set automatically as determined by ``min_dist`` and
+            ``spread``.
+        b: More specific parameters controlling the embedding. If ``None`` these
+            values are set automatically as determined by ``min_dist`` and
+            ``spread``.
+        copy: Return a copy instead of writing to mdata.
+        method: Use the original 'umap' implementation, or 'rapids' (experimental, GPU only)
+        neighbors_key: If not specified, umap looks in ``.uns['neighbors']`` for neighbors
+            settings and ``.obsp['connectivities']`` for connectivities (default storage
+            places for ``pp.neighbors``). If specified, umap looks ``.uns[neighbors_key]``
+            for neighbors settings and ``.obsp[.uns[neighbors_key]['connectivities_key']]``
+            for connectivities.
+    Returns: Depending on ``copy``, returns or updates ``adata`` with the following fields.
+
+        **X_umap** : ``mdata.obsm`` field holding UMAP coordinates of data.
+    """
     if isinstance(mdata, AnnData):
         return sc.tl.umap(
             adata=mdata,
