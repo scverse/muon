@@ -62,14 +62,14 @@ def _jaccard_euclidean_metric(
     N: int,
     bbox_norm: float,
 ):
+    x = int(x[0])  # this is for compatibility with pynndescent
+    y = int(y[0])  # pynndescent converts the data to float32
     return (
         0
-        if x[0] == y[0]
-        else _sparse_csr_jaccard_metric(
-            x[0], y[0], neighbors_indices, neighbors_indptr, neighbors_data
-        )
+        if x == y
+        else _sparse_csr_jaccard_metric(x, y, neighbors_indices, neighbors_indptr, neighbors_data)
         * N
-        + (bbox_norm - _euclidean(X[x[0], :], X[y[0], :])) / bbox_norm
+        + (bbox_norm - _euclidean(X[x, :], X[y, :])) / bbox_norm
     )
 
 
@@ -86,19 +86,19 @@ def _jaccard_sparse_euclidean_metric(
     N: int,
     bbox_norm: float,
 ):
-    if x[0] == y[0]:
+    x = int(x[0])  # this is for compatibility with pynndescent
+    y = int(y[0])  # pynndescent converts the data to float32
+    if x == y:
         return 0
 
-    from_inds = X_indices[X_indptr[x[0]] : X_indptr[x[0] + 1]]
-    from_data = X_data[X_indptr[x[0]] : X_indptr[x[0] + 1]]
+    from_inds = X_indices[X_indptr[x] : X_indptr[x + 1]]
+    from_data = X_data[X_indptr[x] : X_indptr[x + 1]]
 
-    to_inds = X_indices[X_indptr[y[0]] : X_indptr[y[0] + 1]]
-    to_data = X_data[X_indptr[y[0]] : X_indptr[y[0] + 1]]
+    to_inds = X_indices[X_indptr[y] : X_indptr[y + 1]]
+    to_data = X_data[X_indptr[y] : X_indptr[y + 1]]
 
     euclidean = _sparse_euclidean(from_inds, from_data, to_inds, to_data)
-    jac = _sparse_csr_jaccard_metric(
-        x[0], y[0], neighbors_indices, neighbors_indptr, neighbors_data
-    )
+    jac = _sparse_csr_jaccard_metric(x, y, neighbors_indices, neighbors_indptr, neighbors_data)
 
     return jac * N + (bbox_norm - euclidean) / bbox_norm
 
