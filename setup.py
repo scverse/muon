@@ -27,10 +27,12 @@ setuptools.setup(
         "h5py",
         "anndata",
         "scanpy",
+        "sklearn",
+        "umap-learn",
+        "numba",
         "loompy",
         "protobuf",
         "tqdm",
     ],
-    extras_require={"dsb_denoise": ["sklearn"]},
     include_package_data=True,
 )

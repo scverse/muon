@@ -5,6 +5,9 @@ from warnings import warn
 import numpy as np
 import pandas as pd
 from scipy.sparse import issparse, csr_matrix
+from sklearn.mixture import GaussianMixture
+from sklearn.decomposition import PCA
+from sklearn.linear_model import LinearRegression
 from anndata import AnnData
 
 from .. import MuData
@@ -148,13 +151,6 @@ def dsb(
     cells_scaled = (cells_scaled - empty_scaled.mean(axis=0)) / empty_scaled.std(axis=0)
 
     if denoise_counts:
-        try:
-            from sklearn.mixture import GaussianMixture
-            from sklearn.decomposition import PCA
-            from sklearn.linear_model import LinearRegression
-        except ImportError:
-            raise ImportError("sklearn package not found. Install the sklearn package to denoise.")
-
         bgmeans = np.empty(cells_scaled.shape[0], np.float32)
         # init_params needs to be random, otherwise fitted variance for one of the n_components
         # sometimes goes to 0
