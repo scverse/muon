@@ -1,10 +1,10 @@
 from typing import Union, Callable, Optional, Sequence, Dict
 from functools import reduce
-from warnings import warn
+import warnings
 from collections import OrderedDict
 
 import numpy as np
-from scipy.sparse import csr_matrix, lil_matrix, issparse
+from scipy.sparse import csr_matrix, issparse, SparseEfficiencyWarning
 from scipy.spatial.distance import cdist
 from scipy.special import softmax
 from sklearn.utils import check_random_state
@@ -365,7 +365,7 @@ def neighbors(
         sigmas[mod1] = csigmas
 
     weights = softmax(ratios, axis=1)
-    neighbordistances = lil_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
+    neighbordistances = csr_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
     for i, m in enumerate(modalities):
         cmetric = neighbors_params[m].get("metric", "euclidean")
         observations1 = observations.intersection(mdata.mod[m].obs.index)
@@ -387,8 +387,10 @@ def neighbors(
             ),
             shape=(rep.shape[0], rep.shape[0]),
         )
-        neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
-    neighbordistances = neighbordistances.tocsr()
+        with warnings.catch_warnings():
+            # based on benchmarks, csr_matrix is twice as fast as lil_matrix here
+            warnings.simplefilter("ignore", category=SparseEfficiencyWarning)
+            neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
 
     neighbordistances.data[:] = 0
     for i, m in enumerate(modalities):
@@ -463,7 +465,7 @@ def intersect_obs(mdata: MuData):
     """
 
     if mdata.isbacked:
-        warn(
+        warnings.warn(
             "MuData object is backed. It might be required to re-read the object with `backed=False` to make the intersection work."
         )
 
