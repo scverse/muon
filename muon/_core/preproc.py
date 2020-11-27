@@ -152,6 +152,7 @@ def _sparse_csr_ptp(X: csr_matrix):
 def neighbors(
     mdata: MuData,
     n_neighbors: Optional[int] = None,
+    n_bandwidth_neighbors: int = 20,
     n_multineighbors: int = 200,
     neighbor_keys: Optional[Dict[str, Optional[str]]] = None,
     metric: Literal[
@@ -179,6 +180,7 @@ def neighbors(
         "wminkowski",
         "yule",
     ] = "euclidean",
+    low_memory: Optional[bool] = None,
     key_added: Optional[str] = None,
     eps: float = 1e-4,
     copy: bool = False,
@@ -200,6 +202,7 @@ def neighbors(
             that are to be used for multimodal nearest neighbor search.
         n_neighbors: Number of nearest neighbors to find. If ``None``, will be set to the arithmetic mean of per-modality
             neighbors.
+        n_bandwidth_neighbors: Number of nearest neighbors to use for bandwidth selection.
         n_multineighbors: Number of nearest neighbors in each modality to consider as candidates for multimodal nearest
             neighbors. Only points in the union of per-modality nearest neighbors are candidates for multimodal nearest
             neighbors. This will use the same metric that was used for the nearest neighbor search in the respective modality.
@@ -207,6 +210,8 @@ def neighbors(
             If set, only the modalities present in ``neighbor_keys`` will be used for multimodal nearest neighbor search.
         metric: Distance measure to use. This will only be used in the final step to search for nearest neighbors in the set
             of candidates.
+        low_memory: Whether to use the low-memory implementation of nearest-neighbor descent. If not set, will default to True
+            if the data set has more than 50 000 samples.
         key_added: If not specified, the multimodal neighbors data is stored in ``.uns["neighbors"]``, distances and
             connectivities are stored in ``.obsp["distances"]`` and ``.obsp["connectivities"]``, respectively. If specified, the
             neighbors data is added to ``.uns[key_added]``, distances are stored in ``.obsp[key_added + "_distances"]`` and
@@ -290,6 +295,7 @@ def neighbors(
         N = X.shape[0]
         bbox_norm = np.linalg.norm(_sparse_csr_ptp(X) if issparse(X) else np.ptp(X, axis=0), ord=2)
         neighbordistances.sort_indices()
+        lmemory = low_memory if low_memory is not None else N > 50000
         if issparse(X):
             cmetric = _jaccard_sparse_euclidean_metric
             metric_kwds = OrderedDict(
@@ -314,11 +320,12 @@ def neighbors(
             )
         nn_indices, _, _ = nearest_neighbors(
             np.arange(N)[:, np.newaxis],
-            n_neighbors=21,
+            n_neighbors=n_bandwidth_neighbors + 1,
             metric=cmetric,
             metric_kwds=metric_kwds,
             random_state=randomstate,
             angular=False,
+            low_memory=lmemory,
         )
         nn_indices = nn_indices[:, 1:]  # the point itself is its nearest neighbor
 
@@ -371,6 +378,7 @@ def neighbors(
         observations1 = observations.intersection(mdata.mod[m].obs.index)
         idx = np.where(observations.isin(observations1))[0]
         rep = reps[m]
+        lmemory = low_memory if low_memory is not None else rep.shape[0] > 50000
         nn_indices, distances, _ = nearest_neighbors(
             rep,
             n_neighbors=n_multineighbors + 1,
@@ -378,6 +386,7 @@ def neighbors(
             metric_kwds={},
             random_state=randomstate,
             angular=False,
+            low_memory=lmemory,
         )
         graph = csr_matrix(
             (
