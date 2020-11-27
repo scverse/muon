@@ -12,6 +12,7 @@ from sklearn.utils import check_random_state
 from anndata import AnnData
 from scanpy.tools._utils import _choose_representation
 from scanpy.neighbors import _compute_connectivities_umap
+from scanpy._compat import Literal
 import umap
 from umap.umap_ import nearest_neighbors
 from numba import njit, prange
@@ -153,6 +154,31 @@ def neighbors(
     n_neighbors: Optional[int] = None,
     n_multineighbors: int = 200,
     neighbor_keys: Optional[Dict[str, Optional[str]]] = None,
+    metric: Literal[
+        "euclidean",
+        "braycurtis",
+        "canberra",
+        "chebyshev",
+        "cityblock",
+        "correlation",
+        "cosine",
+        "dice",
+        "hamming",
+        "jaccard",
+        "jensenshannon",
+        "kulsinski",
+        "mahalanobis",
+        "matching",
+        "minkowski",
+        "rogerstanimoto",
+        "russellrao",
+        "seuclidean",
+        "sokalmichener",
+        "sokalsneath",
+        "sqeuclidean",
+        "wminkowski",
+        "yule",
+    ] = "euclidean",
     key_added: Optional[str] = None,
     eps: float = 1e-4,
     copy: bool = False,
@@ -167,7 +193,7 @@ def neighbors(
 
     References:
         Hao et al, 2020 (`doi:10.1101/2020.10.12.335331 <https://dx.doi.org/10.1101/2020.10.12.335331>`_)
-        Swanson et al, 2020 (`doi:10.1101/2020.09.04.283887 <https://dx.doi.org/10.1101/2020.09.04.283887`_)
+        Swanson et al, 2020 (`doi:10.1101/2020.09.04.283887 <https://dx.doi.org/10.1101/2020.09.04.283887>`_)
 
     Args:
         mdata: MuData object. Per-modality nearest neighbor search must have already been performed for all modalities
@@ -176,9 +202,11 @@ def neighbors(
             neighbors.
         n_multineighbors: Number of nearest neighbors in each modality to consider as candidates for multimodal nearest
             neighbors. Only points in the union of per-modality nearest neighbors are candidates for multimodal nearest
-            neighbors.
+            neighbors. This will use the same metric that was used for the nearest neighbor search in the respective modality.
         neighbor_keys: Keys in .uns where per-modality neighborhood information is stored. Defaults to ``"neighbors"``.
             If set, only the modalities present in ``neighbor_keys`` will be used for multimodal nearest neighbor search.
+        metric: Distance measure to use. This will only be used in the final step to search for nearest neighbors in the set
+            of candidates.
         key_added: If not specified, the multimodal neighbors data is stored in ``.uns["neighbors"]``, distances and
             connectivities are stored in ``.obsp["distances"]`` and ``.obsp["connectivities"]``, respectively. If specified, the
             neighbors data is added to ``.uns[key_added]``, distances are stored in ``.obsp[key_added + "_distances"]`` and
@@ -263,7 +291,7 @@ def neighbors(
         bbox_norm = np.linalg.norm(_sparse_csr_ptp(X) if issparse(X) else np.ptp(X, axis=0), ord=2)
         neighbordistances.sort_indices()
         if issparse(X):
-            metric = _jaccard_sparse_euclidean_metric
+            cmetric = _jaccard_sparse_euclidean_metric
             metric_kwds = OrderedDict(
                 X_indices=X.indices,
                 X_indptr=X.indptr,
@@ -275,7 +303,7 @@ def neighbors(
                 bbox_norm=bbox_norm,
             )
         else:
-            metric = _jaccard_euclidean_metric
+            cmetric = _jaccard_euclidean_metric
             metric_kwds = OrderedDict(
                 X=X,
                 neighbors_indices=neighbordistances.indices,
@@ -287,7 +315,7 @@ def neighbors(
         nn_indices, _, _ = nearest_neighbors(
             np.arange(N)[:, np.newaxis],
             n_neighbors=21,
-            metric=metric,
+            metric=cmetric,
             metric_kwds=metric_kwds,
             random_state=randomstate,
             angular=False,
@@ -339,14 +367,14 @@ def neighbors(
     weights = softmax(ratios, axis=1)
     neighbordistances = lil_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
     for i, m in enumerate(modalities):
-        metric = neighbors_params[m].get("metric", "euclidean")
+        cmetric = neighbors_params[m].get("metric", "euclidean")
         observations1 = observations.intersection(mdata.mod[m].obs.index)
         idx = np.where(observations.isin(observations1))[0]
         rep = reps[m]
         nn_indices, distances, _ = nearest_neighbors(
             rep,
             n_neighbors=n_multineighbors + 1,
-            metric=metric,
+            metric=cmetric,
             metric_kwds={},
             random_state=randomstate,
             angular=False,
@@ -370,12 +398,10 @@ def neighbors(
         csigmas = sigmas[m]
         if issparse(rep):
             neighdist = lambda cell, nz: -cdist(
-                rep[cell, :].toarray(), rep[nz, :].toarray(), metric="euclidean"
+                rep[cell, :].toarray(), rep[nz, :].toarray(), metric=metric
             )
         else:
-            neighdist = lambda cell, nz: -cdist(
-                rep[np.newaxis, cell, :], rep[nz, :], metric="euclidean"
-            )
+            neighdist = lambda cell, nz: -cdist(rep[np.newaxis, cell, :], rep[nz, :], metric=metric)
         for cell, j in enumerate(idx):
             row = slice(neighbordistances.indptr[cell], neighbordistances.indptr[cell + 1])
             nz = neighbordistances.indices[row]
@@ -405,7 +431,7 @@ def neighbors(
     neighbors_dict["params"] = {
         "n_neighbors": n_neighbors,
         "n_multineighbors": n_multineighbors,
-        "metric": "euclidean",
+        "metric": metric,
         "eps": eps,
         "random_state": random_state,
         "use_rep": mod_reps,
