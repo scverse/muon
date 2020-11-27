@@ -113,14 +113,14 @@ def _sparse_csr_fast_knn_(
     for i in prange(indptr.size - 1):
         start = indptr[i]
         end = indptr[i + 1]
-        rowidx = indices[start:end]
-        rowdata = data[rowidx]
+        cols = indices[start:end]
+        rowdata = data[start:end]
 
         idx = np.argsort(rowdata)  # would like to use argpartition, but not supported by numba
         startidx = i * n_neighbors
         endidx = (i + 1) * n_neighbors
         # numba's parallel loops only support reductions, not assignment
-        knn_indices[startidx:endidx] += rowidx[idx[:n_neighbors]]
+        knn_indices[startidx:endidx] += cols[idx[:n_neighbors]]
         knn_data[startidx:endidx] += rowdata[idx[:n_neighbors]]
     return knn_data, knn_indices, knn_indptr
 
