@@ -15,6 +15,8 @@ from natsort import natsorted
 from anndata import AnnData
 from .mudata import MuData
 
+from scanpy._compat import Literal
+
 from typing import Union, Optional, List, Iterable, Mapping, Sequence, Type, Any
 from types import MappingProxyType
 
@@ -942,3 +944,103 @@ def louvain(
         algorithm="louvain",
         **kwargs,
     )
+
+
+def umap(
+    mdata: MuData,
+    min_dist: float = 0.5,
+    spread: float = 1.0,
+    n_components: int = 2,
+    maxiter: Optional[int] = None,
+    alpha: float = 1.0,
+    gamma: float = 1.0,
+    negative_sample_rate: int = 5,
+    init_pos: Optional[Union[Literal["spectral", "random"], np.ndarray]] = "spectral",
+    random_state: Optional[Union[int, np.random.RandomState]] = 42,
+    a: Optional[float] = None,
+    b: Optional[float] = None,
+    copy: bool = False,
+    method: Literal["umap", "rapids"] = "umap",
+    neighbors_key: Optional[str] = None,
+) -> Optional[MuData]:
+    if isinstance(mdata, AnnData):
+        return sc.tl.umap(
+            adata=mdata,
+            min_dist=min_dist,
+            spread=spread,
+            n_components=n_components,
+            maxiter=maxiter,
+            alpha=alpha,
+            gamma=gamma,
+            negative_sample_rate=negative_sample_rate,
+            init_pos=init_pos,
+            random_state=random_state,
+            a=a,
+            b=b,
+            copy=copy,
+            method=method,
+            neighbors_key=neighbors_key,
+        )
+
+    if neighbors_key is None:
+        neighbors_key = "neighbors"
+
+    try:
+        neighbors = mdata.uns[neighbors_key]
+    except KeyError:
+        raise ValueError(
+            f'Did not find .uns["{neighbors_key}"]. Run `muon.pp.weighted_neighbors` first.'
+        )
+
+    from scanpy.tools._utils import _choose_representation
+    from copy import deepcopy
+    from scipy.sparse import issparse
+
+    # we need a data matrix. This is used only for initialization and only if init_pos=="spectral"
+    # and the graph has many connected components, so we can do very simple imputation
+    reps = {}
+    nfeatures = 0
+    nparams = neighbors["params"]
+    observations = mdata.obs.index
+    for mod in nparams["use_rep"].keys():
+        rep = _choose_representation(mdata.mod[mod], nparams["use_rep"][mod], nparams["n_pcs"][mod])
+        nfeatures += rep.shape[1]
+        reps[mod] = rep
+    rep = np.empty((len(observations), nfeatures), np.float32)
+    nfeatures = 0
+    for mod, crep in reps.items():
+        cnfeatures = nfeatures + crep.shape[1]
+        idx = observations.isin(mdata.mod[mod].obs.index)
+        rep[idx, nfeatures:cnfeatures] = crep.toarray() if issparse(crep) else crep
+        if np.sum(idx) < rep.shape[0]:
+            rep[~idx, nfeatures : crep.shape[1]] = np.mean(crep, axis=0)
+        nfeatures = cnfeatures
+    adata = AnnData(X=rep, obs=mdata.obs)
+    adata.uns[neighbors_key] = deepcopy(neighbors)
+    adata.uns[neighbors_key]["params"]["use_rep"] = "X"
+    del adata.uns[neighbors_key]["params"]["n_pcs"]
+    adata.obsp[neighbors["connectivities_key"]] = mdata.obsp[neighbors["connectivities_key"]]
+    adata.obsp[neighbors["distances_key"]] = mdata.obsp[neighbors["distances_key"]]
+
+    sc.tl.umap(
+        adata=adata,
+        min_dist=min_dist,
+        spread=spread,
+        n_components=n_components,
+        maxiter=maxiter,
+        alpha=alpha,
+        gamma=gamma,
+        negative_sample_rate=negative_sample_rate,
+        init_pos=init_pos,
+        random_state=random_state,
+        a=a,
+        b=b,
+        copy=False,
+        method=method,
+        neighbors_key=neighbors_key,
+    )
+
+    mdata = mdata.copy() if copy else mdata
+    mdata.obsm["X_umap"] = adata.obsm["X_umap"]
+    mdata.uns["umap"] = adata.uns["umap"]
+    return mdata if copy else None
