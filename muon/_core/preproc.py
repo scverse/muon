@@ -4,7 +4,7 @@ import warnings
 from collections import OrderedDict
 
 import numpy as np
-from scipy.sparse import csr_matrix, issparse, SparseEfficiencyWarning
+from scipy.sparse import lil_matrix, csr_matrix, issparse, SparseEfficiencyWarning
 from scipy.spatial.distance import cdist
 from scipy.special import softmax
 from sklearn.utils import check_random_state
@@ -372,17 +372,11 @@ def neighbors(
         sigmas[mod1] = csigmas
 
     weights = softmax(ratios, axis=1)
-    neighbordistances = csr_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
-    if (
-        mdata.n_obs ** 2 > np.iinfo(neighbordistances.indptr.dtype).max
-        or mdata.n_obs ** 2 > np.iinfo(neighbordistances.indices.dtype).max
-    ):  # work around scipy bug https://github.com/scipy/scipy/issues/13155
-        neighbordistances.indptr = neighbordistances.indptr.astype(np.int64)
-        neighbordistances.indices = neighbordistances.indices.astype(np.int64)
+    neighbordistances = lil_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
     for i, m in enumerate(modalities):
         cmetric = neighbors_params[m].get("metric", "euclidean")
         observations1 = observations.intersection(mdata.mod[m].obs.index)
-        idx = np.where(observations.isin(observations1))[0]
+
         rep = reps[m]
         lmemory = low_memory if low_memory is not None else rep.shape[0] > 50000
         nn_indices, distances, _ = nearest_neighbors(
@@ -402,18 +396,37 @@ def neighbors(
             ),
             shape=(rep.shape[0], rep.shape[0]),
         )
-        if idx.size == mdata.n_obs and neighbordistances.size == 0:
-            neighbordistances = graph
-        else:
-            with warnings.catch_warnings():
-                # based on benchmarks, csr_matrix is twice as fast as lil_matrix here
-                warnings.simplefilter("ignore", category=SparseEfficiencyWarning)
-                neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
+        if observations1.size == mdata.n_obs and neighbordistances.size == 0:
+            neighbordistances = graph.tolil()
+        else:  # the naive version of neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
+            # uses way too much memory
+            fullidx = np.where(observations.isin(observations1))[0]
+            modidx = np.where(mdata.mod[m].obs.index.isin(observations1))[0]
+            fullidx = fullidx[
+                np.concatenate(
+                    (np.where(np.diff(fullidx, prepend=fullidx[0] - 2) > 1)[0], (fullidx.size - 1,))
+                )
+            ]
+            modidx = modidx[
+                np.concatenate(
+                    (np.where(np.diff(modidx, prepend=modidx[0] - 2) > 1)[0], (modidx.size - 1,))
+                )
+            ]
+            for fullidxstart1, fullidxstop1, modidxstart1, modidxstop1 in zip(
+                fullidx[:-1], fullidx[1:], modidx[:-1], modidx[1:]
+            ):
+                for fullidxstart2, fullidxstop2, modidxstart2, modidxstop2 in zip(
+                    fullidx[:-1], fullidx[1:], modidx[:-1], modidx[1:]
+                ):
+                    neighbordistances[
+                        fullidxstart1:fullidxstop1, fullidxstart2:fullidxstop2
+                    ] += graph[modidxstart1:modidxstop1, modidxstart2:modidxstop2]
+    neighbordistances = neighbordistances.tocsr()
 
     neighbordistances.data[:] = 0
     for i, m in enumerate(modalities):
         observations1 = observations.intersection(mdata.mod[m].obs.index)
-        idx = np.where(observations.isin(observations1))[0]
+        fullidx = np.where(observations.isin(observations1))[0]
         rep = reps[m]
         csigmas = sigmas[m]
         if issparse(rep):
@@ -422,7 +435,7 @@ def neighbors(
             )
         else:
             neighdist = lambda cell, nz: -cdist(rep[np.newaxis, cell, :], rep[nz, :], metric=metric)
-        for cell, j in enumerate(idx):
+        for cell, j in enumerate(fullidx):
             row = slice(neighbordistances.indptr[cell], neighbordistances.indptr[cell + 1])
             nz = neighbordistances.indices[row]
             neighbordistances.data[row] += (
