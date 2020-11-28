@@ -42,12 +42,14 @@ def _jaccard_euclidean_metric(
 
     from_inds = neighbors_indices[neighbors_indptr[x] : neighbors_indptr[x + 1]]
     from_data = neighbors_data[neighbors_indptr[x] : neighbors_indptr[x + 1]]
-
     to_inds = neighbors_indices[neighbors_indptr[y] : neighbors_indptr[y + 1]]
     to_data = neighbors_data[neighbors_indptr[y] : neighbors_indptr[y + 1]]
     jac = _sparse_jaccard(from_inds, from_data, to_inds, to_data)
 
-    return (N - jac * N) + (bbox_norm - _euclidean(X[x, :], X[y, :])) / bbox_norm
+    if jac < 1.0:
+        return (N - jac * N) + (bbox_norm - _euclidean(X[x, :], X[y, :])) / bbox_norm
+    else:
+        return N + 1.0
 
 
 @njit
@@ -70,14 +72,15 @@ def _jaccard_sparse_euclidean_metric(
 
     from_inds = X_indices[X_indptr[x] : X_indptr[x + 1]]
     from_data = X_data[X_indptr[x] : X_indptr[x + 1]]
-
     to_inds = X_indices[X_indptr[y] : X_indptr[y + 1]]
     to_data = X_data[X_indptr[y] : X_indptr[y + 1]]
-
-    euclidean = _sparse_euclidean(from_inds, from_data, to_inds, to_data)
     jac = _sparse_jaccard(from_inds, from_data, to_inds, to_data)
 
-    return (N - jac * N) + (bbox_norm - euclidean) / bbox_norm
+    if jac < 1.0:
+        euclidean = _sparse_euclidean(from_inds, from_data, to_inds, to_data)
+        return (N - jac * N) + (bbox_norm - euclidean) / bbox_norm
+    else:
+        return N + 1.0
 
 
 @njit(parallel=True)
@@ -298,14 +301,13 @@ def neighbors(
             )
         nn_indices, _, _ = nearest_neighbors(
             np.arange(N)[:, np.newaxis],
-            n_neighbors=n_bandwidth_neighbors + 1,
+            n_neighbors=n_bandwidth_neighbors,
             metric=cmetric,
             metric_kwds=metric_kwds,
             random_state=randomstate,
             angular=False,
             low_memory=lmemory,
         )
-        nn_indices = nn_indices[:, 1:]  # the point itself is its nearest neighbor
 
         csigmas = np.empty((N,), dtype=neighbordistances.dtype)
         if issparse(X):
