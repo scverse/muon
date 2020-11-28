@@ -23,32 +23,7 @@ from .._core.mudata import MuData
 
 _euclidean = njit(umap.distances.euclidean.py_func, inline="always", fastmath=True)
 _sparse_euclidean = njit(umap.sparse.sparse_euclidean.py_func, inline="always")
-
-
-@njit(inline="always")
-def _sparse_csr_jaccard_metric(x, y, indices, indptr, data):
-    xrowidx = indices[indptr[x] : (indptr[x + 1])]
-    xrowidx = xrowidx[data[xrowidx] != 0]
-    yrowidx = indices[indptr[y] : (indptr[y + 1])]
-    yrowidx = yrowidx[data[yrowidx] != 0]
-
-    # numba does not have np.isin yet... https://github.com/numba/numba/pull/4815
-    # assumes that indices are sorted and unique
-    intersect = 0
-    lasty = yrowidx[0]
-    lastyidx = 0
-    for xidx in xrowidx:
-        if xidx > lasty:
-            if lastyidx < yrowidx.size:
-                lastyidx += 1
-                lasty = yrowidx[lastyidx]
-            else:
-                break
-        if xidx == lasty:
-            intersect += 1
-
-    union = xrowidx.size + yrowidx.size - intersect
-    return (union - intersect) / union
+_sparse_jaccard = njit(umap.sparse.sparse_jaccard.py_func, inline="always")
 
 
 @njit
@@ -64,13 +39,15 @@ def _jaccard_euclidean_metric(
 ):
     x = int(x[0])  # this is for compatibility with pynndescent
     y = int(y[0])  # pynndescent converts the data to float32
-    return (
-        0
-        if x == y
-        else _sparse_csr_jaccard_metric(x, y, neighbors_indices, neighbors_indptr, neighbors_data)
-        * N
-        + (bbox_norm - _euclidean(X[x, :], X[y, :])) / bbox_norm
-    )
+
+    from_inds = neighbors_indices[neighbors_indptr[x] : neighbors_indptr[x + 1]]
+    from_data = neighbors_data[neighbors_indptr[x] : neighbors_indptr[x + 1]]
+
+    to_inds = neighbors_indices[neighbors_indptr[y] : neighbors_indptr[y + 1]]
+    to_data = neighbors_data[neighbors_indptr[y] : neighbors_indptr[y + 1]]
+    jac = _sparse_jaccard(from_inds, from_data, to_inds, to_data)
+
+    return (N - jac * N) + (bbox_norm - _euclidean(X[x, :], X[y, :])) / bbox_norm
 
 
 @njit
@@ -98,9 +75,9 @@ def _jaccard_sparse_euclidean_metric(
     to_data = X_data[X_indptr[y] : X_indptr[y + 1]]
 
     euclidean = _sparse_euclidean(from_inds, from_data, to_inds, to_data)
-    jac = _sparse_csr_jaccard_metric(x, y, neighbors_indices, neighbors_indptr, neighbors_data)
+    jac = _sparse_jaccard(from_inds, from_data, to_inds, to_data)
 
-    return jac * N + (bbox_norm - euclidean) / bbox_norm
+    return (N - jac * N) + (bbox_norm - euclidean) / bbox_norm
 
 
 @njit(parallel=True)
@@ -278,17 +255,18 @@ def neighbors(
                 )
             nndistances[i] = nndist.min()
 
-        # We want to get the k-nn by Jaccard distance, but break ties using Euclidean distance.
-        # The naive version would be to compute pairwise Jaccard and Euclidean distances for
-        # all points, but this is low and needs lots of memory. We want to use an efficient
-        # k-nn algorithm, however no package that I know of supports tie-breaking k-nn, so we
-        # use a custom distance. Jaccard distance is always between 0 and 1 and has discrete
-        # increments of at least 1/N, where N is the number of data points. If we scale the
-        # Jaccard distances by N, the minimum Jaccard distance will be 1. If we scale all Euclidean
-        # distances to be less than one, we can define a combined distance as the sum of the
-        # scaled Jaccard and one minus the Euclidean distances. This is not a proper metric, but
-        # UMAP's nearest neighbor search uses NN-descent, which works with arbitrary similarity
-        # measures.
+        # We want to get the k-nn with the largest Jaccard distance, but break ties using
+        # Euclidean distance. Largest Jaccard distance corresponds to lowest Jaccard index,
+        # i.e. 1 - Jaccard distance. The naive version would be to compute pairwise Jaccard and
+        # Euclidean distances for all points, but this is low and needs lots of memory. We
+        # want to use an efficient k-nn algorithm, however no package that I know of supports
+        # tie-breaking k-nn, so we use a custom distance. Jaccard index is always between 0 and 1
+        # and has discrete increments of at least 1/N, where N is the number of data points.
+        # If we scale the Jaccard indices by N, the minimum Jaccard index will be 1. If we scale
+        # all Euclidean distances to be less than one, we can define a combined distance as the
+        # sum of the scaled Jaccard index and one minus the Euclidean distances. This is not a
+        # proper metric, but UMAP's nearest neighbor search uses NN-descent, which works with
+        # arbitrary similarity measures.
         # The scaling factor for the Euclidean distance is given by the length of the diagonal
         # of the bounding box of the data. This can be computed in linear time by just taking
         # the minimal and maximal coordinates of each dimension.
