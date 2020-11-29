@@ -4,7 +4,7 @@ import warnings
 from collections import OrderedDict
 
 import numpy as np
-from scipy.sparse import lil_matrix, csr_matrix, issparse, SparseEfficiencyWarning
+from scipy.sparse import csr_matrix, issparse, SparseEfficiencyWarning
 from scipy.spatial.distance import cdist
 from scipy.special import softmax
 from sklearn.utils import check_random_state
@@ -129,6 +129,23 @@ def _sparse_csr_ptp(X: csr_matrix):
     return _sparse_csr_ptp_(X.shape[1], X.indptr, X.indices, X.data)
 
 
+def _make_slice_intervals(idx, maxsize=10000):
+    bins = np.concatenate(((-1,), np.where(np.diff(idx) > 1)[0], (idx.size - 1,)))
+    allstarts, allstops = [], []
+    for start, stop in zip(bins[:-1] + 1, bins[1:]):
+        size = stop - start
+        if size > maxsize:
+            nbins = size // maxsize
+            starts = np.arange(nbins) * maxsize + start
+            stops = np.concatenate((starts[1:], (size,)))
+            allstarts.append(starts)
+            allstops.append(stops)
+        else:
+            allstarts.append((start,))
+            allstops.append((stop,))
+    return np.concatenate(allstarts), np.concatenate(allstops)
+
+
 def neighbors(
     mdata: MuData,
     n_neighbors: Optional[int] = None,
@@ -212,6 +229,11 @@ def neighbors(
     neighbors_params = {}
     reps = {}
     observations = mdata.obs.index
+
+    if low_memory or low_memory is None and observations.size > 50000:
+        sparse_matrix_assign_splits = 10000
+    else:
+        sparse_matrix_assign_splits = 30000
 
     mod_neighbors = np.empty((len(modalities),), dtype=np.uint16)
     mod_reps = {}
@@ -352,7 +374,11 @@ def neighbors(
         sigmas[mod1] = csigmas
 
     weights = softmax(ratios, axis=1)
-    neighbordistances = lil_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
+    neighbordistances = csr_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
+    largeidx = mdata.n_obs ** 2 > np.iinfo(np.int32).max
+    if largeidx:  # work around scipy bug https://github.com/scipy/scipy/issues/13155
+        neighbordistances.indptr = neighbordistances.indptr.astype(np.int64)
+        neighbordistances.indices = neighbordistances.indices.astype(np.int64)
     for i, m in enumerate(modalities):
         cmetric = neighbors_params[m].get("metric", "euclidean")
         observations1 = observations.intersection(mdata.mod[m].obs.index)
@@ -376,32 +402,36 @@ def neighbors(
             ),
             shape=(rep.shape[0], rep.shape[0]),
         )
-        if observations1.size == mdata.n_obs and neighbordistances.size == 0:
-            neighbordistances = graph.tolil()
-        else:  # the naive version of neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
-            # uses way too much memory
-            fullidx = np.where(observations.isin(observations1))[0]
-            modidx = np.where(mdata.mod[m].obs.index.isin(observations1))[0]
-            fullidx = fullidx[
-                np.concatenate(
-                    (np.where(np.diff(fullidx, prepend=fullidx[0] - 2) > 1)[0], (fullidx.size - 1,))
+        with warnings.catch_warnings():
+            # CSR is faster here than LIL, no matter what SciPy says
+            warnings.simplefilter("ignore", category=SparseEfficiencyWarning)
+            if observations1.size == observations.size:
+                if neighbordistances.size == 0:
+                    neighbordistances = graph
+                else:
+                    neighbordistances += graph
+            else:  # the naive version of neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
+                # uses way too much memory
+                if largeidx:
+                    graph.indptr = graph.indptr.astype(np.int64)
+                    graph.indices = graph.indices.astype(np.int64)
+                fullstarts, fullstops = _make_slice_intervals(
+                    np.where(observations.isin(observations1))[0], sparse_matrix_assign_splits
                 )
-            ]
-            modidx = modidx[
-                np.concatenate(
-                    (np.where(np.diff(modidx, prepend=modidx[0] - 2) > 1)[0], (modidx.size - 1,))
+                modstarts, modstops = _make_slice_intervals(
+                    np.where(mdata.mod[m].obs.index.isin(observations1))[0],
+                    sparse_matrix_assign_splits,
                 )
-            ]
-            for fullidxstart1, fullidxstop1, modidxstart1, modidxstop1 in zip(
-                fullidx[:-1], fullidx[1:], modidx[:-1], modidx[1:]
-            ):
-                for fullidxstart2, fullidxstop2, modidxstart2, modidxstop2 in zip(
-                    fullidx[:-1], fullidx[1:], modidx[:-1], modidx[1:]
+
+                for fullidxstart1, fullidxstop1, modidxstart1, modidxstop1 in zip(
+                    fullstarts, fullstops, modstarts, modstops
                 ):
-                    neighbordistances[
-                        fullidxstart1:fullidxstop1, fullidxstart2:fullidxstop2
-                    ] += graph[modidxstart1:modidxstop1, modidxstart2:modidxstop2]
-    neighbordistances = neighbordistances.tocsr()
+                    for fullidxstart2, fullidxstop2, modidxstart2, modidxstop2 in zip(
+                        fullstarts, fullstops, modstarts, modstops
+                    ):
+                        neighbordistances[
+                            fullidxstart1:fullidxstop1, fullidxstart2:fullidxstop2
+                        ] += graph[modidxstart1:modidxstop1, modidxstart2:modidxstop2]
 
     neighbordistances.data[:] = 0
     for i, m in enumerate(modalities):
