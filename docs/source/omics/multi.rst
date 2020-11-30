@@ -24,6 +24,10 @@ While there are quite a few options to configure the method for the task in ques
 
 For example, the number of factors to learn can be adjusted with ``n_factors``, and training can be launched on the GPU when available with ``gpu_mode=True``. 
 
+Feature selection
++++++++++++++++++
+
+By default, only highly variable features are used with ``use_var='highly_variable'``. If there's no column ``.var['highly_variable']``, all features are used. Any other feature selection can be provided with ``use_var`` as long as it's defined for all the assays as a boolean value.
 
 Grouping observations
 +++++++++++++++++++++
