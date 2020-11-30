@@ -253,8 +253,10 @@ def neighbors(
 
         neighbors_params[mod] = nparams
         reps[mod] = _choose_representation(mdata.mod[mod], use_rep, n_pcs)
-        mod_reps[mod] = use_rep
-        mod_n_pcs[mod] = n_pcs
+        mod_reps[mod] = (
+            use_rep if use_rep is not None else -1
+        )  # otherwise this is not saved to h5mu
+        mod_n_pcs[mod] = n_pcs if n_pcs is not None else -1
 
     if n_neighbors is None:
         mod_neighbors = mod_neighbors[mod_neighbors > 0]

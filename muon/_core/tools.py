@@ -1054,9 +1054,11 @@ def umap(
     reps = {}
     nfeatures = 0
     nparams = neighbors["params"]
+    use_rep = {k: (v if v != -1 else None) for k, v in nparams["use_rep"].items()}
+    n_pcs = {k: (v if v != -1 else None) for k, v in nparams["n_pcs"].items()}
     observations = mdata.obs.index
-    for mod in nparams["use_rep"].keys():
-        rep = _choose_representation(mdata.mod[mod], nparams["use_rep"][mod], nparams["n_pcs"][mod])
+    for mod, rep in use_rep.items():
+        rep = _choose_representation(mdata.mod[mod], rep, n_pcs[mod])
         nfeatures += rep.shape[1]
         reps[mod] = rep
     rep = np.empty((len(observations), nfeatures), np.float32)
