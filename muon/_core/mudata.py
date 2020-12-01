@@ -371,7 +371,7 @@ class MuData:
                 axis=0,
                 sort=False,
             )
-            data_mod = data_mod.join(data_common, how="left")
+            data_mod = data_mod.join(data_common, how="left", sort=False).loc[data_mod.index]
         else:
             data_mod = pd.concat(
                 [getattr(a, attr).add_prefix(m + ":") for m, a in self.mod.items()],
@@ -382,7 +382,9 @@ class MuData:
 
         # Add data from global .obs/.var columns
         # This might reduce the size of .obs/.var if observations/variables were removed
-        setattr(self, "_" + attr, data_mod.join(data_global, how="left", sort=False))
+        setattr(
+            self, "_" + attr, data_mod.join(data_global, how="left", sort=False).loc[data_mod.index]
+        )
 
         # Update .obsm/.varm
         for k, v in self.mod.items():
