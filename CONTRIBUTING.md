@@ -18,7 +18,7 @@ The code that is suggested to be merged into `muon` is expected to follow reason
 - Format the code with [black](https://github.com/psf/black).
 - Make sure debugging code (e.g. `pdb.set_trace()`) is removed as well as respective dependencies (`import pdb`).
 - Use tools like `pylint` and `flake8` to check proposed code changes.
-- Make sure documentation is changed as well to reflect the changes. That may include external files as well such as respective README.md files.
+- Make sure documentation is changed to reflect the changes. That includes docstrings as well as external files such as the ones in `docs/` or respective `README.md` files.
 - Consider increasing the version number in `setup.py`. Please stick to [semantic versioning](https://semver.org/).
 - Pull requests can be merged when the LGTM (_looks good to me_) has been received from reviewers, probably after a few rounds of reviews.
 
