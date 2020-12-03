@@ -2,6 +2,7 @@ from typing import Union, Callable, Optional, Sequence, Dict
 from functools import reduce
 import warnings
 from collections import OrderedDict
+import logging
 
 import numpy as np
 from scipy.sparse import csr_matrix, issparse, SparseEfficiencyWarning
@@ -264,6 +265,7 @@ def neighbors(
 
     ratios = np.full((len(observations), len(modalities)), -np.inf, dtype=np.float64)
     sigmas = {}
+
     for i1, mod1 in enumerate(modalities):
         observations1 = observations.intersection(mdata.mod[mod1].obs.index)
         ratioidx = np.where(observations.isin(observations1))[0]
@@ -323,6 +325,8 @@ def neighbors(
                 N=N,
                 bbox_norm=bbox_norm,
             )
+
+        logging.info(f"Calculating kernel bandwidth for '{mod1}' modality...")
         nn_indices, _, _ = nearest_neighbors(
             np.arange(N)[:, np.newaxis],
             n_neighbors=n_bandwidth_neighbors,
@@ -349,6 +353,8 @@ def neighbors(
         )
 
         lasti = 0
+
+        logging.info(f"Calculating cell affinities for '{mod1} modality...")
         for i2, mod2 in enumerate(modalities):
             nparams2 = neighbors_params[mod2]
             neighbordistances = mdata.mod[mod2].obsp[nparams2["distances_key"]]
@@ -387,6 +393,8 @@ def neighbors(
 
         rep = reps[m]
         lmemory = low_memory if low_memory is not None else rep.shape[0] > 50000
+        logging.info(f"Calculating nearest neighbor candidates for '{m}' modality...")
+        logging.debug(f"Using low_memory={lmemory} for '{m}' modality")
         nn_indices, distances, _ = nearest_neighbors(
             rep,
             n_neighbors=n_multineighbors + 1,
@@ -436,6 +444,7 @@ def neighbors(
                         ] += graph[modidxstart1:modidxstop1, modidxstart2:modidxstop2]
 
     neighbordistances.data[:] = 0
+    logging.info("Calculating multimodal nearest neighbors...")
     for i, m in enumerate(modalities):
         observations1 = observations.intersection(mdata.mod[m].obs.index)
         fullidx = np.where(observations.isin(observations1))[0]
@@ -456,6 +465,8 @@ def neighbors(
     neighbordistances.data = np.sqrt(0.5 * (1 - neighbordistances.data))
 
     neighbordistances = _sparse_csr_fast_knn(neighbordistances, n_neighbors + 1)
+
+    logging.info("Calculating connectivities...")
     _, connectivities = _compute_connectivities_umap(
         knn_indices=neighbordistances.indices.reshape(
             (neighbordistances.shape[0], n_neighbors + 1)
