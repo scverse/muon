@@ -2,7 +2,6 @@ from typing import Union, Callable, Optional, Sequence, Dict
 from functools import reduce
 import warnings
 from collections import OrderedDict
-import logging
 
 import numpy as np
 from scipy.sparse import csr_matrix, issparse, SparseEfficiencyWarning
@@ -11,6 +10,7 @@ from scipy.special import softmax
 from sklearn.utils import check_random_state
 
 from anndata import AnnData
+from scanpy import logging
 from scanpy.tools._utils import _choose_representation
 from scanpy.neighbors import _compute_connectivities_umap
 from scanpy._compat import Literal

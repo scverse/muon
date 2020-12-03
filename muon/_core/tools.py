@@ -2,7 +2,6 @@ import sys
 import os
 from functools import reduce
 
-import logging
 from datetime import datetime
 from time import strftime
 from warnings import warn
@@ -16,6 +15,7 @@ from anndata import AnnData
 from .mudata import MuData
 
 from scanpy._compat import Literal
+from scanpy import logging
 
 from typing import Union, Optional, List, Iterable, Mapping, Sequence, Type, Any
 from types import MappingProxyType
