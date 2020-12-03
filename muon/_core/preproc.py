@@ -218,7 +218,8 @@ def neighbors(
         copy: Return a copy instead of writing to ``mdata``.
         random_state: Random seed.
 
-    Returns: Depending on ``copy``, returns or updates ``mdata``.
+    Returns: Depending on ``copy``, returns or updates ``mdata``. Cell-modality weights will be stored in
+        ``.obs["modality_weight"]`` separately for each modality.
     """
     randomstate = check_random_state(random_state)
     mdata = mdata.copy() if copy else mdata
@@ -448,6 +449,9 @@ def neighbors(
     for i, m in enumerate(modalities):
         observations1 = observations.intersection(mdata.mod[m].obs.index)
         fullidx = np.where(observations.isin(observations1))[0]
+
+        mdata.mod[m].obs["modality_weight"] = weights[fullidx, i]
+
         rep = reps[m]
         csigmas = sigmas[m]
         if issparse(rep):
@@ -497,6 +501,8 @@ def neighbors(
     mdata.obsp[dists_key] = neighbordistances
     mdata.obsp[conns_key] = connectivities
     mdata.uns[key_added] = neighbors_dict
+
+    mdata.update_obs()
 
     return mdata if copy else None
 
