@@ -1068,7 +1068,10 @@ def umap(
         idx = observations.isin(mdata.mod[mod].obs.index)
         rep[idx, nfeatures:cnfeatures] = crep.toarray() if issparse(crep) else crep
         if np.sum(idx) < rep.shape[0]:
-            rep[~idx, nfeatures : crep.shape[1]] = np.mean(crep, axis=0)
+            imputed = crep.mean(axis=0)
+            if issparse(crep):
+                imputed = np.asarray(imputed).squeeze()
+            rep[~idx, nfeatures : crep.shape[1]] = imputed
         nfeatures = cnfeatures
     adata = AnnData(X=rep, obs=mdata.obs)
     adata.uns[neighbors_key] = deepcopy(neighbors)

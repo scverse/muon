@@ -302,9 +302,9 @@ def neighbors(
         # the minimal and maximal coordinates of each dimension.
         N = X.shape[0]
         bbox_norm = np.linalg.norm(_sparse_csr_ptp(X) if issparse(X) else np.ptp(X, axis=0), ord=2)
-        neighbordistances.sort_indices()
         lmemory = low_memory if low_memory is not None else N > 50000
         if issparse(X):
+            X = X.tocsr()
             cmetric = _jaccard_sparse_euclidean_metric
             metric_kwds = OrderedDict(
                 X_indices=X.indices,
