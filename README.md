@@ -107,32 +107,9 @@ sc.pl.umap(rna)
 Currently muon comes with a set of modules that can be used hand in hand with scanpy's API. These modules are named after respective sequencing protocols and comprise special functions that might come in handy. It is also handy to import them as two letter abbreviations:
 
 ```py
+# ATAC module:
 from muon import atac as ac
-#                        ^
-#                        |
-#      ATAC module: e.g. ac.pp.tfidf()
 
+# Protein (epitope) module:
 from muon import protein as pt
-#                           ^
-#                           |
-#                 protein (epitope) module
 ```
-
-While sticking to the same API on their surface, the functions from these modules can be different in their implementation:
-
-- Some provide new methods, e.g. `ac.tl.lsi()` for Latent Semantic Indexing. 
-
-- Others mimic scanpy's API essentially using them under the hood but provide additional functionality, e.g. `ac.pl.umap()` allows to use gene names for plotting aggregated peak counts. 
-
-- There's also a mix of both like `ac.tl.rank_peaks_groups()` that uses `sc.tl.rank_genes_groups()` and also calls `ac.tl.add_genes_peaks_groups()`.
-
-There are some rules that functions in those modules try to follow:
-
-1. Stay close to AnnData/MuData-centered worflow as much as possible. The default exprectation is to have it as the first argument of a function, and the function modifies the object in place by default.
-
-1. Accept both AnnData and MuData with default keys for modalities such as `'rna'`, `'atac'`, and `'prot'`.
-
-1. Small code overhead. If there's analogous functionality in AnnData or in scanpy, build on top of it. This is important both for matching users' expectations and for reducing the cost of supporting the code across its different versions.
-
-1. Existing plotting functions should be reused unless specific plots are required for certain modalities.
-
