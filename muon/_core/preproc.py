@@ -40,6 +40,8 @@ def _jaccard_euclidean_metric(
 ):
     x = int(x[0])  # this is for compatibility with pynndescent
     y = int(y[0])  # pynndescent converts the data to float32
+    if x == y:
+        return N + 1.0
 
     from_inds = neighbors_indices[neighbors_indptr[x] : neighbors_indptr[x + 1]]
     from_data = neighbors_data[neighbors_indptr[x] : neighbors_indptr[x + 1]]
@@ -69,7 +71,7 @@ def _jaccard_sparse_euclidean_metric(
     x = int(x[0])  # this is for compatibility with pynndescent
     y = int(y[0])  # pynndescent converts the data to float32
     if x == y:
-        return 0
+        return N + 1.0
 
     from_inds = X_indices[X_indptr[x] : X_indptr[x + 1]]
     from_data = X_data[X_indptr[x] : X_indptr[x + 1]]
