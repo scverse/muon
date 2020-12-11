@@ -5,7 +5,6 @@ import pkgutil
 from collections import OrderedDict
 from typing import List, Union, Optional, Callable, Iterable
 from pathlib import Path
-import logging
 from datetime import datetime
 
 import numpy as np
@@ -15,6 +14,7 @@ from tqdm import tqdm
 from scipy.sparse.linalg import svds
 from scipy.sparse import csr_matrix
 from scipy.sparse import lil_matrix
+from scanpy import logging
 from anndata import AnnData
 from . import utils
 from .._core.mudata import MuData
