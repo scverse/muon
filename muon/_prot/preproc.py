@@ -193,7 +193,7 @@ def dsb(
     return toreturn
 
 
-def clr(adata: AnnData, inplace: bool = True) -> Union[None, MuData]:
+def clr(adata: AnnData, inplace: bool = True) -> Union[None, AnnData]:
     """
     Apply the centered log ratio (CLR) transformation
     to normalize counts in adata.X.
