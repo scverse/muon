@@ -370,7 +370,10 @@ def read_h5mu_mod_backed(g: "h5py.Group", manager: MuDataFileManager) -> dict:
             d[k] = read_attribute(g[k])
     ad = AnnData(**d)
     ad.file = AnnDataFileManager(ad, basename(g.name), manager)
-    ad._raw = Raw(ad, **_read_raw(g, attrs={"var", "varm"}))
+
+    raw = _read_raw(g, attrs={"var", "varm"})
+    if raw:
+        ad._raw = Raw(ad, **raw)
     return ad
 
 
