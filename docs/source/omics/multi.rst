@@ -65,3 +65,13 @@ Familiar clustering algorithms can be run based on neighbours information from d
 
 
 See more information on the multiplex versions of `leiden <https://leidenalg.readthedocs.io/en/stable/multiplex.html>`_ and `louvain <https://louvain-igraph.readthedocs.io/en/stable/multiplex.html>`_ algorithms on their respective documentation pages.
+
+
+Weighted nearest neighbours
+---------------------------
+
+Weighted nearest neighbours (WNN) is a procedure to define a neighbourhood graph for the samples across different feature sets (modalities). It has been described in `Hao et al., 2020 <https://dx.doi.org/10.1101/2020.10.12.335331>`_ and `Swanson et al., 2020 <https://dx.doi.org/10.1101/2020.09.04.283887>`_. As other neighbourhood detection methods, it is available in the preprocessing module :mod:`muon.pp` as :func:`muon.pp.neighbors`. These learned distances can further be used e.g. to construct a latent space:
+
+	>>> mu.pp.neighbors(mdata)
+	>>> mu.tl.umap(mdata)
+
