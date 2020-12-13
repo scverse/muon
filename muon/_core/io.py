@@ -166,6 +166,9 @@ def write_h5mu(filename: PathLike, mdata: MuData, *args, **kwargs):
         mdata.file.close()
         mdata.file.open(filename, "r+")
 
+    # Restore top-level annotation
+    mdata.update()
+
 
 def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
     """
