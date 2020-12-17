@@ -42,6 +42,14 @@ def import_pysam():
         )
 
 
+def open_fragment_connection(fragment_path):
+    '''Imports pysam and opens connection with BED parser'''
+
+    pysam = import_pysam()
+    frag = pysam.TabixFile(fragment_path, parser=pysam.asBed())
+
+    return frag
+
 def locate_fragments(data: Union[AnnData, MuData], fragments: Optional[str] = None, return_fragments: bool = False):
     """
     Parse fragments file and add a variable to access it to the .uns["files"]["fragments"]
@@ -70,10 +78,8 @@ def locate_fragments(data: Union[AnnData, MuData], fragments: Optional[str] = No
             else:
                 raise ValueError("No filepath found in .uns['files']['fragments'] and `fragments` argument is None. Please specify one of the two.")
 
-        pysam = import_pysam()
-
         # Here we make sure we can create a connection to the fragments file
-        frag = pysam.TabixFile(fragments, parser=pysam.asBed())
+        frag = open_fragment_connection(fragments)
 
         if "files" not in adata.uns:
             adata.uns["files"] = OrderedDict()
@@ -188,7 +194,7 @@ def _region_pileup(mx, fragments, d, chromosome, start, end):
 
 
 def region_pileup(
-        fragments: "pysam.libctabix.TabixFile",
+        fragments: Union[str, "pysam.libctabix.TabixFile"],
         cells: np.array,
         chromosome: str,
         start: int,
@@ -200,7 +206,7 @@ def region_pileup(
     Parameters
     ----------
     fragments
-        `pysam` connection to a tabix indexed fragments file.
+        Path to or `pysam` connection to a tabix indexed fragments file.
     cells
         List of cells to fetch
     chromosome
@@ -210,6 +216,9 @@ def region_pileup(
     end
         End position
     """
+
+    if isinstance(fragments, str):
+        fragments = open_fragment_connection(fragments)
 
     n = cells.shape[0]
     n_features = end - start
@@ -333,27 +342,35 @@ def fetch_regions_to_df(
         features = atacutils.parse_region_string(features)
     n_features = features.shape[0]
 
-    fragments = locate_fragments(adata, return_fragments=True)
+    fragments = open_fragment_connection(fragment_path)
 
     dfs = []
     for i in tqdm(
         range(n_features), desc="Fetching Regions..."
     ):  # iterate over features (e.g. genes)
         f = features.iloc[i]
-        fr = fragments.fetch(f.Chromosome, f.Start - extend_upstream, f.End + extend_downstream)
-        df = pd.DataFrame(
-            [(x.contig, x.start, x.end, x.name, x.score) for x in fr],
-            columns=["Chromosome", "Start", "End", "Cell", "Score"],
-        )
-        if df.shape[0] != 0:
-            df["Feature"] = f.Chromosome + "_" + str(f.Start) + "_" + str(f.End)
+        try:
+            fr = fragments.fetch(f.Chromosome, f.Start - extend_upstream, f.End + extend_downstream)
+            df = pd.DataFrame(
+                [(x.contig, x.start, x.end, x.name, x.score) for x in fr],
+                columns=["Chromosome", "Start", "End", "Cell", "Score"],
+            )
+            if df.shape[0] != 0:
+                df["Feature"] = f.Chromosome + "_" + str(f.Start) + "_" + str(f.End)
 
-            if relative_coordinates:
-                middle = int(f.Start + (f.End - f.Start) / 2)
-                df.Start = df.Start - middle
-                df.End = df.End - middle
+                if relative_coordinates:
+                    middle = int(f.Start + (f.End - f.Start) / 2)
+                    df.Start = df.Start - middle
+                    df.End = df.End - middle
 
-            dfs.append(df)
+                dfs.append(df)
+        except ValueError as e:
+            # TODO this mostly happens when the chromosome is not present
+            # could add explicit check
+            print(e)
+            print("Skipping this region...")
+
+    fragments.close()
 
     df = pd.concat(dfs, axis=0, ignore_index=True)
     return df
