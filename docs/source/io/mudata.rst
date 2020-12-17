@@ -41,6 +41,8 @@ Samples (cells) annotation is accessible via the ``.obs`` attribute and by defau
 ::
 	mdata.update()
 
+Observations columns copied from individual modalities contain modality name as their prefix, e.g. ``rna:n_genes``. Same is true for variables columns however if there are columns with identical names in ``.var`` of multiple modalities — e.g. ``n_cells``, — these columns are merged across mdalities and no prefix is added.
+
 
 .obsm
 -----

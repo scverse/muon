@@ -39,11 +39,12 @@ Methods crafted for omics
    :hidden:
    :maxdepth: 1
 
+   install
    io/input
    io/mudata
+   omics/uni
    omics/multi
-   omics/atac
-   omics/citeseq
    io/output
    api/index
+   changelog
 

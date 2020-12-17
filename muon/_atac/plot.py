@@ -3,22 +3,36 @@ from typing import Union, Optional, List, Iterable, Mapping, Sequence
 import warnings
 
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
+import pandas as pd
+from scipy.sparse import issparse
 import scanpy as sc
 from anndata import AnnData
-from .._core.mudata import MuData
-from . import tools
+
+import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
 import seaborn as sns
 
+from .._core.mudata import MuData
+from . import tools
 
-def _average_peaks(adata: AnnData, keys: List[str], average: str, use_raw: bool):
+
+def _average_peaks(
+    adata: AnnData,
+    keys: List[str],
+    average: Optional[str],
+    func: str,
+    use_raw: bool,
+    layer: Optional[str],
+):
+    # Define the function to be used for aggregation
+    if average:
+        avg_func = getattr(np, func)
     # New keys will be placed here
     attr_names = []
     tmp_names = []
     x = adata.obs.loc[:, []]
     for key in keys:
-        if key not in adata.obs_names and key not in adata.obs.columns:
+        if key not in adata.var_names and key not in adata.obs.columns:
             if "atac" not in adata.uns or "peak_annotation" not in adata.uns["atac"]:
                 raise KeyError(
                     f"There is no feature or feature annotation {key}. If it is a gene name, load peak annotation with muon.atac.pp.add_peak_annotation first."
@@ -40,10 +54,16 @@ def _average_peaks(adata: AnnData, keys: List[str], average: str, use_raw: bool)
                 tmp_names.append(attr_name)
 
                 if attr_name not in adata.obs.columns:
-                    if use_raw:
-                        x[attr_name] = np.asarray(adata.raw[:, peaks].X.mean(axis=1)).reshape(-1)
+                    if layer:
+                        x[attr_name] = np.asarray(
+                            avg_func(adata[:, peaks].layers[layer], axis=1)
+                        ).reshape(-1)
+                    elif use_raw:
+                        x[attr_name] = np.asarray(avg_func(adata.raw[:, peaks].X, axis=1)).reshape(
+                            -1
+                        )
                     else:
-                        x[attr_name] = np.asarray(adata[:, peaks].X.mean(axis=1)).reshape(-1)
+                        x[attr_name] = np.asarray(avg_func(adata[:, peaks].X, axis=1)).reshape(-1)
 
             elif average == "peak_type":
                 peak_types = peak_sel.peak_type
@@ -60,10 +80,16 @@ def _average_peaks(adata: AnnData, keys: List[str], average: str, use_raw: bool)
                     tmp_names.append(attr_name)
 
                     if attr_name not in adata.obs.columns:
-                        if use_raw:
-                            x[attr_name] = np.asarray(adata.raw[:, p].X.mean(axis=1)).reshape(-1)
+                        if layer:
+                            x[attr_name] = np.asarray(
+                                avg_func(adata[:, p].layers[layer], axis=1)
+                            ).reshape(-1)
+                        elif use_raw:
+                            x[attr_name] = np.asarray(avg_func(adata.raw[:, p].X, axis=1)).reshape(
+                                -1
+                            )
                         else:
-                            x[attr_name] = np.asarray(adata[:, p].X.mean(axis=1)).reshape(-1)
+                            x[attr_name] = np.asarray(avg_func(adata[:, p].X, axis=1)).reshape(-1)
 
             else:
                 # No averaging, one plot per peak
@@ -71,10 +97,30 @@ def _average_peaks(adata: AnnData, keys: List[str], average: str, use_raw: bool)
                     warnings.warn(
                         f"Plotting individual peaks since {average} was not recognised. Try using 'total' or 'peak_type'."
                     )
-                attr_names += peak_sel.peak.values
+                attr_names += list(peaks.values)
+                if layer:
+                    x_peaks = adata[:, peaks].layers[layer]
+                elif use_raw:
+                    x_peaks = adata.raw[:, peaks].X
+                else:
+                    x_peaks = adata[:, peaks].X
+                if issparse(x_peaks):
+                    x_peaks = x_peaks.toarray()
+                x_peaks = pd.DataFrame(np.asarray(x_peaks), columns=peaks.values, index=x.index)
+                x = pd.concat([x, x_peaks], axis=1)
 
         else:
             attr_names.append(key)
+            if layer:
+                x_peak = adata[:, key].layers[layer]
+            elif use_raw:
+                x_peak = adata.raw[:, key].X
+            else:
+                x_peak = adata[:, key].X
+            if issparse(x_peak):
+                x_peak = x_peak.toarray()
+            x_peak = x_peak.reshape(-1)
+            x[key] = x_peak
 
     return (x, attr_names, tmp_names)
 
@@ -84,7 +130,9 @@ def embedding(
     basis: str,
     color: Optional[Union[str, List[str]]] = None,
     average: Optional[str] = "total",
+    func: Optional[str] = "mean",
     use_raw: bool = True,
+    layer: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -107,14 +155,16 @@ def embedding(
         else:
             raise TypeError("Expected color to be a string or an iterable.")
 
-        x, attr_names, _ = _average_peaks(adata=adata, keys=keys, average=average, use_raw=use_raw)
+        x, attr_names, _ = _average_peaks(
+            adata=adata, keys=keys, average=average, func=func, use_raw=use_raw, layer=layer
+        )
         ad = AnnData(x, obs=adata.obs, obsm=adata.obsm)
         sc.pl.embedding(ad, basis=basis, color=attr_names, **kwargs)
 
         return None
 
     else:
-        return sc.pl.embedding(adata, basis=basis, use_raw=use_raw, **kwargs)
+        return sc.pl.embedding(adata, basis=basis, use_raw=use_raw, layer=layer, **kwargs)
 
     return None
 
@@ -160,7 +210,9 @@ def dotplot(
     var_names: Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]],
     groupby: Optional[Union[str]] = None,
     average: Optional[str] = "total",
+    func: Optional[str] = "mean",
     use_raw: Optional[Union[bool]] = None,
+    layer: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -183,10 +235,15 @@ def dotplot(
         raise TypeError("Expected var_names to be a string or an iterable.")
 
     x, attr_names, tmp_names = _average_peaks(
-        adata=adata, keys=keys, average=average, use_raw=use_raw
+        adata=adata,
+        keys=keys,
+        average=average,
+        func=func,
+        use_raw=use_raw,
+        layer=layer,
     )
     ad = AnnData(x, obs=adata.obs)
-    sc.pl.dotplot(ad, var_names=attr_names, groupby=groupby, use_raw=use_raw, **kwargs)
+    sc.pl.dotplot(ad, var_names=attr_names, groupby=groupby, **kwargs)
 
     return None
 

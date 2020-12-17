@@ -2,7 +2,6 @@ import sys
 import os
 from functools import reduce
 
-import logging
 from datetime import datetime
 from time import strftime
 from warnings import warn
@@ -14,6 +13,9 @@ import h5py
 from natsort import natsorted
 from anndata import AnnData
 from .mudata import MuData
+
+from scanpy._compat import Literal
+from scanpy import logging
 
 from typing import Union, Optional, List, Iterable, Mapping, Sequence, Type, Any
 from types import MappingProxyType
@@ -204,7 +206,9 @@ def _set_mofa_data_from_mudata(
         # Hence the naive implementation `mdata.obs[groups_label].unique()` to get group names
         # wouldn't match samples_names if the samples are not ordered according to their group beforehand.
         samples_groups = (
-            mdata.obs.reset_index(drop=False).groupby(groups_label)[groups_label].apply(list)
+            mdata.obs.reset_index(drop=False)
+            .groupby(groups_label, sort=False)[groups_label]
+            .apply(list)
         )
 
         # List of names of groups, i.e. [group1, group2, ...]
@@ -213,7 +217,7 @@ def _set_mofa_data_from_mudata(
         model.data_opts["samples_names"] = (
             mdata.obs.reset_index(drop=False)
             .rename(columns={mdata.obs.index.name: "index"})
-            .groupby(groups_label)["index"]
+            .groupby(groups_label, sort=False)["index"]
             .apply(list)
             .tolist()
         )
@@ -221,7 +225,23 @@ def _set_mofa_data_from_mudata(
         model.data_opts["samples_groups"] = np.concatenate(samples_groups.values)
         if save_metadata:
             # List of metadata tables for each group of samples
-            model.data_opts["samples_metadata"] = [g for _, g in mdata.obs.groupby(groups_label)]
+            model.data_opts["samples_metadata"] = [
+                g for _, g in mdata.obs.groupby(groups_label, sort=False)
+            ]
+
+    # Use the order of samples according to the groups in the model.data_opts["samples_groups"]
+    if groups_label:
+        for m in range(M):
+            data[m] = data[m][
+                np.concatenate(
+                    mdata.obs.reset_index(drop=True)
+                    .reset_index(drop=False)
+                    .groupby(groups_label, sort=False)["index"]
+                    .apply(np.array)
+                    .tolist()
+                ),
+                :,
+            ]
 
     # If everything successful, print verbose message
     for m in range(M):
@@ -278,6 +298,9 @@ def mofa(
     convergence_mode: str = "fast",
     gpu_mode: bool = False,
     Y_ELBO_TauTrick: bool = True,
+    smooth_covariate: Optional[str] = None,
+    smooth_warping: bool = False,
+    smooth_kwargs: Optional[Mapping[str, Any]] = None,
     save_parameters: bool = False,
     save_data: bool = True,
     save_metadata: bool = True,
@@ -330,6 +353,16 @@ def mofa(
             if to use GPU mode
     Y_ELBO_TauTrick : optional
             if to use ELBO Tau trick to speed up computations
+    smooth_covariate : optional
+            use a covariate (column in .obs) to learn smooth factors (MEFISTO)
+    smooth_warping : optional
+            if to learn the alignment of covariates (e.g. time points) from different groups;
+            by default, the first group is used as a reference, which can be adjusted by setting
+            the REF_GROUP in smooth_kwargs = { "warping_ref": REF_GROUP } (MEFISTO)
+    smooth_kwargs : optional
+            additional arguments for MEFISTO (covariates_names, scale_cov, start_opt, n_grid, opt_freq,
+            warping_freq, warping_ref, warping_open_begin, warping_open_end,
+            sparseGP, frac_inducing, model_groups)
     save_parameters : optional
             if to save training parameters
     save_data : optional
@@ -413,6 +446,7 @@ def mofa(
         save_metadata=save_metadata,
         use_obs=use_obs,
     )
+    logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting model options...")
     ent.set_model_options(
         ard_factors=ard_factors,
         ard_weights=ard_weights,
@@ -420,6 +454,7 @@ def mofa(
         spikeslab_factors=spikeslab_factors,
         factors=n_factors,
     )
+    logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting training options...")
     ent.set_train_options(
         iter=n_iterations,
         convergence_mode=convergence_mode,
@@ -431,6 +466,58 @@ def mofa(
         outfile=outfile,
         save_interrupted=save_interrupted,
     )
+
+    # MEFISTO options
+
+    smooth_kwargs_default = dict(
+        covariates_names=smooth_covariate,
+        scale_cov=False,
+        start_opt=20,
+        n_grid=20,
+        opt_freq=10,
+        model_groups=True,
+        warping_freq=20,
+        warping_ref=0,
+        warping_open_begin=True,
+        warping_open_end=True,
+        sparseGP=False,
+        frac_inducing=None,
+    )
+
+    if not smooth_kwargs:
+        smooth_kwargs = {}
+
+    # warping_ref has to be an integer
+    if "warping_ref" in smooth_kwargs:
+        warping_ref = smooth_kwargs["warping_ref"]
+        if not (isinstance("warping_ref", int)):
+            warping_ref = np.where(np.array(ent.data_opts["groups_names"]) == warping_ref)[0]
+            if len(warping_ref) == 0:
+                raise KeyError(
+                    f"Expected 'warping_ref' for be a group name but there is no group {warping_ref}"
+                )
+            smooth_kwargs["warping_ref"] = warping_ref[0]
+
+    # Add default options where they are not provided
+    smooth_kwargs = {**smooth_kwargs_default, **smooth_kwargs}
+
+    if smooth_covariate is not None:
+        logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Adding smooth options...")
+        ent.set_covariates(smooth_covariate, covariates_names=smooth_kwargs["covariates_names"])
+        ent.set_smooth_options(
+            scale_cov=smooth_kwargs["scale_cov"],
+            start_opt=smooth_kwargs["start_opt"],
+            n_grid=smooth_kwargs["n_grid"],
+            opt_freq=smooth_kwargs["opt_freq"],
+            model_groups=smooth_kwargs["model_groups"],
+            warping=smooth_warping,
+            warping_freq=smooth_kwargs["warping_freq"],
+            warping_ref=smooth_kwargs["warping_ref"],
+            warping_open_begin=smooth_kwargs["warping_open_begin"],
+            warping_open_end=smooth_kwargs["warping_open_end"],
+            sparseGP=smooth_kwargs["sparseGP"],
+            frac_inducing=smooth_kwargs["frac_inducing"],
+        )
 
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Building the model...")
     ent.build()
@@ -475,6 +562,15 @@ def mofa(
         data.varm["LFs"][data.var[use_var]] = w
     else:
         data.varm["LFs"] = w
+
+    # aligned times
+    if smooth_covariate is not None and smooth_warping:
+        for c in range(ent.dimensionalities["C"]):
+            cnm = ent.smooth_opts["covariates_names"][c] + "_warped"
+            cval = ent.model.getNodes()["Sigma"].sample_cov_transformed[:, c]
+            if groups_label:
+                cval = pd.DataFrame(cval, index=zs).loc[common_obs].to_numpy()
+            data.obs[cnm] = cval
 
     if copy:
         return data
@@ -848,3 +944,161 @@ def louvain(
         algorithm="louvain",
         **kwargs,
     )
+
+
+def umap(
+    mdata: MuData,
+    min_dist: float = 0.5,
+    spread: float = 1.0,
+    n_components: int = 2,
+    maxiter: Optional[int] = None,
+    alpha: float = 1.0,
+    gamma: float = 1.0,
+    negative_sample_rate: int = 5,
+    init_pos: Optional[Union[Literal["spectral", "random"], np.ndarray]] = "spectral",
+    random_state: Optional[Union[int, np.random.RandomState]] = 42,
+    a: Optional[float] = None,
+    b: Optional[float] = None,
+    copy: bool = False,
+    method: Literal["umap", "rapids"] = "umap",
+    neighbors_key: Optional[str] = None,
+) -> Optional[MuData]:
+    """
+    Embed the multimodal neighborhood graph using UMAP (McInnes et al, 2018).
+
+    UMAP (Uniform Manifold Approximation and Projection) is a manifold learning
+    technique suitable for visualizing high-dimensional data. We use ScanPy's
+    implementation.
+
+    References:
+        McInnes et al, 2018 (`arXiv:1802.03426` <https://arxiv.org/abs/1802.03426>`_)
+
+    Args:
+        mdata: MuData object. Multimodal nearest neighbor search must have already
+            been performed.
+        min_dist: The effective minimum distance between embedded points. Smaller
+            values will result in a more clustered/clumped embedding where nearby points
+            on the manifold are drawn closer together, while larger values will result
+            on a more even dispersal of points. The value should be set relative to
+            the ``spread`` value, which determines the scale at which embedded points
+            will be spread out. The default of in the ``umap-learn`` package is 0.1.
+        spread: The effective scale of embedded points. In combination with ``min_dist``
+            this determines how clustered/clumped the embedded points are.
+        n_components: The number of dimensions of the embedding.
+        maxiter: The number of iterations (epochs) of the optimization. Called ``n_epochs``
+            in the original UMAP.
+        alpha: The initial learning rate for the embedding optimization.
+        gamma: Weighting applied to negative samples in low dimensional embedding
+            optimization. Values higher than one will result in greater weight
+            being given to negative samples.
+        negative_sample_rate: The number of negative edge/1-simplex samples to use per
+            positive edge/1-simplex sample in optimizing the low dimensional embedding.
+        init_pos: How to initialize the low dimensional embedding. Called ``init`` in the
+            original UMAP. Options are:
+            - 'spectral': use a spectral embedding of the graph.
+            - 'random': assign initial embedding positions at random.
+            - A numpy array of initial embedding positions.
+        random_state: Random seed.
+        a: More specific parameters controlling the embedding. If ``None`` these
+            values are set automatically as determined by ``min_dist`` and
+            ``spread``.
+        b: More specific parameters controlling the embedding. If ``None`` these
+            values are set automatically as determined by ``min_dist`` and
+            ``spread``.
+        copy: Return a copy instead of writing to mdata.
+        method: Use the original 'umap' implementation, or 'rapids' (experimental, GPU only)
+        neighbors_key: If not specified, umap looks in ``.uns['neighbors']`` for neighbors
+            settings and ``.obsp['connectivities']`` for connectivities (default storage
+            places for ``pp.neighbors``). If specified, umap looks ``.uns[neighbors_key]``
+            for neighbors settings and ``.obsp[.uns[neighbors_key]['connectivities_key']]``
+            for connectivities.
+    Returns: Depending on ``copy``, returns or updates ``adata`` with the following fields.
+
+        **X_umap** : ``mdata.obsm`` field holding UMAP coordinates of data.
+    """
+    if isinstance(mdata, AnnData):
+        return sc.tl.umap(
+            adata=mdata,
+            min_dist=min_dist,
+            spread=spread,
+            n_components=n_components,
+            maxiter=maxiter,
+            alpha=alpha,
+            gamma=gamma,
+            negative_sample_rate=negative_sample_rate,
+            init_pos=init_pos,
+            random_state=random_state,
+            a=a,
+            b=b,
+            copy=copy,
+            method=method,
+            neighbors_key=neighbors_key,
+        )
+
+    if neighbors_key is None:
+        neighbors_key = "neighbors"
+
+    try:
+        neighbors = mdata.uns[neighbors_key]
+    except KeyError:
+        raise ValueError(
+            f'Did not find .uns["{neighbors_key}"]. Run `muon.pp.weighted_neighbors` first.'
+        )
+
+    from scanpy.tools._utils import _choose_representation
+    from copy import deepcopy
+    from scipy.sparse import issparse
+
+    # we need a data matrix. This is used only for initialization and only if init_pos=="spectral"
+    # and the graph has many connected components, so we can do very simple imputation
+    reps = {}
+    nfeatures = 0
+    nparams = neighbors["params"]
+    use_rep = {k: (v if v != -1 else None) for k, v in nparams["use_rep"].items()}
+    n_pcs = {k: (v if v != -1 else None) for k, v in nparams["n_pcs"].items()}
+    observations = mdata.obs.index
+    for mod, rep in use_rep.items():
+        rep = _choose_representation(mdata.mod[mod], rep, n_pcs[mod])
+        nfeatures += rep.shape[1]
+        reps[mod] = rep
+    rep = np.empty((len(observations), nfeatures), np.float32)
+    nfeatures = 0
+    for mod, crep in reps.items():
+        cnfeatures = nfeatures + crep.shape[1]
+        idx = observations.isin(mdata.mod[mod].obs.index)
+        rep[idx, nfeatures:cnfeatures] = crep.toarray() if issparse(crep) else crep
+        if np.sum(idx) < rep.shape[0]:
+            imputed = crep.mean(axis=0)
+            if issparse(crep):
+                imputed = np.asarray(imputed).squeeze()
+            rep[~idx, nfeatures : crep.shape[1]] = imputed
+        nfeatures = cnfeatures
+    adata = AnnData(X=rep, obs=mdata.obs)
+    adata.uns[neighbors_key] = deepcopy(neighbors)
+    adata.uns[neighbors_key]["params"]["use_rep"] = "X"
+    del adata.uns[neighbors_key]["params"]["n_pcs"]
+    adata.obsp[neighbors["connectivities_key"]] = mdata.obsp[neighbors["connectivities_key"]]
+    adata.obsp[neighbors["distances_key"]] = mdata.obsp[neighbors["distances_key"]]
+
+    sc.tl.umap(
+        adata=adata,
+        min_dist=min_dist,
+        spread=spread,
+        n_components=n_components,
+        maxiter=maxiter,
+        alpha=alpha,
+        gamma=gamma,
+        negative_sample_rate=negative_sample_rate,
+        init_pos=init_pos,
+        random_state=random_state,
+        a=a,
+        b=b,
+        copy=False,
+        method=method,
+        neighbors_key=neighbors_key,
+    )
+
+    mdata = mdata.copy() if copy else mdata
+    mdata.obsm["X_umap"] = adata.obsm["X_umap"]
+    mdata.uns["umap"] = adata.uns["umap"]
+    return mdata if copy else None

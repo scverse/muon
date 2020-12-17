@@ -17,18 +17,20 @@ In order to save & share multimodal data, ``.h5mu`` file format has been designe
 
 ``.h5mu`` files are the default storage for ``MuData`` objects. These are HDF5 files with a standardised structure, which is similar to the one of ``.h5ad`` files where ``AnnData`` objects are stored. The most noticeable distinction is ``.mod`` group presence where individual modalities are stored — in the same way as they would be stored in the ``.h5ad`` files.
 ::
-	# Python
 	mdata.write("mudata.h5mu")
 
-	# Shell
-	❯ h5ls mudata.h5mu
+Inspect the contents of the file in the terminal:
+
+.. code-block:: console
+
+	> h5ls mudata.h5mu
 	mod                      Group
 	obs                      Group
 	obsm                     Group
 	var                      Group
 	varm                     Group
 
-	❯ h5ls data/mudata.h5mu/mod
+	> h5ls data/mudata.h5mu/mod
 	atac                     Group
 	rna                      Group
 

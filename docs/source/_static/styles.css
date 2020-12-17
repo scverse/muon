@@ -1,3 +1,7 @@
 .wy-side-nav-search, .wy-nav-top {
-    background: #FCFCFC;
+    background: #FFFFFF;
+}
+
+.wy-side-nav-search > a {
+	padding: 0;
 }

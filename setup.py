@@ -1,6 +1,7 @@
 import setuptools
+import os
 
-with open("README.md", "r") as fh:
+with open(os.path.join(os.path.dirname(__file__), "README.md"), "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
@@ -27,10 +28,12 @@ setuptools.setup(
         "h5py",
         "anndata",
         "scanpy",
+        "sklearn",
+        "umap-learn",
+        "numba",
         "loompy",
         "protobuf",
         "tqdm",
     ],
-    extras_require={"dsb_denoise": ["sklearn"]},
     include_package_data=True,
 )

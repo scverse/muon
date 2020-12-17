@@ -161,8 +161,6 @@ class MuData:
         self.filename = None
         self.filemode = None
         self.is_view = False
-        self.obs_names = None  # required by AxisArrays
-        self.var_names = None
 
     def _init_as_view(self, mudata_ref: "MuData", index):
         def slice_mapping(mapping, obsnames, varnames):
@@ -373,7 +371,7 @@ class MuData:
                 axis=0,
                 sort=False,
             )
-            data_mod = data_mod.join(data_common, how="left")
+            data_mod = data_mod.join(data_common, how="left", sort=False).loc[data_mod.index]
         else:
             data_mod = pd.concat(
                 [getattr(a, attr).add_prefix(m + ":") for m, a in self.mod.items()],
@@ -384,7 +382,9 @@ class MuData:
 
         # Add data from global .obs/.var columns
         # This might reduce the size of .obs/.var if observations/variables were removed
-        setattr(self, "_" + attr, data_mod.join(data_global, how="left", sort=False))
+        setattr(
+            self, "_" + attr, data_mod.join(data_global, how="left", sort=False).loc[data_mod.index]
+        )
 
         # Update .obsm/.varm
         for k, v in self.mod.items():
@@ -480,6 +480,17 @@ class MuData:
         self._update_attr("obs")
 
     @property
+    def obs_names(self) -> pd.Index:
+        """
+        Names of variables (alias for `.obs.index`)
+
+        This property is read-only.
+        To be modified, obs_names of individual modalities
+        should be changed, and .update_obs() should be called then.
+        """
+        return self.obs.index
+
+    @property
     def var(self) -> pd.DataFrame:
         """
         Annotation of variables
@@ -527,7 +538,10 @@ class MuData:
 
     def var_names_make_unique(self):
         """
-        Call .var_names_make_unique() method on each AnnData object
+        Call .var_names_make_unique() method on each AnnData object.
+
+        If there are var_names, which are the same for multiple modalities,
+        append modality name to all var_names.
         """
         mod_var_sum = np.sum([a.n_vars for a in self.mod.values()])
         if mod_var_sum != self.n_vars:
@@ -536,9 +550,37 @@ class MuData:
         for k in self.mod:
             self.mod[k].var_names_make_unique()
 
+        # Check if there are variables with the same name in different modalities
+        common_vars = []
+        mods = list(self.mod.keys())
+        for i in range(len(self.mod) - 1):
+            ki = mods[i]
+            for j in range(i + 1, len(self.mod)):
+                kj = mods[j]
+                common_vars.append(
+                    np.intersect1d(self.mod[ki].var_names.values, self.mod[kj].var_names.values)
+                )
+        if any(map(lambda x: len(x) > 0, common_vars)):
+            warnings.warn(
+                "Modality names will be prepended to var_names since there are identical var_names in different modalities."
+            )
+            for k in self.mod:
+                self.mod[k].var_names = k + ":" + self.mod[k].var_names.astype(str)
+
         # Update .var.index in the MuData
         var_names = [var for a in self.mod.values() for var in a.var_names.values]
         self._var.index = var_names
+
+    @property
+    def var_names(self) -> pd.Index:
+        """
+        Names of variables (alias for `.var.index`)
+
+        This property is read-only.
+        To be modified, var_names of individual modalities
+        should be changed, and .update_var() should be called then.
+        """
+        return self.var.index
 
     # Multi-dimensional annotations (.obsm and .varm)
 

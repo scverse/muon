@@ -166,6 +166,9 @@ def write_h5mu(filename: PathLike, mdata: MuData, *args, **kwargs):
         mdata.file.close()
         mdata.file.open(filename, "r+")
 
+    # Restore top-level annotation
+    mdata.update()
+
 
 def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
     """
@@ -349,7 +352,8 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
 
 def read_h5mu_mod_backed(g: "h5py.Group", manager: MuDataFileManager) -> dict:
     from anndata._io.utils import read_attribute
-    from anndata._io.h5ad import read_dataframe, _clean_uns
+    from anndata._io.h5ad import read_dataframe, _read_raw
+    from anndata import Raw
 
     d = {}
 
@@ -365,10 +369,14 @@ def read_h5mu_mod_backed(g: "h5py.Group", manager: MuDataFileManager) -> dict:
             else:
                 raise ValueError()
             d["dtype"] = dtype
-        else:
+        elif k != "raw":
             d[k] = read_attribute(g[k])
     ad = AnnData(**d)
     ad.file = AnnDataFileManager(ad, basename(g.name), manager)
+
+    raw = _read_raw(g, attrs={"var", "varm"})
+    if raw:
+        ad._raw = Raw(ad, **raw)
     return ad
 
 
@@ -395,7 +403,7 @@ def read_h5ad(
     ], "Argument `backed` should be boolean, or r/r+, or None"
 
     from anndata._io.utils import read_attribute
-    from anndata._io.h5ad import read_dataframe, _read_raw, _clean_uns
+    from anndata._io.h5ad import read_dataframe, _read_raw
 
     d = {}
 
@@ -405,15 +413,19 @@ def read_h5ad(
         if hdf5_mode is True:
             hdf5_mode = "r+"
         assert hdf5_mode in {"r", "r+"}
+        backed = True
 
-        d.update({"filename": filename, "mode": hdf5_mode})
+        manager = MuDataFileManager(filename, hdf5_mode)
 
     with h5py.File(filename, hdf5_mode) as f_root:
         f = f_root["mod"][mod]
+        if backed:
+            return read_h5mu_mod_backed(f, manager)
+
         for k in f.keys():
             if k in ["obs", "var"]:
                 d[k] = read_dataframe(f[k])
-            else:
+            elif k != "raw":
                 d[k] = read_attribute(f[k])
 
         d["raw"] = _read_raw(f)

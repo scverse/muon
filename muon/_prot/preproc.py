@@ -4,7 +4,10 @@ from warnings import warn
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import issparse
+from scipy.sparse import issparse, csr_matrix
+from sklearn.mixture import GaussianMixture
+from sklearn.decomposition import PCA
+from sklearn.linear_model import LinearRegression
 from anndata import AnnData
 
 from .. import MuData
@@ -148,13 +151,6 @@ def dsb(
     cells_scaled = (cells_scaled - empty_scaled.mean(axis=0)) / empty_scaled.std(axis=0)
 
     if denoise_counts:
-        try:
-            from sklearn.mixture import GaussianMixture
-            from sklearn.decomposition import PCA
-            from sklearn.linear_model import LinearRegression
-        except ImportError:
-            raise ImportError("sklearn package not found. Install the sklearn package to denoise.")
-
         bgmeans = np.empty(cells_scaled.shape[0], np.float32)
         # init_params needs to be random, otherwise fitted variance for one of the n_components
         # sometimes goes to 0
@@ -195,3 +191,32 @@ def dsb(
     else:
         cells.X = cells_scaled
     return toreturn
+
+
+def clr(adata: AnnData, inplace: bool = True) -> Union[None, AnnData]:
+    """
+    Apply the centered log ratio (CLR) transformation
+    to normalize counts in adata.X.
+
+    Args:
+        data: AnnData object with protein expression counts.
+        inplace: Whether to update adata.X inplace.
+    """
+    sparse = False
+    if issparse(adata.X):
+        sparse = True
+    # Geometric mean of ADT counts
+    x = adata.X
+    g_mean = np.exp(np.log1p(x).sum(axis=0) / x.shape[0])
+    # Centered log ratio
+    clr = np.log1p(x / g_mean)
+
+    if sparse:
+        clr = csr_matrix(clr)
+
+    if not inplace:
+        adata = adata.copy()
+
+    adata.X = clr
+
+    return None if inplace else adata
