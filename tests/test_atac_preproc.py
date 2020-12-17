@@ -37,7 +37,7 @@ class TestFragments(unittest.TestCase):
     "Tests functions in fragments.py"
 
     def setUp(self):
-        mdata = mu.read("data/atac/test_rna_atac.h5mu")
+        mdata = mu.read("tests/data/atac/test_rna_atac.h5mu")
         atac = mdata.mod["atac"]
         test_regions = pd.DataFrame(
             {
