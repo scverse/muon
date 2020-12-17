@@ -198,8 +198,9 @@ def _region_pileup(mx, fragments, d, chromosome, start, end):
             pass
 
 
+# TODO maybe better to pass in connection to tabix file?
 def region_pileup(
-    fragments: Union[str, "pysam.libctabix.TabixFile"],
+    fragments: str,
     cells: np.array,
     chromosome: str,
     start: int,
@@ -211,7 +212,7 @@ def region_pileup(
     Parameters
     ----------
     fragments
-        Path to or `pysam` connection to a tabix indexed fragments file.
+        Path to a tabix indexed fragments file.
     cells
         List of cells to fetch
     chromosome
@@ -222,8 +223,7 @@ def region_pileup(
         End position
     """
 
-    if isinstance(fragments, str):
-        fragments = open_fragment_connection(fragments)
+    fragments = open_fragment_connection(fragments)
 
     n = cells.shape[0]
     n_features = end - start
