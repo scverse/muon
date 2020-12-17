@@ -4,6 +4,7 @@ from anndata import AnnData
 from typing import Union
 from .._core.mudata import MuData
 
+
 def fetch_atac_mod(data: Union[AnnData, MuData]):
     if isinstance(data, AnnData):
         adata = data
@@ -13,6 +14,7 @@ def fetch_atac_mod(data: Union[AnnData, MuData]):
     else:
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
     return adata
+
 
 def parse_region_string(region: str):
     feat_list = re.split("_|-|:", region)

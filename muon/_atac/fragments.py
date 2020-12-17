@@ -29,10 +29,12 @@ from .._core.utils import get_gene_annotation_from_rna
 # with Tabix in order to be used (.gz.tbi).
 #
 
+
 def import_pysam():
     """Print helpful message if pysam not available"""
     try:
         import pysam
+
         return pysam
     except ImportError:
         raise ImportError(
@@ -43,14 +45,17 @@ def import_pysam():
 
 
 def open_fragment_connection(fragment_path):
-    '''Imports pysam and opens connection with BED parser'''
+    """Imports pysam and opens connection with BED parser"""
 
     pysam = import_pysam()
     frag = pysam.TabixFile(fragment_path, parser=pysam.asBed())
 
     return frag
 
-def locate_fragments(data: Union[AnnData, MuData], fragments: Optional[str] = None, return_fragments: bool = False):
+
+def locate_fragments(
+    data: Union[AnnData, MuData], fragments: Optional[str] = None, return_fragments: bool = False
+):
     """
     Parse fragments file and add a variable to access it to the .uns["files"]["fragments"]
 
@@ -76,7 +81,9 @@ def locate_fragments(data: Union[AnnData, MuData], fragments: Optional[str] = No
                 fragments = adata.uns["files"]["fragments"]
                 print(adata.uns["files"]["fragments"])
             else:
-                raise ValueError("No filepath found in .uns['files']['fragments'] and `fragments` argument is None. Please specify one of the two.")
+                raise ValueError(
+                    "No filepath found in .uns['files']['fragments'] and `fragments` argument is None. Please specify one of the two."
+                )
 
         # Here we make sure we can create a connection to the fragments file
         frag = open_fragment_connection(fragments)
@@ -180,9 +187,7 @@ def _region_pileup(mx, fragments, d, chromosome, start, end):
     """Add fragments to existing matrix"""
     n_features = mx.shape[1]
 
-    for fr in fragments.fetch(
-        chromosome, start, end
-    ):
+    for fr in fragments.fetch(chromosome, start, end):
         try:
             rowind = d[fr.name]  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
             score = int(fr.score)  # number of cuts per fragment (e.g. 2)
@@ -194,11 +199,11 @@ def _region_pileup(mx, fragments, d, chromosome, start, end):
 
 
 def region_pileup(
-        fragments: Union[str, "pysam.libctabix.TabixFile"],
-        cells: np.array,
-        chromosome: str,
-        start: int,
-        end: int
+    fragments: Union[str, "pysam.libctabix.TabixFile"],
+    cells: np.array,
+    chromosome: str,
+    start: int,
+    end: int,
 ) -> AnnData:
     """
     Pile up reads in regions. Returns a cell x position `AnnData` object that can be used for QC.
@@ -232,7 +237,9 @@ def region_pileup(
 
     # Check if chromosome present in the fragments file
     if chromosome not in fragments.contigs:
-        raise ValueError(f"Chromosome {chromosome} is not present in fragments file chromosomes: {fragments.contigs}")
+        raise ValueError(
+            f"Chromosome {chromosome} is not present in fragments file chromosomes: {fragments.contigs}"
+        )
 
     # logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {features.shape[0]} features...")
 
@@ -247,6 +254,7 @@ def region_pileup(
     anno.index = anno.index.astype(str)
 
     return AnnData(X=mx, obs=pd.DataFrame(index=cells), var=anno, dtype=int)
+
 
 def _tss_pileup(
     adata: AnnData,

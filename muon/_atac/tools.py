@@ -16,7 +16,7 @@ from anndata import AnnData
 from . import utils as atacutils
 from .._core.mudata import MuData
 from .._core.utils import get_gene_annotation_from_rna
-from .fragments import locate_fragments, _tss_pileup, fetch_regions_to_df
+from .fragments import locate_fragments, _tss_pileup
 
 #
 # Computational methods for transforming and analysing count data
@@ -538,8 +538,6 @@ def locate_genome(data: Union[AnnData, MuData], fasta_file: str):
     locate_file(data, "genome", fasta_file)
 
 
-
-
 def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path]):
     """
     Locate default files for ATAC-seq
@@ -651,8 +649,6 @@ def tss_enrichment(
 
     if return_tss:
         return tss_pileup
-
-
 
 
 def _calculate_tss_score(data: AnnData, flank_size: int = 100, center_size: int = 1001):
@@ -773,5 +769,3 @@ def nucleosome_signal(
         )
 
     return None
-
-
