@@ -162,7 +162,7 @@ with open(outfile, "w") as file:
 # Compress and create tabix index
 pysam.tabix_index(outfile, force=True, seq_col=0, start_col=1, end_col=2)
 
-atac.uns["files"]["fragments"] = str(outfile + ".gz")
+atac.uns["files"]["fragments"] = str("tests/" + outfile + ".gz")
 
 mdata.update()
 
