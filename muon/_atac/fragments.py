@@ -179,8 +179,9 @@ def count_fragments_features(
         raise e
 
     finally:
-        # The connection has to be closed
-        fragments.close()
+        if fragments is not None:
+            # The connection has to be closed
+            fragments.close()
 
 
 def _region_pileup(mx, fragments, d, chromosome, start, end):

@@ -90,7 +90,7 @@ class TestFragments(unittest.TestCase):
         assert adata.X.sum() == 1239536
         assert adata.X.sum(axis=0)[111] == 304
 
-    def test_tss_pileup(self):
+    def test_count_fragments_features(self):
         adata = ac.fr.count_fragments_features(self.mdata)
         assert adata.X.sum() == 23852.0
         assert adata.X.sum(axis=0)[0, 42] == 384.0
