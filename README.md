@@ -2,6 +2,8 @@
 
 `muon` is a multimodal omics Python framework.
 
+<!-- ![PyPi version](https://img.shields.io/pypi/v/muon) ![Latest release](https://img.shields.io/pypi/status/muon) -->
+
 ## Data structure
 
 In the same vein as [scanpy](https://github.com/theislab/scanpy) and [AnnData](https://github.com/theislab/anndata) are designed to work with scRNA-seq data in Python, `muon` and `MuData` are designed to provide functionality to load, process, and store multimodal omics data.
