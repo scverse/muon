@@ -18,6 +18,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
+        "Development Status :: 3 - Alpha",
     ],
     python_requires=">=3.6",
     install_requires=[
