@@ -21,7 +21,7 @@ jobs:
         python -m pip install --upgrade pip
         python setup.py install
         # python -m pip install mofapy2
-        python -m pip install git+https://github.com/bioFAM/MOFA2@main-dev
+        python -m pip install git+https://github.com/bioFAM/mofapy2@dev
     - name: Lint with flake8
       run: |
         pip install flake8
