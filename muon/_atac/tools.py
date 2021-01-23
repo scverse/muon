@@ -429,6 +429,20 @@ def scan_sequences(
     pvalue: float = 0.0001,
     max_hits: int = 10,
 ):
+    """
+    Scan sequences (e.g. peaks)
+    searching for motifs (JASPAR by default).
+
+    Parameters
+    ----------
+    data
+        AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+    
+    Returns
+    -------
+    matches
+        Pandas dataframe with matched motifs and respective sequence IDs.
+    """
     try:
         import MOODS.tools
         import MOODS.scan
@@ -510,6 +524,11 @@ def get_sequences(data: Union[AnnData, MuData], bed: str, fasta_file: str, bed_f
     if bed_file is not None:
         assert bed is None
         bed = open(bed_file).read()
+    else:
+        if bed is None:
+            # Use all the ATAC features,
+            # expected to be named as chrX:NNN-NNN
+            bed = "\n".join([i.replace(":", "-", 1).replace("-", "\t", 2) for i in adata.var.index.values])
 
     scanner = pybedtools.BedTool(bed, from_string=True)
     scanner = scanner.sequence(fi=fasta_file)
