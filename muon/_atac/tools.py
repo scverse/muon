@@ -437,7 +437,7 @@ def scan_sequences(
     ----------
     data
         AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-    
+
     Returns
     -------
     matches
@@ -528,7 +528,9 @@ def get_sequences(data: Union[AnnData, MuData], bed: str, fasta_file: str, bed_f
         if bed is None:
             # Use all the ATAC features,
             # expected to be named as chrX:NNN-NNN
-            bed = "\n".join([i.replace(":", "-", 1).replace("-", "\t", 2) for i in adata.var.index.values])
+            bed = "\n".join(
+                [i.replace(":", "-", 1).replace("-", "\t", 2) for i in adata.var.index.values]
+            )
 
     scanner = pybedtools.BedTool(bed, from_string=True)
     scanner = scanner.sequence(fi=fasta_file)
