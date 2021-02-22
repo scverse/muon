@@ -159,9 +159,7 @@ def embedding(
             adata=adata, keys=keys, average=average, func=func, use_raw=use_raw, layer=layer
         )
         ad = AnnData(x, obs=adata.obs, obsm=adata.obsm)
-        sc.pl.embedding(ad, basis=basis, color=attr_names, **kwargs)
-
-        return None
+        return sc.pl.embedding(ad, basis=basis, color=attr_names, **kwargs)
 
     else:
         return sc.pl.embedding(adata, basis=basis, use_raw=use_raw, layer=layer, **kwargs)
