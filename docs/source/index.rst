@@ -13,6 +13,7 @@ Multimodal data containers
 	  atac: 10110 x 100001
 	  rna: 10110 x 10100
 
+:doc:`Learn more about multimodal objects </io/mudata>` as well as :doc:`file formats for storing & sharing them </io/output>`. 
 
 Multi-omics methods
 -------------------
@@ -22,6 +23,7 @@ Multi-omics methods
 	import muon as mu
 	mu.tl.mofa(mdata)
 
+:doc:`Learn more about variaous multimodal integration methods </omics/multi>` that can be readily applied to :class:`muon.MuData` objects.
 
 Methods crafted for omics
 -------------------------
@@ -34,6 +36,7 @@ Methods crafted for omics
 	from muon import prot as pt
 	pt.pp.dsb(mdata.mod['prot'])
 
+There is :doc:`atac module </omics/atac>` for chromatin accessibility data and :doc:`prot module </omics/citeseq>` for CITE-seq data as well as :doc:`additional functionality </omics/uni>` that make individual omics analysis easier.
 
 .. toctree::
    :hidden:
