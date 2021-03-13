@@ -19,8 +19,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        # scanpy requires umap-learn < 0.5
-        python -m pip install umap-learn==0.4.6
+        python -m pip install umap-learn
         python setup.py install
         # python -m pip install mofapy2
         python -m pip install git+https://github.com/bioFAM/mofapy2@dev
