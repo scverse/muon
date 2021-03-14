@@ -20,6 +20,8 @@ from anndata._core.aligned_mapping import (
     PairwiseArraysView,
 )
 
+from .repr import *
+
 
 class MuAxisArraysView(AlignedViewMixin, AxisArraysBase):
     def __init__(self, parent_mapping: AxisArraysBase, parent_view: "MuData", subset_idx: Any):
@@ -743,3 +745,74 @@ class MuData:
 
     def __repr__(self) -> str:
         return self._gen_repr(self.n_obs, self.n_vars, extensive=True)
+
+    def _repr_html_(self, expand=0b010):
+        """
+        HTML formatter for MuData objects
+        for rich display in notebooks.
+
+        This formatter has an optional argument `expand`,
+        which is a 3-bit flag:
+        100 - expand MuData slots
+        010 - expand .mod slots
+        001 - expand slots for each modality
+        """
+
+        # General object properties
+        header = "<span>MuData object <span class='hl-dim'>{} obs &times; {} var in {} modalit{}</span></span>".format(
+            self.n_obs, self.n_vars, len(self.mod), "y" if len(self.mod) < 2 else "ies"
+        )
+        if self.isbacked:
+            header += "<br>&#8627; <span>backed at <span class='hl-file'>{}</span></span>".format(
+                self.file.filename
+            )
+
+        mods = "<br>"
+
+        # Metadata
+        mods += details_block_table(self, "obs", "Metadata", expand >> 2)
+        # Embeddings
+        mods += details_block_table(self, "obsm", "Embeddings & mappings", expand >> 2)
+        # Distances
+        mods += details_block_table(self, "obsp", "Distances", expand >> 2, square=True)
+        # Unstructured
+        mods += details_block_table(self, "uns", "Unstructured", expand >> 2)
+
+        for m, dat in self.mod.items():
+            mods += "<div class='block-mod'><div>"
+            mods += "<details{}>".format(" open" if (expand & 0b010) >> 1 else "")
+            mods += "<summary class='summary-mod'><div class='title title-mod'>{}</div><span class='hl-dim'>{} &times {}</span></summary>".format(
+                m, *dat.shape
+            )
+
+            # General object properties
+            mods += (
+                "<span>{} object <span class='hl-dim'>{} obs &times; {} var</span></span>".format(
+                    type(dat).__name__, *(dat.shape)
+                )
+            )
+            if dat.isbacked:
+                mods += "<br>&#8627; <span>backed at <span class='hl-file'>{}</span></span>".format(
+                    self.file.filename
+                )
+
+            mods += "<br>"
+
+            # X
+            mods += block_matrix(dat, "X", "Matrix")
+            # Layers
+            mods += details_block_table(dat, "layers", "Layers", expand & 0b001, dims=False)
+            # Metadata
+            mods += details_block_table(dat, "obs", "Metadata", expand & 0b001)
+            # Embeddings
+            mods += details_block_table(dat, "obsm", "Embeddings", expand & 0b001)
+            # Distances
+            mods += details_block_table(dat, "obsp", "Distances", expand & 0b001, square=True)
+            # Unstructured
+            mods += details_block_table(dat, "uns", "Unstructured", expand & 0b001)
+
+            mods += "</details>"
+            mods += "</div></div>"
+        mods += "<br/>"
+        full = "".join((MUDATA_CSS, header, mods))
+        return full
