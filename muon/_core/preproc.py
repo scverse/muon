@@ -547,7 +547,9 @@ def intersect_obs(mdata: MuData):
 # Utility functions: filtering observations
 
 
-def filter_obs(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Callable] = None):
+def filter_obs(
+    adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Callable] = None
+) -> None:
     """
     Filter observations (samples or cells) in-place
     using any column in .obs or in .X.
@@ -567,6 +569,11 @@ def filter_obs(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
             If the variable is of type boolean and func is an identity function,
             the func argument can be omitted.
     """
+
+    if adata.is_view:
+        raise ValueError(
+            "The provided adata is a view. In-place filtering does not operate on views."
+        )
 
     if isinstance(var, str):
         if var in adata.obs.columns:
