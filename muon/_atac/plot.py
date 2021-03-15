@@ -59,7 +59,7 @@ def _average_peaks(
                             avg_func(adata[:, peaks].layers[layer], axis=1)
                         ).reshape(-1)
                     elif use_raw:
-                        x[attr_name] = np.asarray(avg_func(adata.raw[:, peaks].X, axis=1)).reshape(
+                        x[attr_name] = np.asarray(avg_func(adata[:, peaks].raw.X, axis=1)).reshape(
                             -1
                         )
                     else:
@@ -85,7 +85,7 @@ def _average_peaks(
                                 avg_func(adata[:, p].layers[layer], axis=1)
                             ).reshape(-1)
                         elif use_raw:
-                            x[attr_name] = np.asarray(avg_func(adata.raw[:, p].X, axis=1)).reshape(
+                            x[attr_name] = np.asarray(avg_func(adata[:, p].raw.X, axis=1)).reshape(
                                 -1
                             )
                         else:
@@ -101,7 +101,7 @@ def _average_peaks(
                 if layer:
                     x_peaks = adata[:, peaks].layers[layer]
                 elif use_raw:
-                    x_peaks = adata.raw[:, peaks].X
+                    x_peaks = adata[:, peaks].raw.X
                 else:
                     x_peaks = adata[:, peaks].X
                 if issparse(x_peaks):
@@ -114,7 +114,7 @@ def _average_peaks(
             if layer:
                 x_peak = adata[:, key].layers[layer]
             elif use_raw:
-                x_peak = adata.raw[:, key].X
+                x_peak = adata[:, key].raw.X
             else:
                 x_peak = adata[:, key].X
             if issparse(x_peak):
