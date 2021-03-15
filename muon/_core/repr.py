@@ -70,18 +70,21 @@ def details_block_table(data, attr, name, expand=0, dims=True, square=False):
         s += "<summary><div class='title title-attr'>{}</div><span class='hl-dim'>.{}</span><span class='hl-size'>{} element{}</span></summary>".format(
             name, attr, obj.shape[1], "s" if obj.shape[1] != 1 else ""
         )
-        s += "<div><table>"
-        s += "\n".join(
-            [
-                """<tr>
-                               <td class='col-index'>{}</td>  <td class='hl-types'>{}</td>  <td class='hl-values'>{}</td>
-                           </tr>""".format(
-                    attr_key, obj[attr_key].dtype, format_values(obj[attr_key])
-                )
-                for attr_key in obj.columns
-            ]
-        )
-        s += "</table></div>"
+        if obj.shape[1] > 0:
+            s += "<div><table>"
+            s += "\n".join(
+                [
+                    """<tr>
+                                <td class='col-index'>{}</td>  <td class='hl-types'>{}</td>  <td class='hl-values'>{}</td>
+                            </tr>""".format(
+                        attr_key, obj[attr_key].dtype, format_values(obj[attr_key])
+                    )
+                    for attr_key in obj.columns
+                ]
+            )
+            s += "</table></div>"
+        else:
+            s += f"<span class='hl-empty'>No {name.lower()}</span>"
         s += "</details>"
     # Dict-like object
     elif hasattr(obj, "keys") and hasattr(obj, "values") and name != "Unstructured":
@@ -141,22 +144,25 @@ def details_block_table(data, attr, name, expand=0, dims=True, square=False):
         s += "<summary><div class='title title-attr'>{}</div><span class='hl-dim'>.{}</span><span class='hl-size'>{} elements</span></summary>".format(
             name, attr, len(obj)
         )
-        s += "<div><table>"
-        s += "\n".join(
-            [
-                """<tr>
-                               <td class='col-index'>{}</td>  <td><span class='hl-import'>{}</span>{}</td>  <td class='hl-dims'>{} element{}</td>  <td class='hl-values'>{}</td>
-                           </tr>""".format(
-                    attr_key,
-                    *maybe_module_class(obj[attr_key]),
-                    len(obj[attr_key]),
-                    "s" if len(obj[attr_key]) != 1 else "",
-                    format_values(obj[attr_key]),
-                )
-                for attr_key in obj.keys()
-            ]
-        )
-        s += "</table></div>"
+        if len(obj) > 0:
+            s += "<div><table>"
+            s += "\n".join(
+                [
+                    """<tr>
+                                <td class='col-index'>{}</td>  <td><span class='hl-import'>{}</span>{}</td>  <td class='hl-dims'>{} element{}</td>  <td class='hl-values'>{}</td>
+                            </tr>""".format(
+                        attr_key,
+                        *maybe_module_class(obj[attr_key]),
+                        len(obj[attr_key]),
+                        "s" if len(obj[attr_key]) != 1 else "",
+                        format_values(obj[attr_key]),
+                    )
+                    for attr_key in obj.keys()
+                ]
+            )
+            s += "</table></div>"
+        else:
+            s += f"<span class='hl-empty'>No {name.lower()}</span>"
         s += "</details>"
     return s
 

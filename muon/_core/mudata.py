@@ -21,6 +21,7 @@ from anndata._core.aligned_mapping import (
 )
 
 from .repr import *
+from .config import OPTIONS
 
 
 class MuAxisArraysView(AlignedViewMixin, AxisArraysBase):
@@ -746,7 +747,7 @@ class MuData:
     def __repr__(self) -> str:
         return self._gen_repr(self.n_obs, self.n_vars, extensive=True)
 
-    def _repr_html_(self, expand=0b010):
+    def _repr_html_(self, expand=None):
         """
         HTML formatter for MuData objects
         for rich display in notebooks.
@@ -757,6 +758,15 @@ class MuData:
         010 - expand .mod slots
         001 - expand slots for each modality
         """
+
+        # Return text representation if set in options
+        if OPTIONS["display_style"] == "text":
+            from html import escape
+
+            return f"<pre>{escape(repr(self))}</pre>"
+
+        if expand is None:
+            expand = OPTIONS["display_html_expand"]
 
         # General object properties
         header = "<span>MuData object <span class='hl-dim'>{} obs &times; {} var in {} modalit{}</span></span>".format(
@@ -775,8 +785,9 @@ class MuData:
         mods += details_block_table(self, "obsm", "Embeddings & mappings", expand >> 2)
         # Distances
         mods += details_block_table(self, "obsp", "Distances", expand >> 2, square=True)
-        # Unstructured
-        mods += details_block_table(self, "uns", "Unstructured", expand >> 2)
+        # Miscellaneous (unstructured)
+        if self.uns:
+            mods += details_block_table(self, "uns", "Miscellaneous", expand >> 2)
 
         for m, dat in self.mod.items():
             mods += "<div class='block-mod'><div>"
@@ -808,8 +819,8 @@ class MuData:
             mods += details_block_table(dat, "obsm", "Embeddings", expand & 0b001)
             # Distances
             mods += details_block_table(dat, "obsp", "Distances", expand & 0b001, square=True)
-            # Unstructured
-            mods += details_block_table(dat, "uns", "Unstructured", expand & 0b001)
+            # Miscellaneous (unstructured)
+            mods += details_block_table(dat, "uns", "Miscellaneous", expand & 0b001)
 
             mods += "</details>"
             mods += "</div></div>"
