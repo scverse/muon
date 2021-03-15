@@ -100,7 +100,8 @@ def _sparse_csr_fast_knn_(
         cols = indices[start:end]
         rowdata = data[start:end]
 
-        idx = np.argsort(rowdata)  # would like to use argpartition, but not supported by numba
+        # would like to use argpartition, but not supported by numba
+        idx = np.argsort(rowdata)
         startidx = i * n_neighbors
         endidx = (i + 1) * n_neighbors
         # numba's parallel loops only support reductions, not assignment
@@ -109,7 +110,8 @@ def _sparse_csr_fast_knn_(
     return knn_data, knn_indices, knn_indptr
 
 
-def _sparse_csr_fast_knn(X: csr_matrix, n_neighbors: int):  # numba doesn't know about SciPy
+# numba doesn't know about SciPy
+def _sparse_csr_fast_knn(X: csr_matrix, n_neighbors: int):
     data, indices, indptr = _sparse_csr_fast_knn_(
         X.shape[0], X.indptr, X.indices, X.data, n_neighbors
     )
@@ -425,7 +427,8 @@ def neighbors(
                     neighbordistances = graph
                 else:
                     neighbordistances += graph
-            else:  # the naive version of neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
+            # the naive version of neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
+            else:
                 # uses way too much memory
                 if largeidx:
                     graph.indptr = graph.indptr.astype(np.int64)
@@ -460,11 +463,15 @@ def neighbors(
         rep = reps[m]
         csigmas = sigmas[m]
         if issparse(rep):
-            neighdist = lambda cell, nz: -cdist(
-                rep[cell, :].toarray(), rep[nz, :].toarray(), metric=metric
-            )
+
+            def neighdist(cell, nz):
+                return -cdist(rep[cell, :].toarray(), rep[nz, :].toarray(), metric=metric)
+
         else:
-            neighdist = lambda cell, nz: -cdist(rep[np.newaxis, cell, :], rep[nz, :], metric=metric)
+
+            def neighdist(cell, nz):
+                return -cdist(rep[np.newaxis, cell, :], rep[nz, :], metric=metric)
+
         for cell, j in enumerate(fullidx):
             row = slice(neighbordistances.indptr[cell], neighbordistances.indptr[cell + 1])
             nz = neighbordistances.indices[row]
@@ -579,7 +586,10 @@ def filter_obs(
         if var in adata.obs.columns:
             if func is None:
                 if adata.obs[var].dtypes.name == "bool":
-                    func = lambda x: x
+
+                    def func(x):
+                        return x
+
                 else:
                     raise ValueError(f"Function has to be provided since {var} is not boolean")
             obs_subset = func(adata.obs[var].values)
@@ -591,7 +601,10 @@ def filter_obs(
             )
     else:
         if func is None:
-            obs_subset = adata.obs_names.isin(var)
+            if np.array(var).dtype == np.bool:
+                obs_subset = var
+            else:
+                obs_subset = adata.obs_names.isin(var)
         else:
             raise ValueError(f"When providing obs_names directly, func has to be None.")
 
@@ -650,7 +663,10 @@ def filter_var(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
         if var in adata.var.columns:
             if func is None:
                 if adata.var[var].dtypes.name == "bool":
-                    func = lambda x: x
+
+                    def func(x):
+                        return x
+
                 else:
                     raise ValueError(f"Function has to be provided since {var} is not boolean")
             var_subset = func(adata.var[var].values)
@@ -662,7 +678,10 @@ def filter_var(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
             )
     else:
         if func is None:
-            var_subset = adata.var_names.isin(var)
+            if np.array(var).dtype == np.bool:
+                var_subset = var
+            else:
+                var_subset = adata.var_names.isin(var)
         else:
             raise ValueError(f"When providing var_names directly, func has to be None.")
 

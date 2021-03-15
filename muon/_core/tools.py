@@ -529,7 +529,7 @@ def mofa(
         outfile, save_data=save_data, save_parameters=save_parameters, expectations=expectations
     )
 
-    f = h5py.File(outfile)
+    f = h5py.File(outfile, "r")
     if copy:
         data = data.copy()
 
