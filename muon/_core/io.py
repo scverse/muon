@@ -464,7 +464,10 @@ def read(filename: PathLike, **kwargs) -> Union[MuData, AnnData]:
     if m is not None:
         m = m.groups()
     else:
-        raise ValueError("Expected non-empty .h5ad or .h5mu file name")
+        if filename.endswith(".h5ad"):
+            m = [filename[:-5], "h5ad", "", ""]
+        else:
+            raise ValueError("Expected non-empty .h5ad or .h5mu file name")
 
     filepath = ".".join([m[0], m[1]])
 
