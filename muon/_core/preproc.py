@@ -659,6 +659,11 @@ def filter_var(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
             the func argument can be omitted.
     """
 
+    if adata.is_view:
+        raise ValueError(
+            "The provided adata is a view. In-place filtering does not operate on views."
+        )
+
     if isinstance(var, str):
         if var in adata.var.columns:
             if func is None:
