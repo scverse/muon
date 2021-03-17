@@ -581,6 +581,10 @@ def filter_obs(
         raise ValueError(
             "The provided adata is a view. In-place filtering does not operate on views."
         )
+    if adata.isbacked:
+        warnings.warn(
+            "AnnData object is backed. The requested subset of the matrix .X will be read into memory, and the object will not be backed anymore."
+        )
 
     if isinstance(var, str):
         if var in adata.obs.columns:
@@ -614,6 +618,9 @@ def filter_obs(
 
     # Subset .X
     adata._X = adata.X[obs_subset]
+    if adata.isbacked:
+        adata.file.close()
+        adata.filename = None
 
     # Subset layers
     for layer in adata.layers:
@@ -663,6 +670,10 @@ def filter_var(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
         raise ValueError(
             "The provided adata is a view. In-place filtering does not operate on views."
         )
+    if adata.isbacked:
+        warnings.warn(
+            "AnnData object is backed. The requested subset of the matrix .X will be read into memory, and the object will not be backed anymore."
+        )
 
     if isinstance(var, str):
         if var in adata.var.columns:
@@ -696,6 +707,9 @@ def filter_var(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
 
     # Subset .X
     adata._X = adata.X[:, var_subset]
+    if adata.isbacked:
+        adata.file.close()
+        adata.filename = None
 
     # Subset layers
     for layer in adata.layers:

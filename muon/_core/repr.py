@@ -87,7 +87,7 @@ def details_block_table(data, attr, name, expand=0, dims=True, square=False):
             s += f"<span class='hl-empty'>No {name.lower()}</span>"
         s += "</details>"
     # Dict-like object
-    elif hasattr(obj, "keys") and hasattr(obj, "values") and name != "Unstructured":
+    elif hasattr(obj, "keys") and hasattr(obj, "values") and name != "Miscellaneous":
         s += "<details{}>".format(" open" if expand else "")
         s += "<summary><div class='title title-attr'>{}</div><span class='hl-dim'>.{}</span><span class='hl-size'>{} element{}</span></summary>".format(
             name, attr, len(obj), "s" if len(obj) != 1 else ""
