@@ -606,7 +606,7 @@ def filter_obs(
     else:
         if func is None:
             if np.array(var).dtype == np.bool:
-                obs_subset = var
+                obs_subset = np.array(var)
             else:
                 obs_subset = adata.obs_names.isin(var)
         else:
@@ -617,7 +617,12 @@ def filter_obs(
     adata._n_obs = adata.obs.shape[0]
 
     # Subset .X
-    adata._X = adata.X[obs_subset, :]
+    try:
+        adata._X = adata.X[obs_subset, :]
+    except TypeError:
+        adata._X = adata.X[np.where(obs_subset)[0], :]
+        # For some h5py versions, indexing arrays must have integer dtypes
+        # https://github.com/h5py/h5py/issues/1847
     if adata.isbacked:
         adata.file.close()
         adata.filename = None
@@ -706,7 +711,12 @@ def filter_var(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
     adata._n_vars = adata.var.shape[0]
 
     # Subset .X
-    adata._X = adata.X[:, var_subset]
+    try:
+        adata._X = adata.X[:, var_subset]
+    except TypeError:
+        adata._X = adata.X[:, np.where(var_subset)[0]]
+        # For some h5py versions, indexing arrays must have integer dtypes
+        # https://github.com/h5py/h5py/issues/1847
     if adata.isbacked:
         adata.file.close()
         adata.filename = None
