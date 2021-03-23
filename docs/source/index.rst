@@ -13,7 +13,7 @@ Multimodal data containers
 	  atac: 10110 x 100001
 	  rna: 10110 x 10100
 
-:doc:`Learn more about multimodal objects </io/mudata>` as well as :doc:`file formats for storing & sharing them </io/output>`. 
+``MuData`` objects enable multimodal information to be stored & accessed naturally, embrace `AnnData <https://github.com/theislab/anndata>`_ for the individual modalities, and can be serialized to ``.h5mu`` files. :doc:`Learn more about multimodal objects </io/mudata>` as well as :doc:`file formats for storing & sharing them </io/output>`. 
 
 Multi-omics methods
 -------------------
@@ -41,6 +41,14 @@ There is :doc:`atac module </omics/atac>` for chromatin accessibility data and :
 .. toctree::
    :hidden:
    :maxdepth: 1
+   :caption: Getting started
+
+   notebooks/quickstart_mudata.ipynb
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Documentation
 
    install
    io/input

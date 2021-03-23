@@ -40,6 +40,7 @@ extensions = [
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.mathjax",
     "sphinx_rtd_theme",
+    "nbsphinx",
 ]
 autosectionlabel_prefix_document = True
 
