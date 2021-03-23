@@ -43,25 +43,6 @@ class TestMuDataMod:
         with pytest.raises(OSError):
             mdata_.mod["mod1"].X[10, 5] = 0
 
-    def test_h5mu_mod_backed_inplace(self, mdata, filepath_h5mu):
-        mdata_ = mu.read_h5mu(filepath_h5mu, backed="r")
-        assert list(mdata_.mod.keys()) == ["mod1", "mod2"]
-
-        # When backed, in-place filtering should throw a warning
-        with pytest.warns(UserWarning):
-            sub = np.random.binomial(1, 0.5, mdata_.mod["mod1"].n_obs).astype(bool)
-            print("Sub:\t", len(sub))
-            print("Size:\t", mdata_.mod["mod1"].n_obs)
-            mu.pp.filter_obs(mdata_.mod["mod1"], sub)
-
-    def test_h5mu_mod_view_inplace(self, mdata, filepath_h5mu):
-        pov = np.random.binomial(1, 0.4, mdata.mod["mod1"].n_obs).astype(bool)
-        view = mdata.mod["mod1"][pov, :]
-        # When backed, in-place filtering should throw an error
-        with pytest.raises(ValueError):
-            sub = np.random.binomial(1, 0.5, view.n_obs).astype(bool)
-            mu.pp.filter_obs(view, sub)
-
 
 if __name__ == "__main__":
     unittest.main()
