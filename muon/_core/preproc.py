@@ -617,18 +617,18 @@ def filter_obs(
     adata._n_obs = adata.obs.shape[0]
 
     # Subset .X
-    adata._X = adata.X[obs_subset]
+    adata._X = adata.X[obs_subset, :]
     if adata.isbacked:
         adata.file.close()
         adata.filename = None
 
     # Subset layers
     for layer in adata.layers:
-        adata.layers[layer] = adata.layers[layer][obs_subset]
+        adata.layers[layer] = adata.layers[layer][obs_subset, :]
 
     # Subset raw
     if adata.raw is not None:
-        adata.raw._X = adata.raw.X[obs_subset]
+        adata.raw._X = adata.raw.X[obs_subset, :]
         adata.raw._n_obs = adata.raw.X.shape[0]
 
     # Subset .obsm
