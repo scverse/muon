@@ -1,7 +1,6 @@
 from typing import Union
 from os import PathLike
 import os
-from os.path import basename
 
 import numpy as np
 import h5py
@@ -331,7 +330,7 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
                 mods = {}
                 gmods = f[k]
                 for m in gmods.keys():
-                    mods[m] = read_h5mu_mod_backed(gmods[m], manager)
+                    mods[m] = _read_h5mu_mod_backed(gmods[m], manager)
                 d[k] = mods
             elif k == "mod":
                 mods = {}
@@ -350,7 +349,7 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
     return mu
 
 
-def read_h5mu_mod_backed(g: "h5py.Group", manager: MuDataFileManager) -> dict:
+def _read_h5mu_mod_backed(g: "h5py.Group", manager: MuDataFileManager) -> dict:
     from anndata._io.utils import read_attribute
     from anndata._io.h5ad import read_dataframe, _read_raw
     from anndata import Raw
@@ -372,7 +371,7 @@ def read_h5mu_mod_backed(g: "h5py.Group", manager: MuDataFileManager) -> dict:
         elif k != "raw":
             d[k] = read_attribute(g[k])
     ad = AnnData(**d)
-    ad.file = AnnDataFileManager(ad, basename(g.name), manager)
+    ad.file = AnnDataFileManager(ad, os.path.basename(g.name), manager)
 
     raw = _read_raw(g, attrs={"var", "varm"})
     if raw:
@@ -420,7 +419,7 @@ def read_h5ad(
     with h5py.File(filename, hdf5_mode) as f_root:
         f = f_root["mod"][mod]
         if backed:
-            return read_h5mu_mod_backed(f, manager)
+            return _read_h5mu_mod_backed(f, manager)
 
         for k in f.keys():
             if k in ["obs", "var"]:
