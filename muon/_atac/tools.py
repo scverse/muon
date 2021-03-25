@@ -1010,6 +1010,7 @@ def nucleosome_signal(
     Computes the ratio of nucleosomal cut fragments to nucleosome-free fragments per cell.
     Nucleosome-free fragments are shorter than 147 bp while mono-mucleosomal fragments are between
     147 bp and 294 bp long.
+
     Parameters
     ----------
     data
