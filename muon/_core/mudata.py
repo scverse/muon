@@ -91,6 +91,8 @@ class MuData:
         else:
             raise TypeError("Expected AnnData object or dictionary with AnnData objects as values")
 
+        self._check_duplicated_names()
+
         # When creating from a dictionary with _init_from_dict_
         if len(kwargs) > 0:
             # Get global observations
@@ -243,6 +245,35 @@ class MuData:
             varp=varp,
         )
 
+    def _check_duplicated_attr_names(self, attr: str):
+        if any([not getattr(self.mod[mod_i], attr + "_names").is_unique for mod_i in self.mod]):
+            # If there are non-unique attr_names, we can only handle outer joins
+            # under the condition the duplicated values are restricted to one modality
+            dups = [
+                np.unique(
+                    getattr(self.mod[mod_i], attr + "_names")[
+                        getattr(self.mod[mod_i], attr + "_names").duplicated()
+                    ]
+                )
+                for mod_i in self.mod
+            ]
+            for i, mod_i_dup_attrs in enumerate(dups):
+                for j, mod_j in enumerate(self.mod):
+                    if j != i:
+                        if any(
+                            np.in1d(
+                                mod_i_dup_attrs, getattr(self.mod[mod_j], attr + "_names").values
+                            )
+                        ):
+                            raise ValueError(
+                                f"Duplicated {attr}_names cannot be present in different modalities due to the ambiguity that leads to."
+                            )
+        return
+
+    def _check_duplicated_names(self):
+        self._check_duplicated_attr_names("obs")
+        self._check_duplicated_attr_names("var")
+
     def copy(self, filename: Optional[PathLike] = None) -> "MuData":
         if not self.isbacked:
             mod = {}
@@ -310,33 +341,7 @@ class MuData:
         """
         prev_index = getattr(self, attr).index
 
-        if any([not getattr(self.mod[mod_i], attr + "_names").is_unique for mod_i in self.mod]):
-            # If there are non-unique attr_names, we can only handle outer joins
-            # under the condition the duplicated values are restricted to one modality
-            dups = [
-                np.unique(
-                    getattr(self.mod[mod_i], attr + "_names")[
-                        getattr(self.mod[mod_i], attr + "_names").duplicated()
-                    ]
-                )
-                for mod_i in self.mod
-            ]
-            for i, mod_i_dup_attrs in enumerate(dups):
-                for j, mod_j in enumerate(self.mod):
-                    if j != i:
-                        if any(
-                            np.in1d(
-                                mod_i_dup_attrs, getattr(self.mod[mod_j], attr + "_names").values
-                            )
-                        ):
-                            raise ValueError(
-                                f"Duplicated {attr}_names cannot be present in different modalities due to the ambiguity that leads to."
-                            )
-            # if join_common:
-            #     warnings.warn(
-            #         f"Cannot join columns with the same name because there are modalities with non-unique {attr}_names"
-            #     )
-            # join_common = False
+        self._check_duplicated_names()
 
         # Check if the are same obs_names/var_names in different modalities
         # If there are, join_common=True request can not be satisfied
