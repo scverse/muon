@@ -1,10 +1,18 @@
 import pandas as pd
-from .._core.mudata import MuData
 from anndata import AnnData
+from anndata.utils import make_index_unique
 from typing import Union
 
 
-def get_gene_annotation_from_rna(data: Union[AnnData, MuData]) -> pd.DataFrame:
+def _make_index_unique(df: pd.DataFrame) -> pd.DataFrame:
+    return df.set_index(make_index_unique(df.index), append=True)
+
+
+def _restore_index(df: pd.DataFrame) -> pd.DataFrame:
+    return df.reset_index(level=-1, drop=True)
+
+
+def get_gene_annotation_from_rna(data: Union[AnnData, "MuData"]) -> pd.DataFrame:
     """
     Get data frame with start and end positions from interval
     column of the 'rna' layers .var.

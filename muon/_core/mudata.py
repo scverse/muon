@@ -20,6 +20,8 @@ from anndata._core.aligned_mapping import (
     PairwiseArraysView,
 )
 
+from .utils import _make_index_unique, _restore_index
+
 from .repr import *
 from .config import OPTIONS
 
@@ -117,19 +119,23 @@ class MuData:
             return
 
         # Initialise global observations
-        self._obs = pd.concat(
-            [a.obs.add_prefix(m + ":") for m, a in self.mod.items()],
-            join="outer",
-            axis=1,
-            sort=False,
+        self._obs = _restore_index(
+            pd.concat(
+                [_make_index_unique(a.obs.add_prefix(m + ":")) for m, a in self.mod.items()],
+                join="outer",
+                axis=1,
+                sort=False,
+            )
         )
 
         # Initialise global variables
-        self._var = pd.concat(
-            [a.var.add_prefix(m + ":") for m, a in self.mod.items()],
-            join="outer",
-            axis=0,
-            sort=False,
+        self._var = _restore_index(
+            pd.concat(
+                [_make_index_unique(a.var.add_prefix(m + ":")) for m, a in self.mod.items()],
+                join="outer",
+                axis=0,
+                sort=False,
+            )
         )
 
         # Make obs map for each modality
@@ -304,6 +310,34 @@ class MuData:
         """
         prev_index = getattr(self, attr).index
 
+        if any([not getattr(self.mod[mod_i], attr + "_names").is_unique for mod_i in self.mod]):
+            # If there are non-unique attr_names, we can only handle outer joins
+            # under the condition the duplicated values are restricted to one modality
+            dups = [
+                np.unique(
+                    getattr(self.mod[mod_i], attr + "_names")[
+                        getattr(self.mod[mod_i], attr + "_names").duplicated()
+                    ]
+                )
+                for mod_i in self.mod
+            ]
+            for i, mod_i_dup_attrs in enumerate(dups):
+                for j, mod_j in enumerate(self.mod):
+                    if j != i:
+                        if any(
+                            np.in1d(
+                                mod_i_dup_attrs, getattr(self.mod[mod_j], attr + "_names").values
+                            )
+                        ):
+                            raise ValueError(
+                                f"Duplicated {attr}_names cannot be present in different modalities due to the ambiguity that leads to."
+                            )
+            # if join_common:
+            #     warnings.warn(
+            #         f"Cannot join columns with the same name because there are modalities with non-unique {attr}_names"
+            #     )
+            # join_common = False
+
         # Check if the are same obs_names/var_names in different modalities
         # If there are, join_common=True request can not be satisfied
         if any(
@@ -355,29 +389,42 @@ class MuData:
         columns_global = [i for i in columns_global if i not in columns_common]
 
         # Keep data from global .obs/.var columns
-        data_global = getattr(self, attr).loc[:, columns_global]
+        data_global = _make_index_unique(getattr(self, attr).loc[:, columns_global])
 
         # Join modality .obs/.var tables
         if join_common:
+            # Here, attr_names are guaranteed to be unique and are safe to be used for joins
             data_mod = pd.concat(
                 [
-                    getattr(a, attr).drop(columns_common, axis=1).add_prefix(m + ":")
+                    _make_index_unique(
+                        getattr(a, attr).drop(columns_common, axis=1).add_prefix(m + ":")
+                    )
                     for m, a in self.mod.items()
                 ],
                 join="outer",
                 axis=1,
                 sort=False,
-            )
+            ).iloc[
+                :, 1:
+            ]  # remove original index
+
             data_common = pd.concat(
-                [getattr(a, attr)[columns_common] for m, a in self.mod.items()],
+                [_make_index_unique(getattr(a, attr)[columns_common]) for m, a in self.mod.items()],
                 join="outer",
                 axis=0,
                 sort=False,
-            )
-            data_mod = data_mod.join(data_common, how="left", sort=False).loc[data_mod.index]
+            ).iloc[
+                :, 1:
+            ]  # remove original index
+            data_mod = data_mod.join(data_common.iloc[:, 1:], how="left", sort=False).loc[
+                data_mod.index
+            ]
         else:
             data_mod = pd.concat(
-                [getattr(a, attr).add_prefix(m + ":") for m, a in self.mod.items()],
+                [
+                    _make_index_unique(getattr(a, attr).add_prefix(m + ":"))
+                    for m, a in self.mod.items()
+                ],
                 join="outer",
                 axis=1,
                 sort=False,
@@ -386,7 +433,10 @@ class MuData:
         # Add data from global .obs/.var columns
         # This might reduce the size of .obs/.var if observations/variables were removed
         setattr(
-            self, "_" + attr, data_mod.join(data_global, how="left", sort=False).loc[data_mod.index]
+            # Original index is present in data_global
+            self,
+            "_" + attr,
+            _restore_index(data_mod.join(data_global, how="left", sort=False).loc[data_mod.index]),
         )
 
         # Update .obsm/.varm
