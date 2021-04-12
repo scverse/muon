@@ -265,8 +265,8 @@ class MuData:
                                 mod_i_dup_attrs, getattr(self.mod[mod_j], attr + "_names").values
                             )
                         ):
-                            raise ValueError(
-                                f"Duplicated {attr}_names cannot be present in different modalities due to the ambiguity that leads to."
+                            warnings.warn(
+                                f"Duplicated {attr}_names should not be present in different modalities due to the ambiguity that leads to."
                             )
         return
 
