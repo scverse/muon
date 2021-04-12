@@ -1,7 +1,8 @@
-from typing import Union, Callable, Optional, Sequence, Dict
+from typing import Union, Callable, Optional, Sequence, Dict, Iterable
 from functools import reduce
 import warnings
 from collections import OrderedDict
+from itertools import repeat
 
 import numpy as np
 from scipy.sparse import csr_matrix, issparse, SparseEfficiencyWarning
@@ -151,6 +152,80 @@ def _make_slice_intervals(idx, maxsize=10000):
     return np.concatenate(allstarts), np.concatenate(allstops)
 
 
+def _l2norm(
+    adata: AnnData, rep: Optional[Union[Iterable[str], str]] = None, n_pcs: Optional[int] = 0
+):
+    X = _choose_representation(adata, rep, n_pcs)
+    norm = X / np.linalg.norm(X, ord=2, axis=1, keepdims=True)
+    norm[~np.isfinite(norm)] = 0
+    X.astype(norm.dtype, copy=False)
+    X[:] = norm
+
+
+def l2norm(
+    mdata: Union[MuData, AnnData],
+    mod: Optional[Union[Iterable[str], str]] = None,
+    rep: Optional[Union[Iterable[str], str]] = None,
+    n_pcs: Optional[Union[Iterable[int], int]] = 0,
+    copy: bool = False,
+) -> Optional[Union[MuData, AnnData]]:
+    """
+    Normalize observations to unit L2 norm.
+
+    Args:
+        mdata: The MuData or AnnData object to normalize.
+        mod: If ``mdata`` is a MuData object, this specifies the modalities to normalize.
+            ``None`` indicates all modalities.
+        rep: The representation to normalize. ``X`` or any key for ``.obsm`` is valid. If
+            ``None``, the representation is chosen automatically. If ``mdata`` is a MuData
+            object and this is not an iterable, the given representation will be used for
+            all modalities.
+        n_pcs: The number of principal components to use. This affects the result only if
+            a PCA representation is being normalized. If ``mdata`` is a MuData object and
+            this is not an iterable, the given number will be used for all modalities.
+        copy: Return a copy instead of writing to `mdata`.
+
+    Returns: Depending on ``copy``, returns or updates ``mdata``.
+    """
+    if isinstance(mdata, AnnData):
+        if rep is not None and not isinstance(rep, str):
+            it = iter(rep)
+            rep = next(it)
+            try:
+                next(it)
+            except StopIteration as e:
+                pass
+            else:
+                raise RuntimeError("If 'rep' is an Iterable, it must have length 1")
+        if n_pcs is not None and isinstance(n_pcs, Iterable):
+            it = iter(n_pcs)
+            n_pcs = next(it)
+            try:
+                next(it)
+            except StopIteration as e:
+                pass
+            else:
+                raise RuntimeError("If 'n_pcs' is an Iterable, it must have length 1")
+        if copy:
+            mdata = mdata.copy()
+        _l2norm(mdata, rep, n_pcs)
+    else:
+        if mod is None:
+            mod = mdata.mod.keys()
+        elif isinstance(mod, str):
+            mod = [mod]
+        if rep is None or isinstance(rep, str):
+            rep = repeat(rep)
+        if n_pcs is None or isinstance(n_pcs, int):
+            n_pcs = repeat(n_pcs)
+        if copy:
+            mdata = mdata.copy()
+        for m, r, n in zip(mod, rep, n_pcs):
+            _l2norm(mdata.mod[m], r, n)
+
+    return mdata if copy else None
+
+
 def neighbors(
     mdata: MuData,
     n_neighbors: Optional[int] = None,
@@ -194,7 +269,9 @@ def neighbors(
 
     This implements the multimodal nearest neighbor method of Hao et al. and Swanson et al. The neighbor search
     efficiency on this heavily relies on UMAP. In particular, you may want to decrease n_multineighbors for large
-    data set to avoid excessive peak memory use.
+    data set to avoid excessive peak memory use. Note that to achieve results as close as possible to the Seurat
+    implementation, observations must be normalized to unit L2 norm (see :func:`l2norm`) prior to running per-modality
+    nearest-neighbor search.
 
     References:
         Hao et al, 2020 (`doi:10.1101/2020.10.12.335331 <https://dx.doi.org/10.1101/2020.10.12.335331>`_)
