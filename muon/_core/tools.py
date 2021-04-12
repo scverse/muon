@@ -297,7 +297,6 @@ def mofa(
     n_iterations: int = 1000,
     convergence_mode: str = "fast",
     gpu_mode: bool = False,
-    Y_ELBO_TauTrick: bool = True,
     smooth_covariate: Optional[str] = None,
     smooth_warping: bool = False,
     smooth_kwargs: Optional[Mapping[str, Any]] = None,
@@ -351,8 +350,6 @@ def mofa(
             fast, medium, or slow convergence mode
     gpu_mode : optional
             if to use GPU mode
-    Y_ELBO_TauTrick : optional
-            if to use ELBO Tau trick to speed up computations
     smooth_covariate : optional
             use a covariate (column in .obs) to learn smooth factors (MEFISTO)
     smooth_warping : optional
@@ -459,7 +456,6 @@ def mofa(
         iter=n_iterations,
         convergence_mode=convergence_mode,
         gpu_mode=gpu_mode,
-        Y_ELBO_TauTrick=Y_ELBO_TauTrick,
         seed=seed,
         verbose=verbose,
         quiet=quiet,
