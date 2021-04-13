@@ -383,7 +383,7 @@ class MuData:
                     _make_index_unique(
                         getattr(a, attr)
                         .drop(columns_common, axis=1)
-                        .assign(**{rowcol: pd.array(np.arange(getattr(a, attr).shape[0]))})
+                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
                         .add_prefix(m + ":")
                     )
                     for m, a in self.mod.items()
