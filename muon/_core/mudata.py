@@ -21,6 +21,7 @@ from anndata._core.aligned_mapping import (
     PairwiseArrays,
     PairwiseArraysView,
 )
+from anndata._core.views import DataFrameView
 
 from .utils import _make_index_unique, _restore_index
 
@@ -156,33 +157,27 @@ class MuData:
         self.is_view = False
 
     def _init_as_view(self, mudata_ref: "MuData", index):
-        def slice_mapping(mapping, obsnames, varnames):
-            mp = {}
-            for n, v in mapping.items():
-                obsidx = v.obs.index.isin(obsnames)
-                varidx = v.var.index.isin(varnames)
-                mp[n] = v[obsidx, varidx]
-            return mp
-
         from anndata._core.index import _normalize_indices
 
         obsidx, varidx = _normalize_indices(index, mudata_ref.obs.index, mudata_ref.var.index)
-        if isinstance(
-            obsidx, Integral
-        ):  # to handle single-element subsets, otherwise pd.Index[int] returns
-            obsidx = slice(
-                obsidx, obsidx + 1
-            )  # a str and pd.Index.intersection throws an exception
+
+        # to handle single-element subsets, otherwise when subsetting a Dataframe
+        # we get a Series
+        if isinstance(obsidx, Integral):
+            obsidx = slice(obsidx, obsidx + 1)
         if isinstance(varidx, Integral):
             varidx = slice(varidx, varidx + 1)
 
-        self.mod = slice_mapping(
-            mudata_ref.mod, mudata_ref.obs.index[obsidx], mudata_ref.var.index[varidx]
-        )
-        self._obs = mudata_ref.obs.iloc[obsidx, :]
+        self.mod = dict()
+        for m, a in mudata_ref.mod.items():
+            cobsidx, cvaridx = mudata_ref.obsm[m][obsidx], mudata_ref.varm[m][varidx]
+            cobsidx, cvaridx = cobsidx[cobsidx > 0] - 1, cvaridx[cvaridx > 0] - 1
+            self.mod[m] = a[cobsidx, cvaridx]
+
+        self._obs = DataFrameView(mudata_ref.obs.iloc[obsidx, :], view_args=(self, "obs"))
         self._obsm = mudata_ref.obsm._view(self, (obsidx,))
         self._obsp = mudata_ref.obsp._view(self, obsidx)
-        self._var = mudata_ref.var.iloc[varidx, :]
+        self._var = DataFrameView(mudata_ref.var.iloc[varidx, :], view_args=(self, "var"))
         self._varm = mudata_ref.varm._view(self, (varidx,))
         self._varp = mudata_ref.varp._view(self, varidx)
 
@@ -424,10 +419,12 @@ class MuData:
         mdict = dict()
         for m in self.mod.keys():
             colname = m + ":" + rowcol
-            mdict[m] = (data_mod[colname].values + 1).astype(np.uint32)
             # use 0 as special value for missing
             # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
             # also, this is compatible to Muon.jl
+            idx = data_mod[colname].to_numpy() + 1
+            idx[np.isnan(idx)] = 0
+            mdict[m] = idx.astype(np.uint32)
             data_mod.drop(colname, axis=1, inplace=True)
 
         # Add data from global .obs/.var columns
