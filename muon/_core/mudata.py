@@ -335,7 +335,7 @@ class MuData:
     #     setattr(self, f"_{attr}", value)
     #     AnnData._set_dim_index(self, value_idx, attr)
 
-    def _update_attr(self, attr: str, join_common: bool = False):
+    def _update_attr(self, attr: str, axis: int, join_common: bool = False):
         """
         Update global observations/variables with observations/variables for each modality
         """
@@ -407,23 +407,17 @@ class MuData:
                     for m, a in self.mod.items()
                 ],
                 join="outer",
-                axis=1,
+                axis=axis,
                 sort=False,
-            ).iloc[
-                :, 1:
-            ]  # remove original index
+            )
 
             data_common = pd.concat(
                 [_make_index_unique(getattr(a, attr)[columns_common]) for m, a in self.mod.items()],
                 join="outer",
                 axis=0,
                 sort=False,
-            ).iloc[
-                :, 1:
-            ]  # remove original index
-            data_mod = data_mod.join(data_common.iloc[:, 1:], how="left", sort=False).loc[
-                data_mod.index
-            ]
+            )
+            data_mod = data_mod.join(data_common, how="left", sort=False).loc[data_mod.index]
         else:
             data_mod = pd.concat(
                 [
@@ -431,7 +425,7 @@ class MuData:
                     for m, a in self.mod.items()
                 ],
                 join="outer",
-                axis=1,
+                axis=axis,
                 sort=False,
             )
 
@@ -535,7 +529,7 @@ class MuData:
         """
         Update .obs slot of MuData with the newest .obs data from all the modalities
         """
-        self._update_attr("obs")
+        self._update_attr("obs", axis=1)
 
     @property
     def obs_names(self) -> pd.Index:
@@ -592,7 +586,7 @@ class MuData:
         """
         Update .var slot of MuData with the newest .var data from all the modalities
         """
-        self._update_attr("var", join_common=True)
+        self._update_attr("var", axis=0, join_common=True)
 
     def var_names_make_unique(self):
         """
