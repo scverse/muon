@@ -5,6 +5,8 @@ from functools import reduce
 import warnings
 from copy import deepcopy
 from os import PathLike
+from random import choices
+from string import ascii_letters, digits
 
 import numpy as np
 import pandas as pd
@@ -121,40 +123,20 @@ class MuData:
             return
 
         # Initialise global observations
-        self._obs = _restore_index(
-            pd.concat(
-                [_make_index_unique(a.obs.add_prefix(m + ":")) for m, a in self.mod.items()],
-                join="outer",
-                axis=1,
-                sort=False,
-            )
-        )
+        self._obs = pd.DataFrame()
 
         # Initialise global variables
-        self._var = _restore_index(
-            pd.concat(
-                [_make_index_unique(a.var.add_prefix(m + ":")) for m, a in self.mod.items()],
-                join="outer",
-                axis=0,
-                sort=False,
-            )
-        )
+        self._var = pd.DataFrame()
 
         # Make obs map for each modality
-        self._obsm = dict()
-        for k, v in self.mod.items():
-            self._obsm[k] = self.obs.index.isin(v.obs.index)
-        self._obsm = MuAxisArrays(self, 0, self._obsm)
-
+        self._obsm = MuAxisArrays(self, 0, dict())
         self._obsp = PairwiseArrays(self, 0, dict())
 
         # Make var map for each modality
-        self._varm = dict()
-        for k, v in self.mod.items():
-            self._varm[k] = self.var.index.isin(v.var.index)
-        self._varm = MuAxisArrays(self, 1, self._varm)
-
+        self._varm = MuAxisArrays(self, 1, dict())
         self._varp = PairwiseArrays(self, 1, dict())
+
+        self.update()
 
     def _init_common(self):
         self._mudata_ref = None
@@ -397,12 +379,17 @@ class MuData:
         data_global = _make_index_unique(getattr(self, attr).loc[:, columns_global])
 
         # Join modality .obs/.var tables
+        (rowcol,) = self._find_unique_colnames(attr, 1)
+
         if join_common:
             # Here, attr_names are guaranteed to be unique and are safe to be used for joins
             data_mod = pd.concat(
                 [
                     _make_index_unique(
-                        getattr(a, attr).drop(columns_common, axis=1).add_prefix(m + ":")
+                        getattr(a, attr)
+                        .drop(columns_common, axis=1)
+                        .assign(**{rowcol: pd.array(np.arange(getattr(a, attr).shape[0]))})
+                        .add_prefix(m + ":")
                     )
                     for m, a in self.mod.items()
                 ],
@@ -417,11 +404,15 @@ class MuData:
                 axis=0,
                 sort=False,
             )
-            data_mod = data_mod.join(data_common, how="left", sort=False).loc[data_mod.index]
+            data_mod = data_mod.join(data_common, how="left", sort=False)
         else:
             data_mod = pd.concat(
                 [
-                    _make_index_unique(getattr(a, attr).add_prefix(m + ":"))
+                    _make_index_unique(
+                        getattr(a, attr)
+                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                        .add_prefix(m + ":")
+                    )
                     for m, a in self.mod.items()
                 ],
                 join="outer",
@@ -429,18 +420,28 @@ class MuData:
                 sort=False,
             )
 
+        # get adata positions and remove columns from the data frame
+        mdict = dict()
+        for m in self.mod.keys():
+            colname = m + ":" + rowcol
+            mdict[m] = (data_mod[colname].values + 1).astype(np.uint32)
+            # use 0 as special value for missing
+            # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
+            # also, this is compatible to Muon.jl
+            data_mod.drop(colname, axis=1, inplace=True)
+
         # Add data from global .obs/.var columns
         # This might reduce the size of .obs/.var if observations/variables were removed
         setattr(
             # Original index is present in data_global
             self,
             "_" + attr,
-            _restore_index(data_mod.join(data_global, how="left", sort=False).loc[data_mod.index]),
+            _restore_index(data_mod.join(data_global, how="left", sort=False)),
         )
 
         # Update .obsm/.varm
-        for k, v in self.mod.items():
-            getattr(self, attr + "m")[k] = getattr(self, attr).index.isin(getattr(v, attr).index)
+        # this needs to be after setting _obs/_var due to dimension checking in the aligned mapping
+        getattr(self, attr + "m").update(mdict)
 
         keep_index = prev_index.isin(getattr(self, attr).index)
 
@@ -876,3 +877,21 @@ class MuData:
         mods += "<br/>"
         full = "".join((MUDATA_CSS, header, mods))
         return full
+
+    def _find_unique_colnames(self, attr: str, ncols: int):
+        nchars = 16
+        allunique = False
+        while not allunique:
+            colnames = ["".join(choices(ascii_letters + digits, k=nchars)) for _ in range(ncols)]
+            allunique = len(set(colnames)) == ncols
+            nchars *= 2
+
+        for i in range(1, ncols):
+            finished = False
+            while not finished:
+                for ad in chain((self,), self.mod.values()):
+                    if colnames[i] in getattr(ad, attr).columns:
+                        colnames[i] = "_" + colnames[i]
+                        break
+                finished = True
+        return colnames
