@@ -433,7 +433,11 @@ class MuData:
             # Original index is present in data_global
             self,
             "_" + attr,
-            _restore_index(data_mod.join(data_global, how="left", sort=False)),
+            _restore_index(
+                data_mod.join(data_global, how="left", sort=False)
+                if len(data_global) > 0
+                else data_mod
+            ),
         )
 
         # Update .obsm/.varm
