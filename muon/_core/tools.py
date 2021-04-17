@@ -359,7 +359,7 @@ def mofa(
     smooth_kwargs : optional
             additional arguments for MEFISTO (covariates_names, scale_cov, start_opt, n_grid, opt_freq,
             warping_freq, warping_ref, warping_open_begin, warping_open_end,
-            sparseGP, frac_inducing, model_groups)
+            sparseGP, frac_inducing, model_groups, new_values)
     save_parameters : optional
             if to save training parameters
     save_data : optional
@@ -478,6 +478,7 @@ def mofa(
         warping_open_end=True,
         sparseGP=False,
         frac_inducing=None,
+        new_values=None,
     )
 
     if not smooth_kwargs:
@@ -519,6 +520,11 @@ def mofa(
     ent.build()
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Running the model...")
     ent.run()
+
+    if smooth_kwargs is not None and "new_values" in smooth_kwargs and smooth_kwargs["new_values"]:
+        logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Interpolating factors...")
+        new_values = np.array(smooth_kwargs["new_values"])
+        ent.predict_factor(new_covariates=new_values)
 
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Saving the model...")
     ent.save(
