@@ -529,6 +529,8 @@ def mofa(
     ):
         logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Interpolating factors...")
         new_values = np.array(smooth_kwargs["new_values"])
+        if new_values.ndim == 1:
+            new_values = new_values.reshape(-1, 1)
         ent.predict_factor(new_covariates=new_values)
 
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Saving the model...")
