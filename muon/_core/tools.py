@@ -521,7 +521,12 @@ def mofa(
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Running the model...")
     ent.run()
 
-    if smooth_kwargs is not None and "new_values" in smooth_kwargs and smooth_kwargs["new_values"]:
+    if (
+        smooth_kwargs is not None
+        and "new_values" in smooth_kwargs
+        and smooth_kwargs["new_values"]
+        and smooth_covariate
+    ):
         logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Interpolating factors...")
         new_values = np.array(smooth_kwargs["new_values"])
         ent.predict_factor(new_covariates=new_values)
