@@ -91,6 +91,8 @@ class MuData:
                         if name in feature_types_names.keys():
                             alias = feature_types_names[name]
                     self.mod[alias] = data[:, data.var.feature_types == name].copy()
+            else:
+                self.mod["data"] = data
         else:
             raise TypeError("Expected AnnData object or dictionary with AnnData objects as values")
 

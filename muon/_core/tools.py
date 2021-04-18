@@ -290,6 +290,7 @@ def mofa(
     n_factors: int = 10,
     scale_views: bool = False,
     scale_groups: bool = False,
+    center_groups: bool = True,
     ard_weights: bool = True,
     ard_factors: bool = True,
     spikeslab_weights: bool = True,
@@ -297,6 +298,7 @@ def mofa(
     n_iterations: int = 1000,
     convergence_mode: str = "fast",
     gpu_mode: bool = False,
+    use_float32: bool = False,
     smooth_covariate: Optional[str] = None,
     smooth_warping: bool = False,
     smooth_kwargs: Optional[Mapping[str, Any]] = None,
@@ -336,6 +338,8 @@ def mofa(
             scale views to unit variance
     scale_groups : optional
             scale groups to unit variance
+    center_groups : optional
+            center groups to zero mean (True by default)
     ard_weights : optional
             use view-wise sparsity
     ard_factors : optional
@@ -348,6 +352,8 @@ def mofa(
             upper limit on the number of iterations
     convergence_mode : optional
             fast, medium, or slow convergence mode
+    use_float32 : optional
+            use reduced precision (float32)
     gpu_mode : optional
             if to use GPU mode
     smooth_covariate : optional
@@ -394,6 +400,8 @@ def mofa(
     if isinstance(data, AnnData):
         logging.info("Wrapping an AnnData object into an MuData container")
         mdata = MuData(data)
+        # Modality name is used as a prefix by default
+        mdata.obs = data.obs
     elif isinstance(data, MuData):
         mdata = data
     else:
@@ -428,7 +436,12 @@ def mofa(
         if isinstance(lik, str) and isinstance(lik, Iterable):
             lik = [lik for _ in range(len(mdata.mod))]
 
-    ent.set_data_options(scale_views=scale_views, scale_groups=scale_groups)
+    ent.set_data_options(
+        scale_views=scale_views,
+        scale_groups=scale_groups,
+        center_groups=center_groups,
+        use_float32=use_float32,
+    )
     logging.info(
         f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting data from MuData object..."
     )
