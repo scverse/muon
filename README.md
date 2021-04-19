@@ -106,12 +106,12 @@ sc.pl.umap(rna)
 
 ### Modules in `muon`
 
-Currently muon comes with a set of modules that can be used hand in hand with scanpy's API. These modules are named after respective sequencing protocols and comprise special functions that might come in handy. It is also handy to import them as two letter abbreviations:
+`muon` comes with a set of modules that can be used hand in hand with scanpy's API. These modules are named after respective sequencing protocols and comprise special functions that might come in handy. It is also handy to import them as two letter abbreviations:
 
 ```py
 # ATAC module:
 from muon import atac as ac
 
 # Protein (epitope) module:
-from muon import protein as pt
+from muon import prot as pt
 ```
