@@ -366,12 +366,6 @@ class MuData:
             )
         ]
 
-        # If all modalities have a column with the same name, it is not global
-        columns_common = reduce(
-            np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
-        )
-        columns_global = [i for i in columns_global if i not in columns_common]
-
         # Keep data from global .obs/.var columns
         data_global = _make_index_unique(getattr(self, attr).loc[:, columns_global])
 
@@ -379,6 +373,12 @@ class MuData:
         (rowcol,) = self._find_unique_colnames(attr, 1)
 
         if join_common:
+            # If all modalities have a column with the same name, it is not global
+            columns_common = reduce(
+                np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
+            )
+            data_global = data_global.loc[:, [c in columns_common for c in data_global.columns]]
+
             # Here, attr_names are guaranteed to be unique and are safe to be used for joins
             data_mod = pd.concat(
                 [
