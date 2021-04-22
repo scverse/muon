@@ -4,5 +4,6 @@ readthedocs-sphinx-search
 nbsphinx
 sphinx_automodapi
 
-# Install muon
+# Install muon and its dependencies
+scanpy
 .
