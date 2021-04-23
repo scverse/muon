@@ -429,17 +429,30 @@ class MuData:
             mdict[m] = idx.astype(np.uint32)
             data_mod.drop(colname, axis=1, inplace=True)
 
-        # Add data from global .obs/.var columns
-        # This might reduce the size of .obs/.var if observations/variables were removed
+        # this occurs when join_common=True and we already have a global data frame, e.g. after reading from HDF5
+        if join_common:
+            sharedcols = data_mod.columns.intersection(data_global.columns)
+            data_global.rename(columns={col: f"global:{col}" for col in sharedcols}, inplace=True)
+
+        data_mod = _restore_index(
+            data_mod.join(data_global, how="left", sort=False) if len(data_global) > 0 else data_mod
+        )
+        if join_common:
+            for col in sharedcols:
+                gcol = f"global:{col}"
+                if np.array_equal(data_mod[col], data_mod[gcol]):
+                    data_mod.drop(columns=gcol, inplace=True)
+                else:
+                    warnings.warn(
+                        f"Column {col} was present in {attr} but is also a common column in all modalities, and their contents differ. {attr}.{col} was renamed to {attr}.{gcol}."
+                    )
+
+        # Add data from global .obs/.var columns # This might reduce the size of .obs/.var if observations/variables were removed
         setattr(
             # Original index is present in data_global
             self,
             "_" + attr,
-            _restore_index(
-                data_mod.join(data_global, how="left", sort=False)
-                if len(data_global) > 0
-                else data_mod
-            ),
+            data_mod,
         )
 
         # Update .obsm/.varm
