@@ -387,10 +387,13 @@ class MuData:
         ]
 
         # Keep data from global .obs/.var columns
-        data_global = _make_index_unique(getattr(self, attr).loc[:, columns_global])
+        data_global = getattr(self, attr).loc[:, columns_global]
 
         # Join modality .obs/.var tables
         (rowcol,) = self._find_unique_colnames(attr, 1)
+        attrm = getattr(self, attr + "m")
+        attrp = getattr(self, attr + "p")
+        attrmap = getattr(self, attr + "map")
 
         if join_common:
             # If all modalities have a column with the same name, it is not global
@@ -437,26 +440,34 @@ class MuData:
                 sort=False,
             )
 
-        # get adata positions and remove columns from the data frame
-        mdict = dict()
-        for m in self.mod.keys():
-            colname = m + ":" + rowcol
-            # use 0 as special value for missing
-            # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
-            # also, this is compatible to Muon.jl
-            idx = data_mod[colname].to_numpy() + 1
-            idx[np.isnan(idx)] = 0
-            mdict[m] = idx.astype(np.uint32)
-            data_mod.drop(colname, axis=1, inplace=True)
-
         # this occurs when join_common=True and we already have a global data frame, e.g. after reading from HDF5
         if join_common:
             sharedcols = data_mod.columns.intersection(data_global.columns)
             data_global.rename(columns={col: f"global:{col}" for col in sharedcols}, inplace=True)
 
-        data_mod = _restore_index(
+        data_mod = _restore_index(data_mod)
+        data_mod.index.set_names(rowcol, inplace=True)
+        data_global.index.set_names(rowcol, inplace=True)
+        for mod in self.mod.keys():
+            colname = mod + ":" + rowcol
+            # use 0 as special value for missing
+            # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
+            # also, this is compatible to Muon.jl
+            col = data_mod.loc[:, colname] + 1
+            col.replace(np.NaN, 0, inplace=True)
+            col = col.astype(np.uint32)
+            data_mod.loc[:, colname] = col
+            data_mod.set_index(colname, append=True, inplace=True)
+            if mod in attrmap:
+                data_global.set_index(attrmap[mod], append=True, inplace=True)
+                data_global.index.set_names(colname, level=-1, inplace=True)
+
+        data_mod = (
             data_mod.join(data_global, how="left", sort=False) if len(data_global) > 0 else data_mod
         )
+        data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
+        data_mod.index.set_names(None, inplace=True)
+
         if join_common:
             for col in sharedcols:
                 gcol = f"global:{col}"
@@ -466,6 +477,13 @@ class MuData:
                     warnings.warn(
                         f"Column {col} was present in {attr} but is also a common column in all modalities, and their contents differ. {attr}.{col} was renamed to {attr}.{gcol}."
                     )
+
+        # get adata positions and remove columns from the data frame
+        mdict = dict()
+        for m in self.mod.keys():
+            colname = m + ":" + rowcol
+            mdict[m] = data_mod[colname].to_numpy()
+            data_mod.drop(colname, axis=1, inplace=True)
 
         # Add data from global .obs/.var columns # This might reduce the size of .obs/.var if observations/variables were removed
         setattr(
@@ -477,26 +495,22 @@ class MuData:
 
         # Update .obsm/.varm
         # this needs to be after setting _obs/_var due to dimension checking in the aligned mapping
-        getattr(self, "_" + attr + "map").clear()
-        getattr(self, "_" + attr + "map").update(mdict)
+        attrmap.clear()
+        attrmap.update(mdict)
         for mod, mapping in mdict.items():
-            getattr(self, attr + "m")[mod] = mapping > 0
+            attrm[mod] = mapping > 0
 
         keep_index = prev_index.isin(getattr(self, attr).index)
 
         if keep_index.sum() != len(prev_index):
-            for mx_key, mx in getattr(self, attr + "m").items():
+            for mx_key, mx in attrm.items():
                 if mx_key not in self.mod.keys():  # not a modality name
-                    getattr(self, attr + "m")[mx_key] = getattr(self, attr + "m")[mx_key][
-                        keep_index, :
-                    ]
+                    attrm[mx_key] = attrm[mx_key][keep_index, :]
 
             # Update .obsp/.varp (size might have changed)
-            for mx_key, mx in getattr(self, attr + "p").items():
+            for mx_key, mx in attrp.items():
                 if mx_key not in self.mod.keys():  # not a modality name
-                    getattr(self, attr + "p")[mx_key] = getattr(self, attr + "p")[mx_key][
-                        keep_index, keep_index
-                    ]
+                    attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
 
     def _shrink_attr(self, attr: str):
         """
