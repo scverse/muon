@@ -242,6 +242,8 @@ class MuData:
             varm=varm,
             obsp=obsp,
             varp=varp,
+            obsmap=obsmap,
+            varmap=varmap,
         )
 
     def _check_duplicated_attr_names(self, attr: str):
