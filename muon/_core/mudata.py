@@ -193,10 +193,12 @@ class MuData:
             maxshape = getattr(mudata_ref, attr).shape[0]
             for mod, mapping in getattr(mudata_ref, attr + "map").items():
                 newmap = mapping[idx]
-                maxshape = min(maxshape, np.min(newmap[newmap > 0]))
+                mapped = newmap[newmap > 0]
+                if len(mapped) > 0:
+                    maxshape = min(maxshape, np.min(mapped))
                 posmap[mod] = newmap
             for mod, mapping in posmap.items():
-                mapping[mapping > 0] -= maxshape - 1
+                mapping[mapping > 0] -= maxshape - np.uint8(1)
             setattr(self, "_" + attr + "map", posmap)
 
         self.is_view = True
