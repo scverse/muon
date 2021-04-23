@@ -462,7 +462,7 @@ class MuData:
                         [newidx.loc[globalidx[mask], :], newidx.iloc[negativemask, :]], axis=0
                     )
                 )
-                data_mod = data_mod.reindex(newidx, copy=False)
+            data_mod = data_mod.reindex(newidx, copy=False)
 
         # this occurs when join_common=True and we already have a global data frame, e.g. after reading from HDF5
         if join_common:
