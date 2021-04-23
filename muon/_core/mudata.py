@@ -405,18 +405,19 @@ class MuData:
                 np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
             )
             data_global = data_global.loc[:, [c in columns_common for c in data_global.columns]]
+            dfs = [
+                _make_index_unique(
+                    getattr(a, attr)
+                    .drop(columns_common, axis=1)
+                    .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                    .add_prefix(m + ":")
+                )
+                for m, a in self.mod.items()
+            ]
 
             # Here, attr_names are guaranteed to be unique and are safe to be used for joins
             data_mod = pd.concat(
-                [
-                    _make_index_unique(
-                        getattr(a, attr)
-                        .drop(columns_common, axis=1)
-                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                        .add_prefix(m + ":")
-                    )
-                    for m, a in self.mod.items()
-                ],
+                dfs,
                 join="outer",
                 axis=axis,
                 sort=False,
@@ -430,19 +431,38 @@ class MuData:
             )
             data_mod = data_mod.join(data_common, how="left", sort=False)
         else:
+            dfs = [
+                _make_index_unique(
+                    getattr(a, attr)
+                    .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                    .add_prefix(m + ":")
+                )
+                for m, a in self.mod.items()
+            ]
             data_mod = pd.concat(
-                [
-                    _make_index_unique(
-                        getattr(a, attr)
-                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                        .add_prefix(m + ":")
-                    )
-                    for m, a in self.mod.items()
-                ],
+                dfs,
                 join="outer",
                 axis=axis,
                 sort=False,
             )
+
+        # pd.concat wrecks the ordering when doing an outer join with a MultiIndex and different data frame shapes
+        if axis == 1:
+            newidx = (
+                reduce(lambda x, y: x.union(y, sort=False), (df.index for df in dfs))
+                .to_frame()
+                .reset_index(level=1, drop=True)
+            )
+            globalidx = data_global.index.get_level_values(0)
+            mask = globalidx.isin(newidx.iloc[:, 0])
+            if len(mask) > 0:
+                negativemask = ~newidx.index.get_level_values(0).isin(globalidx)
+                newidx = pd.MultiIndex.from_frame(
+                    pd.concat(
+                        [newidx.loc[globalidx[mask], :], newidx.iloc[negativemask, :]], axis=0
+                    )
+                )
+                data_mod = data_mod.reindex(newidx, copy=False)
 
         # this occurs when join_common=True and we already have a global data frame, e.g. after reading from HDF5
         if join_common:
