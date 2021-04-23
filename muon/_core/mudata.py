@@ -118,6 +118,9 @@ class MuData:
             self._obsp = PairwiseArrays(self, 0, kwargs.get("obsp", {}))
             self._varp = PairwiseArrays(self, 1, kwargs.get("varp", {}))
 
+            self._obsmap = MuAxisArrays(self, 0, kwargs.get("obsmap", {}))
+            self._varmap = MuAxisArrays(self, 1, kwargs.get("varmap", {}))
+
             # Restore proper .obs and .var
             self.update()
 
@@ -134,10 +137,12 @@ class MuData:
         # Make obs map for each modality
         self._obsm = MuAxisArrays(self, 0, dict())
         self._obsp = PairwiseArrays(self, 0, dict())
+        self._obsmap = MuAxisArrays(self, 0, dict())
 
         # Make var map for each modality
         self._varm = MuAxisArrays(self, 1, dict())
         self._varp = PairwiseArrays(self, 1, dict())
+        self._varmap = MuAxisArrays(self, 1, dict())
 
         self.update()
 
@@ -183,6 +188,17 @@ class MuData:
         self._varm = mudata_ref.varm._view(self, (varidx,))
         self._varp = mudata_ref.varp._view(self, varidx)
 
+        for attr, idx in (("obs", obsidx), ("var", varidx)):
+            posmap = {}
+            maxshape = getattr(mudata_ref, attr).shape[0]
+            for mod, mapping in getattr(mudata_ref, attr + "map").items():
+                newmap = mapping[idx]
+                maxshape = min(maxshape, np.min(newmap[newmap > 0]))
+                posmap[mod] = newmap
+            for mod, mapping in posmap.items():
+                mapping[mapping > 0] -= maxshape - 1
+            setattr(self, "_" + attr + "map", posmap)
+
         self.is_view = True
         self.file = mudata_ref.file
         self.filename = mudata_ref.filename
@@ -196,8 +212,10 @@ class MuData:
         self._var = data.var
         self._obsm = MuAxisArrays(self, 0, convert_to_dict(data.obsm))
         self._obsp = PairwiseArrays(self, 0, convert_to_dict(data.obsp))
+        self._obsmap = MuAxisArrays(self, 0, convert_to_dict(data.obsmap))
         self._varm = MuAxisArrays(self, 1, convert_to_dict(data.varm))
         self._varp = PairwiseArrays(self, 1, convert_to_dict(data.varp))
+        self._varmap = MuAxisArrays(self, 1, convert_to_dict(data.obsmap))
         self.uns = data.uns
 
     @classmethod
@@ -211,6 +229,8 @@ class MuData:
         varm: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
         obsp: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
         varp: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
+        obsmap: Optional[Mapping[str, Sequence[int]]] = None,
+        varmap: Optional[Mapping[str, Sequence[int]]] = None,
     ):
 
         return cls(
@@ -457,7 +477,10 @@ class MuData:
 
         # Update .obsm/.varm
         # this needs to be after setting _obs/_var due to dimension checking in the aligned mapping
-        getattr(self, attr + "m").update(mdict)
+        getattr(self, "_" + attr + "map").clear()
+        getattr(self, "_" + attr + "map").update(mdict)
+        for mod, mapping in mdict.items():
+            getattr(self, attr + "m")[mod] = mapping > 0
 
         keep_index = prev_index.isin(getattr(self, attr).index)
 
@@ -690,6 +713,15 @@ class MuData:
         self.obsp = dict()
 
     @property
+    def obsmap(self) -> Union[PairwiseArrays, PairwiseArraysView]:
+        """
+        Mapping of observation index in the MuData to indices in individual modalities.
+
+        1-based, 0 indicates that the corresponding observation is missing in the respective modality.
+        """
+        return self._obsmap
+
+    @property
     def varm(self) -> Union[MuAxisArrays, MuAxisArraysView]:
         """
         Multi-dimensional annotation of variables
@@ -724,6 +756,15 @@ class MuData:
     @varp.deleter
     def varp(self):
         self.varp = dict()
+
+    @property
+    def varmap(self) -> Union[PairwiseArrays, PairwiseArraysView]:
+        """
+        Mapping of feature index in the MuData to indices in individual modalities.
+
+        1-based, 0 indicates that the corresponding observation is missing in the respective modality.
+        """
+        return self._varmap
 
     # _keys methods to increase compatibility
     # with calls requiring those AnnData methods

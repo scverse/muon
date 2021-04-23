@@ -135,6 +135,8 @@ def write_h5mu(filename: PathLike, mdata: MuData, *args, **kwargs):
         write_h5ad(filepath=filename, adata=mdata, *args, **kwargs)
 
     with h5py.File(filename, "a") as f:
+        write_attribute(f, "obsmap", mdata.obsmap)
+        write_attribute(f, "varmap", mdata.varmap)
         # Remove modalities if they exist
         if "mod" in f:
             del f["mod"]
