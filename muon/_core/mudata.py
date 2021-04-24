@@ -291,6 +291,8 @@ class MuData:
                 self.varm.copy(),
                 deepcopy(self.obsp),
                 deepcopy(self.varp),
+                self.obsmap.copy(),
+                self.varmap.copy(),
             )
         else:
             if filename is None:
