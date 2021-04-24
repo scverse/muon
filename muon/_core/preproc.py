@@ -732,6 +732,9 @@ def filter_obs(
         for m, mod in data.mod.items():
             obsmap = data.obsmap[m][data.obsmap[m] != 0] - 1
             filter_obs(mod, obs_subset[obsmap])
+        # Subset .obsmap
+        for k, v in data.obsmap.items():
+            data.obsmap[k] = v[obs_subset]
 
     return
 
