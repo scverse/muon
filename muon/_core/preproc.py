@@ -632,7 +632,7 @@ def intersect_obs(mdata: MuData):
 
 
 def filter_obs(
-    adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Callable] = None
+    data: Union[AnnData, MuData], var: Union[str, Sequence[str]], func: Optional[Callable] = None
 ) -> None:
     """
     Filter observations (samples or cells) in-place
@@ -654,28 +654,33 @@ def filter_obs(
             the func argument can be omitted.
     """
 
-    if adata.is_view:
+    if data.is_view:
         raise ValueError(
             "The provided adata is a view. In-place filtering does not operate on views."
         )
-    if adata.isbacked:
-        warnings.warn(
-            "AnnData object is backed. The requested subset of the matrix .X will be read into memory, and the object will not be backed anymore."
-        )
+    if data.isbacked:
+        if isinstance(data, AnnData):
+            warnings.warn(
+                "AnnData object is backed. The requested subset of the matrix .X will be read into memory, and the object will not be backed anymore."
+            )
+        else:
+            warnings.warn(
+                "MuData object is backed. The requested subset of the .X matrices of its modalities will be read into memory, and the object will not be backed anymore."
+            )
 
     if isinstance(var, str):
-        if var in adata.obs.columns:
+        if var in data.obs.columns:
             if func is None:
-                if adata.obs[var].dtypes.name == "bool":
+                if data.obs[var].dtypes.name == "bool":
 
                     def func(x):
                         return x
 
                 else:
                     raise ValueError(f"Function has to be provided since {var} is not boolean")
-            obs_subset = func(adata.obs[var].values)
-        elif var in adata.var_names:
-            obs_subset = func(adata.X[:, np.where(adata.var_names == var)[0]].reshape(-1))
+            obs_subset = func(data.obs[var].values)
+        elif var in data.var_names:
+            obs_subset = func(data.X[:, np.where(data.var_names == var)[0]].reshape(-1))
         else:
             raise ValueError(
                 f"Column name from .obs or one of the var_names was expected but got {var}."
@@ -685,41 +690,48 @@ def filter_obs(
             if np.array(var).dtype == np.bool:
                 obs_subset = np.array(var)
             else:
-                obs_subset = adata.obs_names.isin(var)
+                obs_subset = data.obs_names.isin(var)
         else:
             raise ValueError(f"When providing obs_names directly, func has to be None.")
 
     # Subset .obs
-    adata._obs = adata.obs[obs_subset]
-    adata._n_obs = adata.obs.shape[0]
-
-    # Subset .X
-    try:
-        adata._X = adata.X[obs_subset, :]
-    except TypeError:
-        adata._X = adata.X[np.where(obs_subset)[0], :]
-        # For some h5py versions, indexing arrays must have integer dtypes
-        # https://github.com/h5py/h5py/issues/1847
-    if adata.isbacked:
-        adata.file.close()
-        adata.filename = None
-
-    # Subset layers
-    for layer in adata.layers:
-        adata.layers[layer] = adata.layers[layer][obs_subset, :]
-
-    # Subset raw
-    if adata.raw is not None:
-        adata.raw._X = adata.raw.X[obs_subset, :]
-        adata.raw._n_obs = adata.raw.X.shape[0]
+    data._obs = data.obs[obs_subset]
+    data._n_obs = data.obs.shape[0]
 
     # Subset .obsm
-    for k, v in adata.obsm.items():
-        adata.obsm[k] = v[obs_subset]
+    for k, v in data.obsm.items():
+        data.obsm[k] = v[obs_subset]
 
     # Subset .obsp
-    for k, v in adata.obsp.items():
-        adata.obsp[k] = v[obs_subset][:, obs_subset]
+    for k, v in data.obsp.items():
+        data.obsp[k] = v[obs_subset][:, obs_subset]
+
+    if isinstance(data, AnnData):
+        # Subset .X
+        try:
+            data._X = data.X[obs_subset, :]
+        except TypeError:
+            data._X = data.X[np.where(obs_subset)[0], :]
+            # For some h5py versions, indexing arrays must have integer dtypes
+            # https://github.com/h5py/h5py/issues/1847
+        if data.isbacked:
+            data.file.close()
+            data.filename = None
+
+        # Subset layers
+        for layer in data.layers:
+            data.layers[layer] = data.layers[layer][obs_subset, :]
+
+        # Subset raw
+        if data.raw is not None:
+            data.raw._X = data.raw.X[obs_subset, :]
+            data.raw._n_obs = data.raw.X.shape[0]
+
+    else:
+        # filter_obs() for each modality
+        for m, mod in data.mod.items():
+            obsmap = data.obsmap[m][data.obsmap[m] != 0] - 1
+            filter_obs(mod, obs_subset[obsmap])
 
     return
 

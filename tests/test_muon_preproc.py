@@ -28,6 +28,14 @@ class TestInPlaceFiltering:
         mu.pp.filter_obs(ad, sub)
         assert ad.n_obs == sub.sum()
 
+    def test_filter_obs_mdata(self, mdata, filepath_h5mu):
+        md = mdata.copy()
+        sub = np.random.binomial(1, 0.5, md.n_obs).astype(bool)
+        mu.pp.filter_obs(md, sub)
+        assert md.n_obs == sub.sum()
+        assert md["mod1"].n_obs == mdata.obsm["mod1"][sub].sum()
+        assert md["mod2"].n_obs == mdata.obsm["mod2"][sub].sum()
+
     def test_filter_obs_adata_backed(self, mdata, filepath_h5mu):
         mdata.write(filepath_h5mu)
         mdata_ = mu.read_h5mu(filepath_h5mu, backed="r")
