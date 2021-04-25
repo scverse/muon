@@ -643,8 +643,8 @@ def filter_obs(
 
     Parameters
     ----------
-    adata: AnnData
-            AnnData object
+    data: AnnData or MuData
+            AnnData or MuData object
     var: str or Sequence[str]
             Column name in .obs or in .X to be used for filtering.
             Alternatively, obs_names can be provided directly.
@@ -742,7 +742,9 @@ def filter_obs(
 # Utility functions: filtering variables
 
 
-def filter_var(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Callable] = None):
+def filter_var(
+    data: Union[AnnData, MuData], var: Union[str, Sequence[str]], func: Optional[Callable] = None
+):
     """
     Filter variables (features, e.g. genes) in-place
     using any column in .var or row in .X.
@@ -752,8 +754,8 @@ def filter_var(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
 
     Parameters
     ----------
-    adata: AnnData
-            AnnData object
+    data: AnnData or MuData
+            AnnData or MuData object
     var: str or Sequence[str]
             Column name in .var or row name in .X to be used for filtering.
             Alternatively, var_names can be provided directly.
@@ -763,28 +765,33 @@ def filter_var(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
             the func argument can be omitted.
     """
 
-    if adata.is_view:
+    if data.is_view:
         raise ValueError(
             "The provided adata is a view. In-place filtering does not operate on views."
         )
-    if adata.isbacked:
-        warnings.warn(
-            "AnnData object is backed. The requested subset of the matrix .X will be read into memory, and the object will not be backed anymore."
-        )
+    if data.isbacked:
+        if isinstance(data, AnnData):
+            warnings.warn(
+                "AnnData object is backed. The requested subset of the matrix .X will be read into memory, and the object will not be backed anymore."
+            )
+        else:
+            warnings.warn(
+                "MuData object is backed. The requested subset of the .X matrices of its modalities will be read into memory, and the object will not be backed anymore."
+            )
 
     if isinstance(var, str):
-        if var in adata.var.columns:
+        if var in data.var.columns:
             if func is None:
-                if adata.var[var].dtypes.name == "bool":
+                if data.var[var].dtypes.name == "bool":
 
                     def func(x):
                         return x
 
                 else:
                     raise ValueError(f"Function has to be provided since {var} is not boolean")
-            var_subset = func(adata.var[var].values)
-        elif var in adata.obs_names:
-            var_subset = func(adata.X[:, np.where(adata.obs_names == var)[0]].reshape(-1))
+            var_subset = func(data.var[var].values)
+        elif var in data.obs_names:
+            var_subset = func(data.X[:, np.where(data.obs_names == var)[0]].reshape(-1))
         else:
             raise ValueError(
                 f"Column name from .var or one of the obs_names was expected but got {var}."
@@ -794,37 +801,47 @@ def filter_var(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
             if np.array(var).dtype == np.bool:
                 var_subset = var
             else:
-                var_subset = adata.var_names.isin(var)
+                var_subset = data.var_names.isin(var)
         else:
             raise ValueError(f"When providing var_names directly, func has to be None.")
 
     # Subset .var
-    adata._var = adata.var[var_subset]
-    adata._n_vars = adata.var.shape[0]
-
-    # Subset .X
-    try:
-        adata._X = adata.X[:, var_subset]
-    except TypeError:
-        adata._X = adata.X[:, np.where(var_subset)[0]]
-        # For some h5py versions, indexing arrays must have integer dtypes
-        # https://github.com/h5py/h5py/issues/1847
-    if adata.isbacked:
-        adata.file.close()
-        adata.filename = None
-
-    # Subset layers
-    for layer in adata.layers:
-        adata.layers[layer] = adata.layers[layer][:, var_subset]
-
-    # NOTE: .raw is not subsetted
+    data._var = data.var[var_subset]
+    data._n_vars = data.var.shape[0]
 
     # Subset .varm
-    for k, v in adata.varm.items():
-        adata.varm[k] = v[var_subset]
+    for k, v in data.varm.items():
+        data.varm[k] = v[var_subset]
 
     # Subset .varp
-    for k, v in adata.varp.items():
-        adata.varp[k] = v[var_subset][:, var_subset]
+    for k, v in data.varp.items():
+        data.varp[k] = v[var_subset][:, var_subset]
+
+    if isinstance(data, AnnData):
+        # Subset .X
+        try:
+            data._X = data.X[:, var_subset]
+        except TypeError:
+            data._X = data.X[:, np.where(var_subset)[0]]
+            # For some h5py versions, indexing arrays must have integer dtypes
+            # https://github.com/h5py/h5py/issues/1847
+        if data.isbacked:
+            data.file.close()
+            data.filename = None
+
+        # Subset layers
+        for layer in data.layers:
+            data.layers[layer] = data.layers[layer][:, var_subset]
+
+        # NOTE: .raw is not subsetted
+
+    else:
+        # filter_var() for each modality
+        for m, mod in data.mod.items():
+            varmap = data.varmap[m][data.varmap[m] != 0] - 1
+            filter_var(mod, var_subset[varmap])
+        # Subset .varmap
+        for k, v in data.varmap.items():
+            data.varmap[k] = v[var_subset]
 
     return
