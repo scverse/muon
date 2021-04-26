@@ -51,6 +51,8 @@ class TestInPlaceFiltering:
             print("Size:\t", mdata_.mod["mod1"].n_obs)
             mu.pp.filter_obs(mdata_.mod["mod1"], sub)
 
+        mdata_.file.close()
+
     def test_filter_obs_adata_view(self, mdata, filepath_h5mu):
         pov = np.random.binomial(1, 0.4, mdata.mod["mod1"].n_obs).astype(bool)
         view = mdata.mod["mod1"][pov, :]
@@ -70,10 +72,17 @@ class TestInPlaceFiltering:
     def test_filter_var_mdata(self, mdata, filepath_h5mu):
         md = mdata.copy()
         sub = np.random.binomial(1, 0.5, md.n_vars).astype(bool)
+        sub_mod1 = mdata.varm["mod1"][sub].sum()
+        sub_mod2 = mdata.varm["mod2"][sub].sum()
+        print(md)
         mu.pp.filter_var(md, sub)
         assert md.n_vars == sub.sum()
-        assert md["mod1"].n_vars == mdata.varm["mod1"][sub].sum()
-        assert md["mod2"].n_vars == mdata.varm["mod2"][sub].sum()
+        print(md)
+        print(sub.sum())
+        print(sub_mod1)
+        print(sub_mod2)
+        assert md["mod1"].n_vars == sub_mod1
+        assert md["mod2"].n_vars == sub_mod2
 
     def test_filter_var_adata_backed(self, mdata, filepath_h5mu):
         mdata.write(filepath_h5mu)
@@ -87,12 +96,14 @@ class TestInPlaceFiltering:
             print("Size:\t", mdata_.mod["mod1"].n_vars)
             mu.pp.filter_var(mdata_.mod["mod1"], sub)
 
+        mdata_.file.close()
+
     def test_filter_var_adata_view(self, mdata, filepath_h5mu):
         pov = np.random.binomial(1, 0.4, mdata.mod["mod1"].n_obs).astype(bool)
         view = mdata.mod["mod1"][pov, :]
         # When backed, in-place filtering should throw an error
         with pytest.raises(ValueError):
-            sub = np.random.binomial(1, 0.5, view.n_var).astype(bool)
+            sub = np.random.binomial(1, 0.5, view.n_vars).astype(bool)
             mu.pp.filter_var(view, sub)
 
 

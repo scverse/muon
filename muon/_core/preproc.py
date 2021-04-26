@@ -730,8 +730,9 @@ def filter_obs(
     else:
         # filter_obs() for each modality
         for m, mod in data.mod.items():
-            obsmap = data.obsmap[m][data.obsmap[m] != 0] - 1
-            filter_obs(mod, obs_subset[obsmap])
+            obsmap = data.obsmap[m][obs_subset]
+            obsmap = obsmap[obsmap != 0] - 1
+            filter_obs(mod, mod.obs_names[obsmap])
         # Subset .obsmap
         for k, v in data.obsmap.items():
             data.obsmap[k] = v[obs_subset]
@@ -838,8 +839,9 @@ def filter_var(
     else:
         # filter_var() for each modality
         for m, mod in data.mod.items():
-            varmap = data.varmap[m][data.varmap[m] != 0] - 1
-            filter_var(mod, var_subset[varmap])
+            varmap = data.varmap[m][var_subset]
+            varmap = varmap[varmap != 0] - 1
+            filter_var(mod, mod.var_names[varmap])
         # Subset .varmap
         for k, v in data.varmap.items():
             data.varmap[k] = v[var_subset]
