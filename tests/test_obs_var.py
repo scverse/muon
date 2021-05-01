@@ -42,8 +42,8 @@ class TestMuData:
         mdata.update()
         mdata.var["global"] = "global_var"
         mdata.update()
-        assert list(mdata.var.columns.values) == ["demo", "global_var"]
-        del mdata.var["global_var"]
+        assert list(mdata.var.columns.values) == ["demo", "global"]
+        del mdata.var["global"]
         mdata.update()
         assert list(mdata.var.columns.values) == ["demo"]
         mdata.write(filepath_h5mu)
