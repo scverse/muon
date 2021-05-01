@@ -402,7 +402,7 @@ class MuData:
             columns_common = reduce(
                 np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
             )
-            data_global = data_global.loc[:, [c in columns_common for c in data_global.columns]]
+            data_global = data_global.loc[:, [c not in columns_common for c in data_global.columns]]
             dfs = [
                 _make_index_unique(
                     getattr(a, attr)
