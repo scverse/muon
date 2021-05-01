@@ -39,10 +39,11 @@ class TestMuData:
     def test_var_global_columns(self, mdata, filepath_h5mu):
         for m, mod in mdata.mod.items():
             mod.var["demo"] = m
-        mdata.var["demo"] = "global_var"
         mdata.update()
-        assert list(mdata.var.columns.values) == ["demo", "global:demo"]
-        del mdata.var["global:demo"]
+        mdata.var["global"] = "global_var"
+        mdata.update()
+        assert list(mdata.var.columns.values) == ["demo", "global_var"]
+        del mdata.var["global_var"]
         mdata.update()
         assert list(mdata.var.columns.values) == ["demo"]
         mdata.write(filepath_h5mu)
