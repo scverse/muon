@@ -182,7 +182,7 @@ class MuData:
         for m, a in mudata_ref.mod.items():
             cobsidx, cvaridx = mudata_ref.obsmap[m][obsidx], mudata_ref.varmap[m][varidx]
             cobsidx, cvaridx = cobsidx[cobsidx > 0] - 1, cvaridx[cvaridx > 0] - 1
-            if len(cobsidx > 0) and len(cvaridx) > 0:
+            if len(cobsidx) > 0 and len(cvaridx) > 0:
                 if len(cobsidx) == a.n_obs:
                     cobsidx = slice(None)
                 if len(cvaridx) == a.n_vars:
