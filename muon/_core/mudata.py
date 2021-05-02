@@ -183,9 +183,9 @@ class MuData:
             cobsidx, cvaridx = mudata_ref.obsmap[m][obsidx], mudata_ref.varmap[m][varidx]
             cobsidx, cvaridx = cobsidx[cobsidx > 0] - 1, cvaridx[cvaridx > 0] - 1
             if len(cobsidx) > 0 and len(cvaridx) > 0:
-                if len(cobsidx) == a.n_obs:
+                if len(cobsidx) == a.n_obs and np.all(np.diff(cobsidx) == 1):
                     cobsidx = slice(None)
-                if len(cvaridx) == a.n_vars:
+                if len(cvaridx) == a.n_vars and np.all(np.diff(cvaridx) == 1):
                     cvaridx = slice(None)
             self.mod[m] = a[cobsidx, cvaridx]
 
