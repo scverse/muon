@@ -35,7 +35,10 @@ class MuAxisArraysView(AlignedViewMixin, AxisArraysBase):
         self._parent = parent_view
         self.subset_idx = subset_idx
         self._axis = parent_mapping._axis
-        self.dim_names = None
+
+        @property
+        def dimnames(self):
+            return None
 
 
 class MuAxisArrays(AxisArrays):
@@ -102,13 +105,13 @@ class MuData:
         if len(kwargs) > 0:
             # Get global observations
             self._obs = kwargs.get("obs", None)
-            if isinstance(self._obs, abc.Mapping):
+            if isinstance(self._obs, abc.Mapping) or self._obs is None:
                 self._obs = pd.DataFrame(self._obs)
 
             # Get global variables
             self._var = kwargs.get("var", None)
-            if isinstance(self._var, abc.Mapping):
-                self._var = pd.Dataframe(self._var)
+            if isinstance(self._var, abc.Mapping) or self._var is None:
+                self._var = pd.DataFrame(self._var)
 
             # Get global obsm
             self._obsm = MuAxisArrays(self, 0, kwargs.get("obsm", {}))
@@ -177,8 +180,13 @@ class MuData:
 
         self.mod = dict()
         for m, a in mudata_ref.mod.items():
-            cobsidx, cvaridx = mudata_ref.obsm[m][obsidx], mudata_ref.varm[m][varidx]
+            cobsidx, cvaridx = mudata_ref.obsmap[m][obsidx], mudata_ref.varmap[m][varidx]
             cobsidx, cvaridx = cobsidx[cobsidx > 0] - 1, cvaridx[cvaridx > 0] - 1
+            if len(cobsidx > 0) and len(cvaridx) > 0:
+                if len(cobsidx) == a.n_obs:
+                    cobsidx = slice(None)
+                if len(cvaridx) == a.n_vars:
+                    cvaridx = slice(None)
             self.mod[m] = a[cobsidx, cvaridx]
 
         self._obs = DataFrameView(mudata_ref.obs.iloc[obsidx, :], view_args=(self, "obs"))
@@ -295,9 +303,9 @@ class MuData:
                 raise ValueError(
                     "To copy a MuData object in backed mode, pass a filename: `copy(filename='myfilename.h5mu')`"
                 )
-            from .io import read_h5mu
+            from .io import write_h5mu, read_h5mu
 
-            self.write_h5mu(filename)
+            write_h5mu(filename, self)
             return read_h5mu(filename, self.filemode)
 
     def strings_to_categoricals(self, df: Optional[pd.DataFrame] = None):
@@ -310,8 +318,11 @@ class MuData:
         AnnData.strings_to_categoricals(self, df)
 
         # Call the same method on each modality
-        for k in self.mod:
-            self.mod[k].strings_to_categoricals(df)
+        if df is None:
+            for k in self.mod:
+                self.mod[k].strings_to_categoricals()
+        else:
+            return df
 
     # To increase compatibility with scanpy methods
     _sanitize = strings_to_categoricals
@@ -534,7 +545,7 @@ class MuData:
                 if mx_key not in self.mod.keys():  # not a modality name
                     attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
 
-    def _shrink_attr(self, attr: str):
+    def _shrink_attr(self, attr: str, inplace=True) -> pd.DataFrame:
         """
         Remove observations/variables for each modality from the global observations/variables table
         """
@@ -553,7 +564,10 @@ class MuData:
             )
         )
         # Only keep data from global .obs/.var columns
-        setattr(self, attr, getattr(self, attr).loc[:, columns_global])
+        newdf = getattr(self, attr).loc[:, columns_global]
+        if inplace:
+            setattr(self, attr, newdf)
+        return newdf
 
     @property
     def n_mod(self) -> int:
@@ -839,6 +853,8 @@ class MuData:
         from .io import write_h5mu
 
         write_h5mu(filename=filename, mdata=self, *args, **kwargs)
+        if self.isbacked:
+            self.file.filename = filename
 
     write = write_h5mu
 

@@ -112,31 +112,35 @@ def read_10x_mtx(path: PathLike, extended: bool = True, *args, **kwargs) -> MuDa
 #
 
 
-def write_h5mu(filename: PathLike, mdata: MuData, *args, **kwargs):
+def write_h5mu(filename: PathLike, mdata: MuData, **kwargs):
     """
     Write MuData object to the HDF5 file
 
-    Currently is based on anndata._io.h5ad.write_h5ad internally.
     Matrices - sparse or dense - are currently stored as they are.
     """
     from anndata._io.utils import write_attribute
-    from anndata._io.h5ad import write_h5ad
-
-    # Remove top-level annotation that comes from individual modalities
-    mdata._shrink_attr("obs")
-    mdata._shrink_attr("var")
-
-    if mdata.isbacked:
-        with mdata.file.prevent_open_close(
-            True
-        ):  # write_h5ad closes the file internally, which prevents us from accessing the modality data later
-            write_h5ad(filepath=filename, adata=mdata, *args, **kwargs)
-    else:
-        write_h5ad(filepath=filename, adata=mdata, *args, **kwargs)
 
     with h5py.File(filename, "a") as f:
-        write_attribute(f, "obsmap", mdata.obsmap)
-        write_attribute(f, "varmap", mdata.varmap)
+        write_attribute(
+            f,
+            "obs",
+            mdata.strings_to_categoricals(mdata._shrink_attr("obs", inplace=False)),
+            dataset_kwargs=kwargs,
+        )
+        write_attribute(
+            f,
+            "var",
+            mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False)),
+            dataset_kwargs=kwargs,
+        )
+        write_attribute(f, "obsm", mdata.obsm, dataset_kwargs=kwargs)
+        write_attribute(f, "varm", mdata.varm, dataset_kwargs=kwargs)
+        write_attribute(f, "obsp", mdata.obsp, dataset_kwargs=kwargs)
+        write_attribute(f, "varp", mdata.varp, dataset_kwargs=kwargs)
+        write_attribute(f, "uns", mdata.uns, dataset_kwargs=kwargs)
+
+        write_attribute(f, "obsmap", mdata.obsmap, dataset_kwargs=kwargs)
+        write_attribute(f, "varmap", mdata.varmap, dataset_kwargs=kwargs)
         # Remove modalities if they exist
         if "mod" in f:
             del f["mod"]
@@ -150,25 +154,22 @@ def write_h5mu(filename: PathLike, mdata: MuData, *args, **kwargs):
             if adata.raw is not None:
                 adata.strings_to_categoricals(adata.raw.var)
 
-            write_attribute(f, f"mod/{k}/X", adata.X)
+            write_attribute(f, f"mod/{k}/X", adata.X, dataset_kwargs=kwargs)
             if adata.raw is not None:
                 write_h5ad_raw(f, f"mod/{k}/raw", adata.raw)
 
-            write_attribute(f, f"mod/{k}/obs", adata.obs)
-            write_attribute(f, f"mod/{k}/var", adata.var)
-            write_attribute(f, f"mod/{k}/obsm", adata.obsm)
-            write_attribute(f, f"mod/{k}/varm", adata.varm)
-            write_attribute(f, f"mod/{k}/obsp", adata.obsp)
-            write_attribute(f, f"mod/{k}/varp", adata.varp)
-            write_attribute(f, f"mod/{k}/layers", adata.layers)
-            write_attribute(f, f"mod/{k}/uns", adata.uns)
-
-    if mdata.isbacked:
-        mdata.file.close()
-        mdata.file.open(filename, "r+")
+            write_attribute(f, f"mod/{k}/obs", adata.obs, dataset_kwargs=kwargs)
+            write_attribute(f, f"mod/{k}/var", adata.var, dataset_kwargs=kwargs)
+            write_attribute(f, f"mod/{k}/obsm", adata.obsm, dataset_kwargs=kwargs)
+            write_attribute(f, f"mod/{k}/varm", adata.varm, dataset_kwargs=kwargs)
+            write_attribute(f, f"mod/{k}/obsp", adata.obsp, dataset_kwargs=kwargs)
+            write_attribute(f, f"mod/{k}/varp", adata.varp, dataset_kwargs=kwargs)
+            write_attribute(f, f"mod/{k}/layers", adata.layers, dataset_kwargs=kwargs)
+            write_attribute(f, f"mod/{k}/uns", adata.uns, dataset_kwargs=kwargs)
 
     # Restore top-level annotation
-    mdata.update()
+    if not mdata.is_view or not mdata.isbacked:
+        mdata.update()
 
 
 def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
@@ -228,7 +229,7 @@ def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
 write_anndata = write_h5ad
 
 
-def write_h5ad_raw(f, key, raw):
+def write_h5ad_raw(f, key, raw, **kwargs):
     """
     Replicates write_raw() in anndata/_io/h5ad.py but allow
     to write raw slots to modalities inside .h5mu files
@@ -239,9 +240,9 @@ def write_h5ad_raw(f, key, raw):
     group.attrs["encoding-type"] = "raw"
     group.attrs["encoding-version"] = EncodingVersions.raw.value
     group.attrs["shape"] = raw.shape
-    write_attribute(f, f"{key}/X", raw.X)
-    write_attribute(f, f"{key}/var", raw.var)
-    write_attribute(f, f"{key}/varm", raw.varm)
+    write_attribute(f, f"{key}/X", raw.X, dataset_kwargs=kwargs)
+    write_attribute(f, f"{key}/var", raw.var, dataset_kwargs=kwargs)
+    write_attribute(f, f"{key}/varm", raw.varm, dataset_kwargs=kwargs)
 
 
 def write(filename: PathLike, data: Union[MuData, AnnData]):
