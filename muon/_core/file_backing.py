@@ -17,8 +17,6 @@ class MuDataFileManager(AnnDataFileManager):
     ):
         self._counter = 0
         self._children = WeakSet()
-        self._noclose = False
-        self._old_noclose = None
         super().__init__(None, abspath(filename), filemode)
 
     def open(
@@ -26,9 +24,6 @@ class MuDataFileManager(AnnDataFileManager):
         filename: Optional[PathLike] = None,
         filemode: Optional[ad.compat.Literal["r", "r+"]] = None,
     ) -> bool:
-
-        if self._noclose:
-            return
         if self._file is not None and (
             filename is None
             and filemode is None
@@ -55,9 +50,8 @@ class MuDataFileManager(AnnDataFileManager):
         return True
 
     def close(self):
-        if not self._noclose:
-            for child in self._children:
-                child.close()
+        for child in self._children:
+            child.close()
 
     def _close(self):
         if self._counter > 0:
@@ -78,21 +72,7 @@ class MuDataFileManager(AnnDataFileManager):
 
     @AnnDataFileManager.filename.setter
     def filename(self, filename: Optional[PathLike]):
-        if not self._noclose:
-            self._filename = None if filename is None else filename
-
-    def prevent_open_close(self, noclose: bool):
-        self._old_noclose = self._noclose
-        self._noclose = noclose
-        return self
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        if self._old_noclose is not None:
-            self._noclose = self._old_noclose
-            self._old_noclose = None
+        self._filename = None if filename is None else filename
 
 
 class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
