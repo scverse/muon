@@ -7,7 +7,8 @@ from typing import List, Union, Optional, Callable, Iterable
 from . import utils
 from . import tools as tl
 from collections import OrderedDict
-import gpflow
+
+# import gpflow
 
 
 def fetch_region_gp(data: Union[AnnData, MuData], region: Union[str, GenomeRegion]):
@@ -141,22 +142,22 @@ def get_model_stats(model, X, y, prefix=""):
 import tensorflow as tf
 
 
-class Block(gpflow.kernels.Kernel):
-    def __init__(self, n_classes, active_dims=None):
-        super().__init__(active_dims)
-        self.variances = gpflow.Parameter(
-            np.repeat(1.0, n_classes), transform=gpflow.utilities.positive()
-        )
+# class Block(gpflow.kernels.Kernel):
+#     def __init__(self, n_classes, active_dims=None):
+#         super().__init__(active_dims)
+#         self.variances = gpflow.Parameter(
+#             np.repeat(1.0, n_classes), transform=gpflow.utilities.positive()
+#         )
 
-    def K(self, X, X2=None):
-        if X2 is None:
-            X2 = X
-        means = tf.gather(self.variances, tf.cast(X, tf.int32))
-        return means * tf.cast(
-            tf.equal(X, tf.transpose(X2)), tf.float64
-        )  # this returns a 2D tensor
+#     def K(self, X, X2=None):
+#         if X2 is None:
+#             X2 = X
+#         means = tf.gather(self.variances, tf.cast(X, tf.int32))
+#         return means * tf.cast(
+#             tf.equal(X, tf.transpose(X2)), tf.float64
+#         )  # this returns a 2D tensor
 
-    def K_diag(self, X):
-        return tf.reshape(
-            tf.gather(self.variances, tf.cast(X, tf.int32)), (-1,)
-        )  # this returns a 1D tensor
+#     def K_diag(self, X):
+#         return tf.reshape(
+#             tf.gather(self.variances, tf.cast(X, tf.int32)), (-1,)
+#         )  # this returns a 1D tensor
