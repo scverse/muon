@@ -15,7 +15,8 @@ from scanpy import logging
 from scanpy.tools._utils import _choose_representation
 from scanpy.neighbors import _compute_connectivities_umap
 from scanpy._compat import Literal
-import umap
+from umap.distances import euclidean
+from umap.sparse import sparse_euclidean, sparse_jaccard
 from umap.umap_ import nearest_neighbors
 from numba import njit, prange
 
@@ -23,9 +24,9 @@ from .._core.mudata import MuData
 
 # Computational methods for preprocessing
 
-_euclidean = njit(umap.distances.euclidean.py_func, inline="always", fastmath=True)
-_sparse_euclidean = njit(umap.sparse.sparse_euclidean.py_func, inline="always")
-_sparse_jaccard = njit(umap.sparse.sparse_jaccard.py_func, inline="always")
+_euclidean = njit(euclidean.py_func, inline="always", fastmath=True)
+_sparse_euclidean = njit(sparse_euclidean.py_func, inline="always")
+_sparse_jaccard = njit(sparse_jaccard.py_func, inline="always")
 
 
 @njit
@@ -734,8 +735,15 @@ def filter_obs(
             obsmap = obsmap[obsmap != 0] - 1
             filter_obs(mod, mod.obs_names[obsmap])
         # Subset .obsmap
-        for k, v in data.obsmap.items():
-            data.obsmap[k] = v[obs_subset]
+        # This would return wrong indices however:
+        # for k, v in data.obsmap.items():
+        #     data.obsmap[k] = v[obs_subset]
+        #
+        # A fix is to get rid of obsmaps
+        # for them to be reconstructed later.
+        obsmap_keys = list(data.obsmap.keys())
+        for k in obsmap_keys:
+            del data.obsmap[k]
 
     return
 
@@ -843,7 +851,14 @@ def filter_var(
             varmap = varmap[varmap != 0] - 1
             filter_var(mod, mod.var_names[varmap])
         # Subset .varmap
-        for k, v in data.varmap.items():
-            data.varmap[k] = v[var_subset]
+        # This would return wrong indices however:
+        # for k, v in data.varmap.items():
+        #     data.varmap[k] = v[var_subset]
+        #
+        # A fix is to get rid of varmaps
+        # for them to be reconstructed later.
+        varmap_keys = list(data.varmap.keys())
+        for k in varmap_keys:
+            del data.varmap[k]
 
     return
