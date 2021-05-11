@@ -260,7 +260,8 @@ def neighbors(
     ] = "euclidean",
     low_memory: Optional[bool] = None,
     key_added: Optional[str] = None,
-    weight_key: Optional[str] = "modality_weight",
+    weight_key: Optional[str] = "mod_weight",
+    add_weights_to_modalities: bool = False,
     eps: float = 1e-4,
     copy: bool = False,
     random_state: Optional[Union[int, np.random.RandomState]] = 42,
@@ -297,7 +298,9 @@ def neighbors(
             connectivities are stored in ``.obsp["distances"]`` and ``.obsp["connectivities"]``, respectively. If specified, the
             neighbors data is added to ``.uns[key_added]``, distances are stored in ``.obsp[key_added + "_distances"]`` and
             connectivities in ``.obsp[key_added + "_connectivities"]``.
-        weight_key: Weight key to add to each modality's ``.obs``. By default, it is ``"modality_weight"``.
+        weight_key: Weight key to add to each modality's ``.obs`` or to ``mdata.obs``. By default, it is ``"mod_weight"``.
+        add_weights_to_modalities: If to add weights to individual modalities. By default, it is ``False``
+            and the weights will be added to ``mdata.obs``.
         eps: Small number to avoid numerical errors.
         copy: Return a copy instead of writing to ``mdata``.
         random_state: Random seed.
@@ -536,7 +539,11 @@ def neighbors(
         fullidx = np.where(observations.isin(observations1))[0]
 
         if weight_key:
-            mdata.mod[m].obs[weight_key] = weights[fullidx, i]
+            if add_weights_to_modalities:
+                mdata.mod[m].obs[weight_key] = weights[fullidx, i]
+            else:
+                # mod_weight -> mod:mod_weight
+                mdata.obs[":".join([m, weight_key])] = weights[fullidx, i]
 
         rep = reps[m]
         csigmas = sigmas[m]

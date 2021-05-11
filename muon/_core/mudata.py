@@ -389,6 +389,8 @@ class MuData:
                             [
                                 [
                                     not col.startswith(mod + ":")
+                                    or col[col.startswith(mod + ":") and len(mod + ":") :]
+                                    not in getattr(self.mod[mod], attr).columns
                                     for col in getattr(self, attr).columns
                                 ]
                                 for mod in self.mod
