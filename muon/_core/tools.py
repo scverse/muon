@@ -585,7 +585,7 @@ def mofa(
     else:
         data.varm["LFs"] = w
 
-    # aligned times
+    # Aligned times
     if smooth_covariate is not None and smooth_warping:
         for c in range(ent.dimensionalities["C"]):
             cnm = ent.smooth_opts["covariates_names"][c] + "_warped"
@@ -593,6 +593,57 @@ def mofa(
             if groups_label:
                 cval = pd.DataFrame(cval, index=zs).loc[common_obs].to_numpy()
             data.obs[cnm] = cval
+
+    # Parameters
+    data.uns["mofa"] = {
+        "params": {
+            "data": {
+                "groups_label": groups_label,
+                "use_raw": use_raw,
+                "use_layer": use_layer,
+                "likelihoods": f["model_options"]["likelihoods"][:].astype(str),
+                "features_subset": use_var,
+                "use_obs": use_obs,
+                "scale_views": scale_views,
+                "scale_groups": scale_groups,
+                "center_groups": center_groups,
+                "use_float32": use_float32,
+            },
+            "model": {
+                "ard_factors": ard_factors,
+                "ard_weights": ard_weights,
+                "spikeslab_weights": spikeslab_weights,
+                "spikeslab_factors": spikeslab_factors,
+                "n_factors": n_factors,
+            },
+            "training": {
+                "n_iterations": n_iterations,
+                "convergence_mode": convergence_mode,
+                "gpu_mode": gpu_mode,
+                "seed": seed,
+            },
+        }
+    }
+
+    # Variance explained
+    try:
+        views = f["views"]["views"][:].astype(str)
+        variance_per_group = f["variance_explained"]["r2_per_factor"]
+        variance = {m: {} for m in views}
+
+        groups = f["groups"]["groups"][:].astype(str)
+        if len(groups) > 1:
+            for group in list(variance_per_group.keys()):
+                for i, view in enumerate(views):
+                    variance[view][group] = variance_per_group[group][i, :]
+        else:
+            for i, view in enumerate(views):
+                variance[view] = variance_per_group[groups[0]][i, :]
+        data.uns["mofa"]["variance"] = variance
+    except:
+        warn("Cannot save variance estimates")
+
+    f.close()
 
     if copy:
         return data
