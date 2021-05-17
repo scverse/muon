@@ -3,6 +3,9 @@
 #
 
 from typing import Tuple, Iterable
+from numbers import Integral, Real, Complex
+from warnings import warn
+import numpy as np
 import pandas as pd
 
 
@@ -36,10 +39,20 @@ def format_values(x):
         s += x
     else:
         x = x[: min(100, len(x))]
-        if isinstance(x[0], float):
-            s += ",".join([f"{i:.2f}" for i in x])
-        else:
+        if hasattr(x, "shape"):
+            if isinstance(x, np.ndarray):
+                x = x.flat
+            else:
+                warn(f"got unknown array type {type(x)}, don't know how handle it.")
+                return type(x)
+        if isinstance(x[0], Integral):
             s += ",".join([f"{i}" for i in x])
+        elif isinstance(x[0], Real):
+            s += ",".join([f"{i:.2f}" for i in x])
+        elif isinstance(x[0], Complex):
+            warn("got complex number, don't know how to handle it")
+        elif isinstance(x[0], Iterable):
+            s += ",".join(map(format_values, x))
         s = s[:50]
         while s[-1] != ",":
             s = s[:-1]
