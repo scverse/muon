@@ -42,6 +42,8 @@ def format_values(x):
         if hasattr(x, "shape"):
             if isinstance(x, np.ndarray):
                 x = x.flat
+            elif isinstance(x, pd.Series):
+                x = x.to_numpy()
             else:
                 warn(f"got unknown array type {type(x)}, don't know how handle it.")
                 return type(x)
