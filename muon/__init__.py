@@ -1,3 +1,5 @@
+"""Multimodal omics analysis framework"""
+
 from ._core.mudata import MuData
 from ._core import preproc as pp
 from ._core import tools as tl
@@ -9,4 +11,4 @@ from ._core.config import set_options
 from . import atac
 from . import prot
 
-name = "muon"
+__version__ = "0.1.0"

@@ -1,9 +1,0 @@
-sphinx
-sphinx_rtd_theme
-readthedocs-sphinx-search
-nbsphinx
-sphinx_automodapi
-
-# Install muon and its dependencies
-scanpy
-.

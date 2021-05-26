@@ -29,3 +29,7 @@ Troubleshooting
 ---------------
 
 Please see details on installing ``scanpy`` and its dependencies `here <https://scanpy.readthedocs.io/en/stable/installation.html>`_. If there are issues that have not beed described, addressed, or documented, please consider `opening an issue <https://github.com/gtca/muon/issues>`_.
+
+Hacking on muon
+-------------------
+For hacking on the package, it is most convenient to do a so-called development-mode install, which symlinks files in your Python package directory to your muon working directory, such that you do not need to reinstall after every change. We use `flit <https://flit.readthedocs.io/en/latest/index.html>`_ as our build system. After installing flit, you can run ``flit install -s`` from within the muon project directory to perform a development-mode install. Happy hacking!
