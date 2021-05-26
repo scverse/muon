@@ -612,9 +612,6 @@ def intersect_obs(mdata: MuData):
     Subset observations (samples or cells) in-place
     taking observations present only in all modalities.
 
-    This function is currently a draft, and it can be removed
-    or its behaviour might be changed in future.
-
     Parameters
     ----------
     mdata: MuData
@@ -645,9 +642,6 @@ def filter_obs(
     """
     Filter observations (samples or cells) in-place
     using any column in .obs or in .X.
-
-    This function is currently a draft, and it can be removed
-    or its behaviour might be changed in future.
 
     Parameters
     ----------
@@ -764,9 +758,6 @@ def filter_var(
     """
     Filter variables (features, e.g. genes) in-place
     using any column in .var or row in .X.
-
-    This function is currently a draft, and it can be removed
-    or its behaviour might be changed in future.
 
     Parameters
     ----------

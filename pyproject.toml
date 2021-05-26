@@ -46,7 +46,7 @@ docs = [
 Documentation = "https://muon.readthedocs.io/en/latest/"
 
 [tool.flit.sdist]
-exclude = [".github"]
+exclude = [".github", "docs/build"]
 
 
 [tool.black]
