@@ -1,6 +1,7 @@
 from typing import Union
 from os import PathLike
 import os
+from warnings import warn
 
 import numpy as np
 import h5py
@@ -119,8 +120,9 @@ def write_h5mu(filename: PathLike, mdata: MuData, **kwargs):
     Matrices - sparse or dense - are currently stored as they are.
     """
     from anndata._io.utils import write_attribute
+    from .. import __version__, __mudataversion__, __anndataversion__
 
-    with h5py.File(filename, "a") as f:
+    with h5py.File(filename, "a", userblock_size=512) as f:
         write_attribute(
             f,
             "obs",
@@ -146,7 +148,7 @@ def write_h5mu(filename: PathLike, mdata: MuData, **kwargs):
             del f["mod"]
         mod = f.create_group("mod")
         for k, v in mdata.mod.items():
-            mod.create_group(k)
+            group = mod.create_group(k)
 
             adata = mdata.mod[k]
 
@@ -154,19 +156,40 @@ def write_h5mu(filename: PathLike, mdata: MuData, **kwargs):
             if adata.raw is not None:
                 adata.strings_to_categoricals(adata.raw.var)
 
-            write_attribute(f, f"mod/{k}/X", adata.X, dataset_kwargs=kwargs)
+            write_attribute(group, "X", adata.X, dataset_kwargs=kwargs)
             if adata.raw is not None:
-                write_h5ad_raw(f, f"mod/{k}/raw", adata.raw)
+                write_h5ad_raw(group, "raw", adata.raw)
 
-            write_attribute(f, f"mod/{k}/obs", adata.obs, dataset_kwargs=kwargs)
-            write_attribute(f, f"mod/{k}/var", adata.var, dataset_kwargs=kwargs)
-            write_attribute(f, f"mod/{k}/obsm", adata.obsm, dataset_kwargs=kwargs)
-            write_attribute(f, f"mod/{k}/varm", adata.varm, dataset_kwargs=kwargs)
-            write_attribute(f, f"mod/{k}/obsp", adata.obsp, dataset_kwargs=kwargs)
-            write_attribute(f, f"mod/{k}/varp", adata.varp, dataset_kwargs=kwargs)
-            write_attribute(f, f"mod/{k}/layers", adata.layers, dataset_kwargs=kwargs)
-            write_attribute(f, f"mod/{k}/uns", adata.uns, dataset_kwargs=kwargs)
+            write_attribute(group, "obs", adata.obs, dataset_kwargs=kwargs)
+            write_attribute(group, "var", adata.var, dataset_kwargs=kwargs)
+            write_attribute(group, "obsm", adata.obsm, dataset_kwargs=kwargs)
+            write_attribute(group, "varm", adata.varm, dataset_kwargs=kwargs)
+            write_attribute(group, "obsp", adata.obsp, dataset_kwargs=kwargs)
+            write_attribute(group, "varp", adata.varp, dataset_kwargs=kwargs)
+            write_attribute(group, "layers", adata.layers, dataset_kwargs=kwargs)
+            write_attribute(group, "uns", adata.uns, dataset_kwargs=kwargs)
 
+            attrs = group.attrs
+            attrs["encoding-type"] = "AnnData"
+            attrs["encoding-version"] = __anndataversion__
+            attrs["encoder"] = "muon"
+            attrs["encoder-version"] = __version__
+
+        attrs = f.attrs
+        attrs["encoding-type"] = "MuData"
+        attrs["encoding-version"] = __mudataversion__
+        attrs["encoder"] = "muon"
+        attrs["encoder-version"] = __version__
+
+    with open(filename, "br+") as f:
+        nbytes = f.write(
+            f"MuData (format-version={__mudataversion__};creator=muon;creator-version={__version__})".encode(
+                "utf-8"
+            )
+        )
+        f.write(
+            b"\0" * (512 - nbytes)
+        )  # this is only needed because the H5file was written in append mode
     # Restore top-level annotation
     if not mdata.is_view or not mdata.isbacked:
         mdata.update()
@@ -183,6 +206,7 @@ def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
     """
     from anndata._io.utils import write_attribute
     from anndata._io.h5ad import write_h5ad
+    from .. import __version__, __anndataversion__
 
     if isinstance(data, AnnData):
         adata = data
@@ -210,20 +234,26 @@ def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
         filepath = Path(filename)
 
         if not (adata.isbacked and Path(adata.filename) == Path(filepath)):
-            write_attribute(f, f"mod/{mod}/X", adata.X)
+            write_attribute(fmd, f"X", adata.X)
 
         # NOTE: Calling write_attribute() does not allow writing .raw into .h5mu modalities
         if adata.raw is not None:
             write_h5ad_raw(f, f"mod/{mod}/raw", adata.raw)
 
-        write_attribute(f, f"mod/{mod}/obs", adata.obs)
-        write_attribute(f, f"mod/{mod}/var", adata.var)
-        write_attribute(f, f"mod/{mod}/obsm", adata.obsm)
-        write_attribute(f, f"mod/{mod}/varm", adata.varm)
-        write_attribute(f, f"mod/{mod}/obsp", adata.obsp)
-        write_attribute(f, f"mod/{mod}/varp", adata.varp)
-        write_attribute(f, f"mod/{mod}/layers", adata.layers)
-        write_attribute(f, f"mod/{mod}/uns", adata.uns)
+        write_attribute(fmd, "obs", adata.obs)
+        write_attribute(fmd, "var", adata.var)
+        write_attribute(fmd, "obsm", adata.obsm)
+        write_attribute(fmd, "varm", adata.varm)
+        write_attribute(fmd, "obsp", adata.obsp)
+        write_attribute(fmd, "varp", adata.varp)
+        write_attribute(fmd, "layers", adata.layers)
+        write_attribute(fmd, "uns", adata.uns)
+
+        attrs = fmd.attrs
+        attrs["encoding-type"] = "AnnData"
+        attrs["encoding-version"] = __anndataversion__
+        attrs["encoder"] = "muon"
+        attrs["encoder-version"] = __version__
 
 
 write_anndata = write_h5ad
@@ -324,6 +354,16 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
         mode = backed
     if backed:
         manager = MuDataFileManager(filename, mode)
+    with open(filename, "rb") as f:
+        ish5mu = f.read(6) == b"MuData"
+    if not ish5mu:
+        if h5py.is_hdf5(filename):
+            warn(
+                "The HDF5 file was not created by muon, we can't guarantee that everything will work correctly"
+            )
+        else:
+            raise ValueError("The file is not an HDF5 file")
+
     with h5py.File(filename, mode) as f:
         d = {}
         for k in f.keys():

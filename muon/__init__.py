@@ -12,3 +12,5 @@ from . import atac
 from . import prot
 
 __version__ = "0.1.0"
+__mudataversion__ = "0.1.0"
+__anndataversion__ = "0.1.0"
