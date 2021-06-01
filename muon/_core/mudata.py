@@ -2,6 +2,7 @@ from typing import List, Tuple, Union, Optional, Mapping, Iterable, Sequence, An
 from numbers import Integral
 from collections import abc
 from functools import reduce
+from itertools import chain
 import warnings
 from copy import deepcopy
 from os import PathLike
@@ -1005,7 +1006,7 @@ class MuData:
             allunique = len(set(colnames)) == ncols
             nchars *= 2
 
-        for i in range(1, ncols):
+        for i in range(ncols):
             finished = False
             while not finished:
                 for ad in chain((self,), self.mod.values()):
