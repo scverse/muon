@@ -497,9 +497,17 @@ class MuData:
                 data_global.set_index(attrmap[mod], append=True, inplace=True)
                 data_global.index.set_names(colname, level=-1, inplace=True)
 
-        data_mod = (
-            data_mod.join(data_global, how="left", sort=False) if len(data_global) > 0 else data_mod
-        )
+        if len(data_global) > 0:
+            if not data_global.index.is_unique:
+                warnings.warn(
+                    f"{attr}_names is not unique, global {attr} is present, and {attr}map is empty. The update() is not well-defined, verify if global {attr} map to the correct modality-specific {attr}."
+                )
+                data_mod.reset_index(
+                    data_mod.index.names.difference(data_global.index.names), inplace=True
+                )
+                data_mod = _make_index_unique(data_mod)
+                data_global = _make_index_unique(data_global)
+            data_mod = data_mod.join(data_global, how="left", sort=False)
         data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
         data_mod.index.set_names(None, inplace=True)
 
