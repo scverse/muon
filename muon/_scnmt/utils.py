@@ -141,9 +141,12 @@ def make_grid(num_points=100, lower=-1, upper=1, input_dim=2):
     return grid
 
 
-def make_grid_along_input(X, num_points):
+def make_grid_along_input(X, num_points, extend=0):
     input_dim = X.shape[1]
     minima = np.amin(X, axis=0)
     maxima = np.amax(X, axis=0)
+    extensions = extend * (maxima - minima)
+    minima = minima - extensions
+    maxima = maxima + extensions
     grid = make_grid(num_points=num_points, lower=minima, upper=maxima, input_dim=input_dim)
     return grid

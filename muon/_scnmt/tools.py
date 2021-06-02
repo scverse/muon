@@ -79,6 +79,7 @@ def fetch_region(
 
     if not isinstance(region, GenomeRegion):
         region = GenomeRegion(region)  # Parse the region input
+        
     adata = utils.get_modality(data, modality="met")
 
     pysam = utils.import_pysam()

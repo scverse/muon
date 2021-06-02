@@ -38,21 +38,22 @@ def fetch_region_gp(data: Union[AnnData, MuData], region: Union[str, GenomeRegio
 def fit_model(X, Y, likelihood, kernel, n_ind=5):
     import gpflow
 
-    # import robustgp
+    import robustgp
 
     # X, Y = fetch_region_gp(adata, region)
-    Z = utils.make_grid_along_input(X, num_points=n_ind)  # num points per dimension
-    # M = 100  # We choose 1000 inducing variables
-    # init_method = robustgp.ConditionalVariance()
-    # Z = init_method.compute_initialisation(X[:, :2], M, kernel)[0]
-    print(Z)
+    # Z = utils.make_grid_along_input(X, num_points=n_ind)  # num points per dimension
+    M = 100  # We choose 1000 inducing variables
+    init_method = robustgp.ConditionalVariance()
+    Z = init_method.compute_initialisation(X, M, kernel)[0]
+    print(Z[:3,:])
     meanf = get_meanf(Y)
 
     model = gpflow.models.SVGP(
         kernel=kernel, likelihood=likelihood, inducing_variable=Z  # , mean_function=meanf
     )
-    # gpflow.utilities.set_trainable(model.inducing_variable.Z, False)
-    train(model, X=X, y=Y)
+    gpflow.utilities.set_trainable(model.inducing_variable.Z, False)
+    fitres = train(model, X=X, y=Y)
+    model.success = fitres.success
     return model
 
 
@@ -80,7 +81,8 @@ def train(model, **kwargs):
         X = kwargs.get("X", None)
         y = kwargs.get("y", None)
         training_loss = model.training_loss_closure((X, y), compile=False)
-    o.minimize(training_loss, variables=model.trainable_variables)
+    res = o.minimize(training_loss, variables=model.trainable_variables)
+    return res
 
 
 def probit(x):
@@ -124,22 +126,29 @@ def loglik_null_ber_cat(y, categories):
         liks.append(loglik_null)
     return np.sum(liks)
 
+def loglik_null_ber_early_late(X, y, ps_cutoff):
+    loglik_e = loglik_null_ber(y[X[:, 0] < ps_cutoff])
+    loglik_l = loglik_null_ber(y[X[:, 0] > ps_cutoff])
+    return np.sum((loglik_e, loglik_l))
+
+
 
 def get_model_stats(model, X, y, prefix=""):
     import gpflow
 
     d = gpflow.utilities.utilities.read_values(model)
 
-    d = OrderedDict({prefix + k.replace(".", "_"): v for k, v in d.items() if v.size == 1})
+    d = OrderedDict({prefix + k.replace(".", ":"): v for k, v in d.items() if v.size == 1})
     if hasattr(model, "data"):
-        d[prefix + "_log_likelihood"] = model.elbo().numpy()
+        d[prefix + ":log_likelihood"] = model.elbo().numpy()
     else:
-        d[prefix + "_log_likelihood"] = model.elbo((X, y)).numpy()
-
+        d[prefix + ":log_likelihood"] = model.elbo((X, y)).numpy()
+    # Add degrees of freedom
+    d[prefix + ":df"] = len(model.trainable_variables) - 2 + 1 # -2 for variational param +1 for mean estimation
     return d
 
 
-import tensorflow as tf
+# import tensorflow as tf
 
 
 # class Block(gpflow.kernels.Kernel):
