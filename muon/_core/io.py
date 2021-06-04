@@ -113,74 +113,82 @@ def read_10x_mtx(path: PathLike, extended: bool = True, *args, **kwargs) -> MuDa
 #
 
 
+def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
+    from anndata._io.utils import write_attribute
+    from .. import __version__, __mudataversion__, __anndataversion__
+
+    write_attribute(
+        file,
+        "obs",
+        mdata.strings_to_categoricals(mdata._shrink_attr("obs", inplace=False)),
+        dataset_kwargs=kwargs,
+    )
+    write_attribute(
+        file,
+        "var",
+        mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False)),
+        dataset_kwargs=kwargs,
+    )
+    write_attribute(file, "obsm", mdata.obsm, dataset_kwargs=kwargs)
+    write_attribute(file, "varm", mdata.varm, dataset_kwargs=kwargs)
+    write_attribute(file, "obsp", mdata.obsp, dataset_kwargs=kwargs)
+    write_attribute(file, "varp", mdata.varp, dataset_kwargs=kwargs)
+    write_attribute(file, "uns", mdata.uns, dataset_kwargs=kwargs)
+
+    write_attribute(file, "obsmap", mdata.obsmap, dataset_kwargs=kwargs)
+    write_attribute(file, "varmap", mdata.varmap, dataset_kwargs=kwargs)
+
+    mod = file.require_group("mod")
+    for k, v in mdata.mod.items():
+        group = mod.require_group(k)
+
+        adata = mdata.mod[k]
+
+        adata.strings_to_categoricals()
+        if adata.raw is not None:
+            adata.strings_to_categoricals(adata.raw.var)
+
+        if write_data:
+            write_attribute(group, "X", adata.X, dataset_kwargs=kwargs)
+        if adata.raw is not None:
+            write_h5ad_raw(group, "raw", adata.raw)
+
+        write_attribute(group, "obs", adata.obs, dataset_kwargs=kwargs)
+        write_attribute(group, "var", adata.var, dataset_kwargs=kwargs)
+        write_attribute(group, "obsm", adata.obsm, dataset_kwargs=kwargs)
+        write_attribute(group, "varm", adata.varm, dataset_kwargs=kwargs)
+        write_attribute(group, "obsp", adata.obsp, dataset_kwargs=kwargs)
+        write_attribute(group, "varp", adata.varp, dataset_kwargs=kwargs)
+        write_attribute(group, "layers", adata.layers, dataset_kwargs=kwargs)
+        write_attribute(group, "uns", adata.uns, dataset_kwargs=kwargs)
+
+        attrs = group.attrs
+        attrs["encoding-type"] = "AnnData"
+        attrs["encoding-version"] = __anndataversion__
+        attrs["encoder"] = "muon"
+        attrs["encoder-version"] = __version__
+
+    attrs = file.attrs
+    attrs["encoding-type"] = "MuData"
+    attrs["encoding-version"] = __mudataversion__
+    attrs["encoder"] = "muon"
+    attrs["encoder-version"] = __version__
+
+    # Restore top-level annotation
+    if not mdata.is_view or not mdata.isbacked:
+        mdata.update()
+
+
 def write_h5mu(filename: PathLike, mdata: MuData, **kwargs):
     """
     Write MuData object to the HDF5 file
 
     Matrices - sparse or dense - are currently stored as they are.
     """
-    from anndata._io.utils import write_attribute
     from .. import __version__, __mudataversion__, __anndataversion__
 
-    with h5py.File(filename, "a", userblock_size=512) as f:
-        write_attribute(
-            f,
-            "obs",
-            mdata.strings_to_categoricals(mdata._shrink_attr("obs", inplace=False)),
-            dataset_kwargs=kwargs,
-        )
-        write_attribute(
-            f,
-            "var",
-            mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False)),
-            dataset_kwargs=kwargs,
-        )
-        write_attribute(f, "obsm", mdata.obsm, dataset_kwargs=kwargs)
-        write_attribute(f, "varm", mdata.varm, dataset_kwargs=kwargs)
-        write_attribute(f, "obsp", mdata.obsp, dataset_kwargs=kwargs)
-        write_attribute(f, "varp", mdata.varp, dataset_kwargs=kwargs)
-        write_attribute(f, "uns", mdata.uns, dataset_kwargs=kwargs)
-
-        write_attribute(f, "obsmap", mdata.obsmap, dataset_kwargs=kwargs)
-        write_attribute(f, "varmap", mdata.varmap, dataset_kwargs=kwargs)
-        # Remove modalities if they exist
-        if "mod" in f:
-            del f["mod"]
-        mod = f.create_group("mod")
-        for k, v in mdata.mod.items():
-            group = mod.create_group(k)
-
-            adata = mdata.mod[k]
-
-            adata.strings_to_categoricals()
-            if adata.raw is not None:
-                adata.strings_to_categoricals(adata.raw.var)
-
-            write_attribute(group, "X", adata.X, dataset_kwargs=kwargs)
-            if adata.raw is not None:
-                write_h5ad_raw(group, "raw", adata.raw)
-
-            write_attribute(group, "obs", adata.obs, dataset_kwargs=kwargs)
-            write_attribute(group, "var", adata.var, dataset_kwargs=kwargs)
-            write_attribute(group, "obsm", adata.obsm, dataset_kwargs=kwargs)
-            write_attribute(group, "varm", adata.varm, dataset_kwargs=kwargs)
-            write_attribute(group, "obsp", adata.obsp, dataset_kwargs=kwargs)
-            write_attribute(group, "varp", adata.varp, dataset_kwargs=kwargs)
-            write_attribute(group, "layers", adata.layers, dataset_kwargs=kwargs)
-            write_attribute(group, "uns", adata.uns, dataset_kwargs=kwargs)
-
-            attrs = group.attrs
-            attrs["encoding-type"] = "AnnData"
-            attrs["encoding-version"] = __anndataversion__
-            attrs["encoder"] = "muon"
-            attrs["encoder-version"] = __version__
-
-        attrs = f.attrs
-        attrs["encoding-type"] = "MuData"
-        attrs["encoding-version"] = __mudataversion__
-        attrs["encoder"] = "muon"
-        attrs["encoder-version"] = __version__
-
+    with h5py.File(filename, "w", userblock_size=512) as f:
+        _write_h5mu(f, mdata, **kwargs)
     with open(filename, "br+") as f:
         nbytes = f.write(
             f"MuData (format-version={__mudataversion__};creator=muon;creator-version={__version__})".encode(
@@ -190,9 +198,6 @@ def write_h5mu(filename: PathLike, mdata: MuData, **kwargs):
         f.write(
             b"\0" * (512 - nbytes)
         )  # this is only needed because the H5file was written in append mode
-    # Restore top-level annotation
-    if not mdata.is_view or not mdata.isbacked:
-        mdata.update()
 
 
 def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
@@ -352,8 +357,7 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
         mode = "r"
     else:
         mode = backed
-    if backed:
-        manager = MuDataFileManager(filename, mode)
+    manager = MuDataFileManager(filename, mode) if backed else MuDataFileManager()
     with open(filename, "rb") as f:
         ish5mu = f.read(6) == b"MuData"
     if not ish5mu:
@@ -369,30 +373,23 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
         for k in f.keys():
             if k in ["obs", "var"]:
                 d[k] = read_dataframe(f[k])
-            elif backed and k == "mod":
+            if k == "mod":
                 mods = {}
                 gmods = f[k]
                 for m in gmods.keys():
-                    mods[m] = _read_h5mu_mod_backed(gmods[m], manager)
-                d[k] = mods
-            elif k == "mod":
-                mods = {}
-                gmods = f[k]
-                for m in gmods.keys():
-                    mods[m] = read_h5ad(filename, m)
+                    ad = _read_h5mu_mod_backed(gmods[m]) if backed else read_h5ad(filename, m)
+                    ad.file = AnnDataFileManager(ad, m, manager)
+                    mods[m] = ad
                 d[k] = mods
             else:
                 d[k] = read_attribute(f[k])
 
     mu = MuData._init_from_dict_(**d)
-    if backed:
-        mu.filename = filename
-        mu.filemode = mode
-        mu.file = manager
+    mu.file = manager
     return mu
 
 
-def _read_h5mu_mod_backed(g: "h5py.Group", manager: MuDataFileManager) -> dict:
+def _read_h5mu_mod_backed(g: "h5py.Group") -> dict:
     from anndata._io.utils import read_attribute
     from anndata._io.h5ad import read_dataframe, _read_raw
     from anndata import Raw
@@ -414,7 +411,6 @@ def _read_h5mu_mod_backed(g: "h5py.Group", manager: MuDataFileManager) -> dict:
         elif k != "raw":
             d[k] = read_attribute(g[k])
     ad = AnnData(**d)
-    ad.file = AnnDataFileManager(ad, os.path.basename(g.name), manager)
 
     raw = _read_raw(g, attrs={"var", "varm"})
     if raw:
@@ -462,7 +458,9 @@ def read_h5ad(
     with h5py.File(filename, hdf5_mode) as f_root:
         f = f_root["mod"][mod]
         if backed:
-            return _read_h5mu_mod_backed(f, manager)
+            ad = _read_h5mu_mod_backed(f, manager)
+            ad.file = AnnDataFileManager(ad, mod, manager)
+            return ad
 
         for k in f.keys():
             if k in ["obs", "var"]:

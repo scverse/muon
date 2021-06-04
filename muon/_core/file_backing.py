@@ -1,6 +1,7 @@
+from pathlib import Path
 from os import PathLike
 from os.path import abspath
-from typing import Optional
+from typing import Optional, Iterator
 from collections import defaultdict
 from weakref import WeakSet
 
@@ -17,24 +18,27 @@ class MuDataFileManager(AnnDataFileManager):
     ):
         self._counter = 0
         self._children = WeakSet()
-        super().__init__(None, abspath(filename), filemode)
+        if filename is not None:
+            filename = Path(filename)
+        super().__init__(None, filename, filemode)
 
     def open(
         self,
         filename: Optional[PathLike] = None,
         filemode: Optional[ad.compat.Literal["r", "r+"]] = None,
+        add_ref=False,
     ) -> bool:
-        if self._file is not None and (
+        if self.is_open and (
             filename is None
             and filemode is None
             or filename == self.filename
             and filemode == self._filemode
-            and self._file.id
         ):
-            self._counter += 1
+            if add_ref:
+                self.counter += 1
             return False
 
-        if self._file is not None and self._file.id:
+        if self.is_open:
             self._file.close()
 
         if filename is not None:
@@ -44,9 +48,9 @@ class MuDataFileManager(AnnDataFileManager):
         if self.filename is None:
             raise ValueError("Cannot open backing file if backing not initialized")
         self._file = h5py.File(self.filename, self._filemode)
-        self._counter = 1
+        self._counter = int(add_ref)
         for child in self._children:
-            child._file = self._file["mod"][child._mod]
+            child._set_file()
         return True
 
     def close(self):
@@ -56,8 +60,8 @@ class MuDataFileManager(AnnDataFileManager):
     def _close(self):
         if self._counter > 0:
             self._counter -= 1
-            if self._counter == 0:
-                self._file.close()
+        if self._counter == 0 and self.is_open:
+            self._file.close()
 
     def _to_memory_mode(self):
         for m in self._children:
@@ -68,7 +72,7 @@ class MuDataFileManager(AnnDataFileManager):
 
     @property
     def is_open(self) -> bool:
-        return (self._file is not None) & bool(self._file.id)
+        return (self._file is not None) and bool(self._file.id)
 
     @AnnDataFileManager.filename.setter
     def filename(self, filename: Optional[PathLike]):
@@ -87,15 +91,30 @@ class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
         self._parent = parent
         self._mod = mod
         parent._children.add(self)
-        super().__init__(adata, parent.filename, parent._filemode)
+        super().__init__(adata)
+
+        if parent.is_open:
+            self._set_file()
 
     def open(
         self,
         filename: Optional[PathLike] = None,
         filemode: Optional[ad.compat.Literal["r", "r+"]] = None,
     ):
-        if not self._parent.open(filename, filemode):
+        if not self._parent.open(filename, filemode, add_ref=True):
+            self._set_file()
+
+    def _set_file(self):
+        if self._parent.is_open:
             self._file = self._parent._file["mod"][self._mod]
+
+    @property
+    def filename(self) -> Path:
+        return self._parent.filename
+
+    @filename.setter
+    def filename(self, fname: PathLike):
+        pass  # the setter is needed because it's used in ad._core.file_backing.AnnDataFileManager.__init__
 
     def close(self):
         self._parent._close()

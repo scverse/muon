@@ -5,6 +5,7 @@ from functools import reduce
 from itertools import chain
 import warnings
 from copy import deepcopy
+from pathlib import Path
 from os import PathLike
 from random import choices
 from string import ascii_letters, digits
@@ -24,6 +25,7 @@ from anndata._core.aligned_mapping import (
 )
 from anndata._core.views import DataFrameView
 
+from .file_backing import MuDataFileManager
 from .utils import _make_index_unique, _restore_index
 
 from .repr import *
@@ -162,9 +164,7 @@ class MuData:
         self.raw = None
         self.X = None
         self.layers = None
-        self.file = None
-        self.filename = None
-        self.filemode = None
+        self.file = MuDataFileManager()
         self.is_view = False
 
     def _init_as_view(self, mudata_ref: "MuData", index):
@@ -208,8 +208,6 @@ class MuData:
 
         self.is_view = True
         self.file = mudata_ref.file
-        self.filename = mudata_ref.filename
-        self.filemode = mudata_ref.filemode
         self._mudata_ref = mudata_ref
 
     def _init_as_actual(self, data: "MuData"):
@@ -589,6 +587,26 @@ class MuData:
         return self.filename is not None
 
     @property
+    def filename(self) -> Optional[Path]:
+        return self.file.filename
+
+    @filename.setter
+    def filename(self, filename: Optional[PathLike]):
+        filename = None if filename is None else Path(filename)
+        if self.isbacked:
+            if filename is None:
+                self.file._to_memory_mode()
+            elif self.filename != filename:
+                self.write()
+                self.filename.rename(filename)
+                self.file.open(filename, "r+")
+        elif filename is not None:
+            self.write(filename)
+            self.file.open(filename, "r+")
+            for ad in self.mod.values():
+                ad._X = None
+
+    @property
     def obs(self) -> pd.DataFrame:
         """
         Annotation of observation
@@ -857,15 +875,24 @@ class MuData:
         self.update_var()
         self.update_obs()
 
-    def write_h5mu(self, filename: str, *args, **kwargs):
+    def write_h5mu(self, filename: Optional[str] = None, **kwargs):
         """
         Write MuData object to an HDF5 file
         """
-        from .io import write_h5mu
+        from .io import write_h5mu, _write_h5mu
 
-        write_h5mu(filename=filename, mdata=self, *args, **kwargs)
-        if self.isbacked:
-            self.file.filename = filename
+        if self.isbacked and (filename is None or filename == self.filename):
+            import h5py
+
+            self.file.close()
+            with h5py.File(self.filename, "a") as f:
+                _write_h5mu(f, self, write_data=False, **kwargs)
+        elif filename is None:
+            raise ValueError("Provide a filename!")
+        else:
+            write_h5mu(filename, self, **kwargs)
+            if self.isbacked:
+                self.file.filename = filename
 
     write = write_h5mu
 
