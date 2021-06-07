@@ -3,7 +3,7 @@
 `muon` is a multimodal omics Python framework.
 
 [![Documentation Status](https://readthedocs.org/projects/muon/badge/?version=latest)](http://muon.readthedocs.io/?badge=latest)
-<!-- [![PyPi version](https://img.shields.io/pypi/v/muon)](https://pypi.org/project/muon) -->
+[![PyPi version](https://img.shields.io/pypi/v/muon)](https://pypi.org/project/muon)
 
 ## Data structure
 
