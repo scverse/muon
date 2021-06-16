@@ -377,8 +377,7 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
                 mods = {}
                 gmods = f[k]
                 for m in gmods.keys():
-                    ad = _read_h5mu_mod_backed(gmods[m]) if backed else read_h5ad(filename, m)
-                    ad.file = AnnDataFileManager(ad, m, manager)
+                    ad = _read_h5mu_mod(gmods[m], manager, backed not in (None, False))
                     mods[m] = ad
                 d[k] = mods
             else:
@@ -389,7 +388,9 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
     return mu
 
 
-def _read_h5mu_mod_backed(g: "h5py.Group") -> dict:
+def _read_h5mu_mod(
+    g: "h5py.Group", manager: MuDataFileManager = None, backed: bool = False
+) -> dict:
     from anndata._io.utils import read_attribute
     from anndata._io.h5ad import read_dataframe, _read_raw
     from anndata import Raw
@@ -408,11 +409,15 @@ def _read_h5mu_mod_backed(g: "h5py.Group") -> dict:
             else:
                 raise ValueError()
             d["dtype"] = dtype
+            if not backed:
+                d["X"] = read_attribute(X)
         elif k != "raw":
             d[k] = read_attribute(g[k])
     ad = AnnData(**d)
+    if manager is not None:
+        ad.file = AnnDataFileManager(ad, os.path.basename(g.name), manager)
 
-    raw = _read_raw(g, attrs={"var", "varm"})
+    raw = _read_raw(g, attrs=("var", "varm") if backed else ("var", "varm", "X"))
     if raw:
         ad._raw = Raw(ad, **raw)
     return ad
@@ -454,33 +459,13 @@ def read_h5ad(
         backed = True
 
         manager = MuDataFileManager(filename, hdf5_mode)
+    else:
+        backed = False
+        manager = None
 
     with h5py.File(filename, hdf5_mode) as f_root:
         f = f_root["mod"][mod]
-        if backed:
-            ad = _read_h5mu_mod_backed(f, manager)
-            ad.file = AnnDataFileManager(ad, mod, manager)
-            return ad
-
-        for k in f.keys():
-            if k in ["obs", "var"]:
-                d[k] = read_dataframe(f[k])
-            elif k != "raw":
-                d[k] = read_attribute(f[k])
-
-        d["raw"] = _read_raw(f)
-
-        X_dset = f.get("X", None)
-        if X_dset is None:
-            pass
-        elif isinstance(X_dset, h5py.Group):
-            d["dtype"] = X_dset["data"].dtype
-        elif hasattr(X_dset, "dtype"):
-            d["dtype"] = f["X"].dtype
-        else:
-            raise ValueError()
-
-    return AnnData(**d)
+        return _read_h5mu_mod(f, manager, backed)
 
 
 read_anndata = read_h5ad
