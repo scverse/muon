@@ -292,8 +292,8 @@ class MuData:
                 deepcopy(self.uns),  # this should always be an empty dict
                 self.obsm.copy(),
                 self.varm.copy(),
-                deepcopy(self.obsp),
-                deepcopy(self.varp),
+                self.obsp.copy(),
+                self.varp.copy(),
                 self.obsmap.copy(),
                 self.varmap.copy(),
             )
