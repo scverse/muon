@@ -119,7 +119,7 @@ def embedding(
 
                 if layer is not None:
                     if layer in data.mod[m].layers:
-                        fmod_adata.X = data.mod[m][:, mod_keys].layers[layer].X
+                        fmod_adata.X = data.mod[m][:, mod_keys].layers[layer]
                         if use_raw:
                             warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}")
                     else:
