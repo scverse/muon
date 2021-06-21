@@ -4,7 +4,7 @@ from warnings import warn
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import issparse, csr_matrix
+from scipy.sparse import issparse, csc_matrix, csr_matrix
 from sklearn.mixture import GaussianMixture
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
@@ -193,7 +193,7 @@ def dsb(
     return toreturn
 
 
-def clr(adata: AnnData, inplace: bool = True) -> Union[None, AnnData]:
+def clr(adata: AnnData, inplace: bool = True, axis: int = 0) -> Union[None, AnnData]:
     """
     Apply the centered log ratio (CLR) transformation
     to normalize counts in adata.X.
@@ -201,22 +201,35 @@ def clr(adata: AnnData, inplace: bool = True) -> Union[None, AnnData]:
     Args:
         data: AnnData object with protein expression counts.
         inplace: Whether to update adata.X inplace.
+        axis: Axis across which CLR is performed.
     """
-    sparse = False
-    if issparse(adata.X):
-        sparse = True
-    # Geometric mean of ADT counts
-    x = adata.X
-    g_mean = np.exp(np.log1p(x).sum(axis=0) / x.shape[0])
-    # Centered log ratio
-    clr = np.log1p(x / g_mean)
 
-    if sparse:
-        clr = csr_matrix(clr)
+    if axis not in [0, 1]:
+        raise ValueError("Invalid value for `axis` provided. Admissible options are `0` and `1`.")
 
     if not inplace:
         adata = adata.copy()
 
-    adata.X = clr
+    if issparse(adata.X) and axis == 0 and not isinstance(adata.X, csc_matrix):
+        warn("adata.X is sparse but not in CSC format. Converting to CSC.")
+        x = csc_matrix(adata.X)
+    elif issparse(adata.X) and axis == 1 and not isinstance(adata.X, csr_matrix):
+        warn("adata.X is sparse but not in CSR format. Converting to CSR.")
+        x = csr_matrix(adata.X)
+    else:
+        x = adata.X
+
+    if issparse(x):
+        x.data /= np.repeat(
+            np.exp(np.log1p(x).sum(axis=axis).A / x.shape[axis]), x.getnnz(axis=axis)
+        )
+        np.log1p(x.data, out=x.data)
+    else:
+        np.log1p(
+            x / np.exp(np.log1p(x).sum(axis=axis, keepdims=True) / x.shape[axis]),
+            out=x,
+        )
+
+    adata.X = x
 
     return None if inplace else adata
