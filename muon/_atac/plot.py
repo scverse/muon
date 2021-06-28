@@ -309,6 +309,7 @@ def fragment_histogram(
     data: Union[AnnData, MuData],
     region: str = "chr1-1-2000000",
     groupby: Optional[Union[str]] = None,
+    barcodes: Optional[str] = None,
 ):
     """
     Plot Histogram of Fragment lengths within specified region.
@@ -320,6 +321,9 @@ def fragment_histogram(
         Region to plot. Specified with the format `chr1:1-2000000` or`chr1-1-2000000`.
     groupby
         Column name(s) of .obs slot of the AnnData object according to which the plot is split.
+    barcodes
+        Column name of .obs slot of the AnnData object 
+        with barcodes corresponding to the ones in the fragments file.
     """
 
     if isinstance(data, AnnData):
@@ -334,7 +338,10 @@ def fragment_histogram(
 
     fragments["length"] = fragments.End - fragments.Start
     fragments.set_index(keys="Cell", inplace=True)
-    fragments = fragments.join(adata.obs, how="right")
+    if barcodes and barcodes in adata.obs.columns:
+        fragments = fragments.join(adata.obs.set_index(barcodes), how="right")
+    else:
+        fragments = fragments.join(adata.obs, how="right")
 
     # Handle sns.distplot deprecation and sns.histplot addition
     hist = sns.histplot if hasattr(sns, "histplot") else sns.distplot

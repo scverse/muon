@@ -807,6 +807,7 @@ def tss_enrichment(
     n_tss: int = 2000,
     return_tss: bool = True,
     random_state=None,
+    barcodes: Optional[str] = None,
 ):
     """
     Calculate TSS enrichment according to ENCODE guidelines. Adds a column `tss_score` to the `.obs` DataFrame and
@@ -829,6 +830,9 @@ def tss_enrichment(
         Whether to return the TSS pileup matrix. Needed for enrichment plots.
     random_state : int, array-like, BitGenerator, np.random.RandomState, optional
         Argument passed to pandas.DataFrame.sample() for sampling features.
+    barcodes
+        Column name in the .obs of the AnnData 
+        with barcodes corresponding to the ones in the fragments file.
 
     Returns
     ----------
@@ -863,7 +867,7 @@ def tss_enrichment(
 
     # Pile up tss regions
     tss_pileup = _tss_pileup(
-        adata, features, extend_upstream=extend_upstream, extend_downstream=extend_downstream
+        adata, features, extend_upstream=extend_upstream, extend_downstream=extend_downstream, barcodes=barcodes
     )
 
     flank_means, center_means = _calculate_tss_score(data=tss_pileup)
@@ -889,6 +893,7 @@ def _tss_pileup(
     features: pd.DataFrame,
     extend_upstream: int = 1000,
     extend_downstream: int = 1000,
+    barcodes: Optional[str] = None,
 ) -> AnnData:
     """
     Pile up reads in TSS regions. Returns a cell x position matrix that can be used for QC.
@@ -904,6 +909,9 @@ def _tss_pileup(
         Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
     extend_downstream
         Number of nucleotides to extend every gene downstream (0 by default)
+    barcodes
+        Column name in the .obs of the AnnData 
+        with barcodes corresponding to the ones in the fragments file.
     """
     if "files" not in adata.uns or "fragments" not in adata.uns["files"]:
         raise KeyError(
@@ -921,7 +929,10 @@ def _tss_pileup(
     n_features = extend_downstream + extend_upstream + 1
 
     # Dictionary with matrix positions
-    d = {k: v for k, v in zip(adata.obs.index, range(n))}
+    if barcodes and barcodes in adata.obs.columns:
+        d = {k: v for k, v in zip(adata.obs.loc[:,barcodes], range(n))}
+    else:
+        d = {k: v for k, v in zip(adata.obs.index, range(n))}
 
     # Not sparse since we expect most positions to be filled
     mx = np.zeros((n, n_features), dtype=int)
@@ -1005,6 +1016,7 @@ def nucleosome_signal(
     n: Union[int, float] = None,
     nucleosome_free_upper_bound: int = 147,
     mononuleosomal_upper_bound: int = 294,
+    barcodes: Optional[str] = None,
 ):
     """
     Computes the ratio of nucleosomal cut fragments to nucleosome-free fragments per cell.
@@ -1021,6 +1033,9 @@ def nucleosome_signal(
         Number of bases up to which a fragment counts as nucleosome free. Default: 147
     mononuleosomal_upper_bound
         Number of bases up to which a fragment counts as mononuleosomal. Default: 294
+    barcodes
+        Column name in the .obs of the AnnData 
+        with barcodes corresponding to the ones in the fragments file.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -1044,7 +1059,10 @@ def nucleosome_signal(
     fragments = pysam.TabixFile(adata.uns["files"]["fragments"], parser=pysam.asBed())
 
     # Dictionary with matrix row indices
-    d = {k: v for k, v in zip(adata.obs.index, range(adata.n_obs))}
+    if barcodes and barcodes in adata.obs.columns:
+        d = {k: v for k, v in zip(adata.obs.loc[:,barcodes], range(adata.n_obs))}
+    else:
+        d = {k: v for k, v in zip(adata.obs.index, range(adata.n_obs))}
     mat = np.zeros(shape=(adata.n_obs, 2), dtype=int)
 
     fr = fragments.fetch()
