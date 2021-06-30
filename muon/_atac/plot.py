@@ -322,7 +322,7 @@ def fragment_histogram(
     groupby
         Column name(s) of .obs slot of the AnnData object according to which the plot is split.
     barcodes
-        Column name of .obs slot of the AnnData object 
+        Column name of .obs slot of the AnnData object
         with barcodes corresponding to the ones in the fragments file.
     """
 

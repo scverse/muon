@@ -831,7 +831,7 @@ def tss_enrichment(
     random_state : int, array-like, BitGenerator, np.random.RandomState, optional
         Argument passed to pandas.DataFrame.sample() for sampling features.
     barcodes
-        Column name in the .obs of the AnnData 
+        Column name in the .obs of the AnnData
         with barcodes corresponding to the ones in the fragments file.
 
     Returns
@@ -867,7 +867,11 @@ def tss_enrichment(
 
     # Pile up tss regions
     tss_pileup = _tss_pileup(
-        adata, features, extend_upstream=extend_upstream, extend_downstream=extend_downstream, barcodes=barcodes
+        adata,
+        features,
+        extend_upstream=extend_upstream,
+        extend_downstream=extend_downstream,
+        barcodes=barcodes,
     )
 
     flank_means, center_means = _calculate_tss_score(data=tss_pileup)
@@ -910,7 +914,7 @@ def _tss_pileup(
     extend_downstream
         Number of nucleotides to extend every gene downstream (0 by default)
     barcodes
-        Column name in the .obs of the AnnData 
+        Column name in the .obs of the AnnData
         with barcodes corresponding to the ones in the fragments file.
     """
     if "files" not in adata.uns or "fragments" not in adata.uns["files"]:
@@ -930,7 +934,7 @@ def _tss_pileup(
 
     # Dictionary with matrix positions
     if barcodes and barcodes in adata.obs.columns:
-        d = {k: v for k, v in zip(adata.obs.loc[:,barcodes], range(n))}
+        d = {k: v for k, v in zip(adata.obs.loc[:, barcodes], range(n))}
     else:
         d = {k: v for k, v in zip(adata.obs.index, range(n))}
 
@@ -1034,7 +1038,7 @@ def nucleosome_signal(
     mononuleosomal_upper_bound
         Number of bases up to which a fragment counts as mononuleosomal. Default: 294
     barcodes
-        Column name in the .obs of the AnnData 
+        Column name in the .obs of the AnnData
         with barcodes corresponding to the ones in the fragments file.
     """
     if isinstance(data, AnnData):
@@ -1060,7 +1064,7 @@ def nucleosome_signal(
 
     # Dictionary with matrix row indices
     if barcodes and barcodes in adata.obs.columns:
-        d = {k: v for k, v in zip(adata.obs.loc[:,barcodes], range(adata.n_obs))}
+        d = {k: v for k, v in zip(adata.obs.loc[:, barcodes], range(adata.n_obs))}
     else:
         d = {k: v for k, v in zip(adata.obs.index, range(adata.n_obs))}
     mat = np.zeros(shape=(adata.n_obs, 2), dtype=int)

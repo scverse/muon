@@ -13,12 +13,15 @@ Release notes
 v0.1.1
 ------
 
-- Fixes:
-  - Fix reading ``.h5mu`` files in backed mode when modalities have ``.raw`` attributes.
+* Fixes:
 
-- New features:
-  - ATAC module
-    - Handle fragments files with barcodes different than ``obs_names``.
+  * Fix reading ``.h5mu`` files in backed mode when modalities have ``.raw`` attributes.
+
+* New features:
+  
+  * ATAC module
+    
+    * Handle fragments files with barcodes different than ``obs_names``.
 
 v0.1.0
 ------
