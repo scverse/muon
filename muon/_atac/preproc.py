@@ -45,7 +45,7 @@ def tfidf(
     if log_tfidf and (log_tf or log_idf):
         raise AttributeError(
             "When returning log(TF*IDF), \
-			applying neither log(TF) nor log(IDF) is possible."
+            applying neither log(TF) nor log(IDF) is possible."
         )
 
     if issparse(adata.X):
@@ -134,7 +134,7 @@ def scopen(
     except ImportError:
         raise ImportError(
             "scOpen is not available. Install scOpen from PyPI (`pip install scopen`) \
-			or from GitHub (`pip install git+https://github.com/CostaLab/scopen`)"
+            or from GitHub (`pip install git+https://github.com/CostaLab/scopen`)"
         )
 
     start = time.time()
