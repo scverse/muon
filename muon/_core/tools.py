@@ -8,6 +8,7 @@ from warnings import warn
 
 import numpy as np
 import pandas as pd
+from scipy.sparse import issparse
 import scanpy as sc
 import h5py
 from natsort import natsorted
@@ -114,7 +115,7 @@ def _set_mofa_data_from_mudata(
         for m in mdata.mod.keys():
             adata = mdata.mod[m]
             if use_layer in adata.layers.keys():
-                if callable(getattr(adata.layers[use_layer], "todense", None)):
+                if issparse(adata.layers[use_layer]):
                     data.append(np.array(adata.layers[use_layer].todense()))
                 else:
                     data.append(adata.layers[use_layer].copy())
@@ -130,7 +131,7 @@ def _set_mofa_data_from_mudata(
     else:
         for m in mdata.mod.keys():
             adata = mdata.mod[m]
-            if callable(getattr(adata.X, "todense", None)):
+            if issparse(adata.X):
                 data.append(np.array(adata.X.todense()))
             else:
                 data.append(adata.X.copy())

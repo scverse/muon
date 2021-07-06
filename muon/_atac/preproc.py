@@ -93,7 +93,7 @@ def binarize(data: Union[AnnData, MuData]):
     else:
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
-    if callable(getattr(adata.X, "todense", None)):
+    if issparse(adata.X):
         # Sparse matrix
         adata.X.data[adata.X.data != 0] = 1
     else:
