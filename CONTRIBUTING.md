@@ -3,7 +3,7 @@
 
 This document describes details about contributing to `muon`.
 
-The main entry point for a contribution is an issue. Please use issues to discuss the change you wish to make or the funcionality you want to add to `muon`. For a more in-depth discussion you can also contact `muon` authors or maintainers via other communication methods such as email.
+The main entry point for a contribution is an issue. Please use issues to discuss the change you wish to make or the funcionality you want to add to `muon`. For a more in-depth discussion you can also use [discussions](https://github.com/PMBio/muon/discussions) or contact `muon` authors or maintainers via other communication methods such as email.
 
 ## Issues
 
