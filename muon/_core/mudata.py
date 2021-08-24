@@ -130,7 +130,7 @@ class MuData:
             # Restore proper .obs and .var
             self.update()
 
-            self.uns = kwargs.get("uns", {})
+            self.uns = kwargs.get("uns") or {}
 
             return
 
