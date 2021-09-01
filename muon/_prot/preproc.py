@@ -10,7 +10,7 @@ from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
 from anndata import AnnData
 
-from .. import MuData
+from mudata import MuData
 
 
 def dsb(

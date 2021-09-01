@@ -17,7 +17,7 @@ from scipy.sparse import lil_matrix
 from scanpy import logging
 from anndata import AnnData
 from . import utils
-from .._core.mudata import MuData
+from mudata import MuData
 from .._rna.utils import get_gene_annotation_from_rna
 
 #

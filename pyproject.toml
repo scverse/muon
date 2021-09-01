@@ -31,6 +31,7 @@ requires = [
     "loompy",
     "protobuf",
     "tqdm",
+    "mudata",
 ]
 
 [tool.flit.metadata.requires-extra]

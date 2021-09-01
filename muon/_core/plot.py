@@ -11,7 +11,7 @@ import scanpy as sc
 from anndata import AnnData
 
 
-from .mudata import MuData
+from mudata import MuData
 
 
 def embedding(

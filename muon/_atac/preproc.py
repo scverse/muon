@@ -4,7 +4,7 @@ import numpy as np
 from scipy.sparse import csr_matrix, dia_matrix, issparse
 
 from anndata import AnnData
-from .._core.mudata import MuData
+from mudata import MuData
 
 # Computational methods for preprocessing
 

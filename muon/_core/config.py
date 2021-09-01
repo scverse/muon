@@ -1,3 +1,4 @@
+from mudata._core import config as mudata_config
 import logging as log
 
 OPTIONS = {
@@ -10,10 +11,11 @@ _VALID_OPTIONS = {
     "display_html_expand": lambda x: isinstance(x, int) and len(bin(x or 0b111)) == 5,
 }
 
-
 class set_options:
     """
     Control muon options.
+
+    MuData options are passed to MuData's set_options.
 
     Available options:
 
@@ -33,13 +35,20 @@ class set_options:
 
     def __init__(self, **kwargs):
         self.opts = {}
+        mudata_opts = {}
         for k, v in kwargs.items():
-            if k not in OPTIONS:
+            if k not in OPTIONS and k not in mudata_config.OPTIONS:
                 raise ValueError(f"There is no option '{k}' available")
             if k in _VALID_OPTIONS:
                 if not _VALID_OPTIONS[k](v):
                     raise ValueError(f"Value '{v}' for the option '{k}' is invalid.")
-            self.opts[k] = OPTIONS[k]
+            if k in OPTIONS:
+                self.opts[k] = OPTIONS[k]
+            else:
+                # For mudata options, there validity is going to be checked by mudata
+                mudata_opts[k] = mudata_config.OPTIONS[k]
+        mudata_config.set_options(**mudata_opts)
+        # Muon options take precedence
         self._apply(kwargs)
 
     def _apply(self, opts):

@@ -20,7 +20,7 @@ from umap.sparse import sparse_euclidean, sparse_jaccard
 from umap.umap_ import nearest_neighbors
 from numba import njit, prange
 
-from .._core.mudata import MuData
+from mudata import MuData
 
 # Computational methods for preprocessing
 

@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 import seaborn as sns
 
-from .._core.mudata import MuData
+from mudata import MuData
 from . import tools
 
 
