@@ -106,4 +106,3 @@ def read_10x_mtx(path: PathLike, extended: bool = True, *args, **kwargs) -> MuDa
             initialise_default_files(mdata, path)
 
     return mdata
-

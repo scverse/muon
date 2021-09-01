@@ -11,6 +11,7 @@ _VALID_OPTIONS = {
     "display_html_expand": lambda x: isinstance(x, int) and len(bin(x or 0b111)) == 5,
 }
 
+
 class set_options:
     """
     Control muon options.
