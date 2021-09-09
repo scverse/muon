@@ -18,6 +18,8 @@ v0.1.1
 * Fixes:
 
   * [MuData] Fix reading ``.h5mu`` files in backed mode when modalities have ``.raw`` attributes.
+  
+  * Fix colouring plots by ``var_names`` that are present in ``.raw`` but not in the root ``AnnData`` object.
 
 * New features:
   
