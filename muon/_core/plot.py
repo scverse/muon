@@ -103,7 +103,7 @@ def embedding(
         keys_in_mod = {m: [key in data.mod[m].var_names for key in keys] for m in data.mod}
 
         # .raw slots might have exclusive var_names
-        if use_raw:
+        if use_raw is None or use_raw:
             for i, k in enumerate(keys):
                 for m in data.mod:
                     if keys_in_mod[m][i] == False and data.mod[m].raw is not None:
