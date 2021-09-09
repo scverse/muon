@@ -48,6 +48,8 @@ def _average_peaks(
                 warnings.warn(f"Peaks for {key} are not found.")
                 continue
 
+            peaksidx = adata.var.index.get_indexer_for(peaks)
+
             if average == "total" or average == "all":
                 attr_name = f"{key} (all peaks)"
                 attr_names.append(attr_name)
@@ -56,21 +58,23 @@ def _average_peaks(
                 if attr_name not in adata.obs.columns:
                     if layer:
                         x[attr_name] = np.asarray(
-                            avg_func(adata[:, peaks].layers[layer], axis=1)
+                            avg_func(adata.layers[layer][:, peaksidx], axis=1)
                         ).reshape(-1)
                     elif use_raw:
-                        x[attr_name] = np.asarray(avg_func(adata[:, peaks].raw.X, axis=1)).reshape(
+                        x[attr_name] = np.asarray(
+                            avg_func(adata.raw.X[:, peaksidx], axis=1)
+                        ).reshape(-1)
+                    else:
+                        x[attr_name] = np.asarray(avg_func(adata.X[:, peaksidx], axis=1)).reshape(
                             -1
                         )
-                    else:
-                        x[attr_name] = np.asarray(avg_func(adata[:, peaks].X, axis=1)).reshape(-1)
 
             elif average == "peak_type":
                 peak_types = peak_sel.peak_type
 
                 # {'promoter': ['chrX:NNN_NNN', ...], 'distal': ['chrX:NNN_NNN', ...]}
                 peak_dict = defaultdict(list)
-                for k, v in zip(peak_types, peaks):
+                for k, v in zip(peak_types, peaksidx):
                     peak_dict[k].append(v)
 
                 # 'CD4 (promoter peaks)', 'CD4 (distal peaks)'
@@ -82,14 +86,14 @@ def _average_peaks(
                     if attr_name not in adata.obs.columns:
                         if layer:
                             x[attr_name] = np.asarray(
-                                avg_func(adata[:, p].layers[layer], axis=1)
+                                avg_func(adata.layers[layer][:, p], axis=1)
                             ).reshape(-1)
                         elif use_raw:
-                            x[attr_name] = np.asarray(avg_func(adata[:, p].raw.X, axis=1)).reshape(
+                            x[attr_name] = np.asarray(avg_func(adata.raw.X[:, p], axis=1)).reshape(
                                 -1
                             )
                         else:
-                            x[attr_name] = np.asarray(avg_func(adata[:, p].X, axis=1)).reshape(-1)
+                            x[attr_name] = np.asarray(avg_func(adata.X[:, p], axis=1)).reshape(-1)
 
             else:
                 # No averaging, one plot per peak
@@ -99,11 +103,11 @@ def _average_peaks(
                     )
                 attr_names += list(peaks.values)
                 if layer:
-                    x_peaks = adata[:, peaks].layers[layer]
+                    x_peaks = adata.layers[layer][:, peaksidx]
                 elif use_raw:
-                    x_peaks = adata[:, peaks].raw.X
+                    x_peaks = adata.raw.X[:, peaksidx]
                 else:
-                    x_peaks = adata[:, peaks].X
+                    x_peaks = adata.X[:, peaksidx]
                 if issparse(x_peaks):
                     x_peaks = x_peaks.toarray()
                 x_peaks = pd.DataFrame(np.asarray(x_peaks), columns=peaks.values, index=x.index)
@@ -111,12 +115,13 @@ def _average_peaks(
 
         else:
             attr_names.append(key)
+            keyloc = adata.var.index.get_loc(key)
             if layer:
-                x_peak = adata[:, key].layers[layer]
+                x_peak = adata.layers[layer][:, keyloc]
             elif use_raw:
-                x_peak = adata[:, key].raw.X
+                x_peak = adata.raw.X[:, keyloc]
             else:
-                x_peak = adata[:, key].X
+                x_peak = adata.X[:, keyloc]
             if issparse(x_peak):
                 x_peak = x_peak.toarray()
             x_peak = x_peak.reshape(-1)
