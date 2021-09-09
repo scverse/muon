@@ -97,17 +97,30 @@ def embedding(
     else:
         raise TypeError("Expected color to be a string or an iterable.")
 
-    # Fetch respective features from the
+    # Fetch respective features
     if not all([key in obs for key in keys]):
         # {'rna': [True, False], 'prot': [False, True]}
         keys_in_mod = {m: [key in data.mod[m].var_names for key in keys] for m in data.mod}
+
+        # .raw slots might have exclusive var_names
+        if use_raw:
+            for i, k in enumerate(keys):
+                for m in data.mod:
+                    if keys_in_mod[m][i] == False and data.mod[m].raw is not None:
+                        keys_in_mod[m][i] = True
+
         for m in data.mod:
             if np.sum(keys_in_mod[m]) > 0:
                 mod_keys = np.array(keys)[keys_in_mod[m]]
 
                 if use_raw is None or use_raw:
                     if data.mod[m].raw is not None:
-                        fmod_adata = data.mod[m].raw[:, mod_keys]
+                        keysidx = data.mod[m].raw.var.index.get_indexer_for(mod_keys)
+                        fmod_adata = AnnData(
+                            X=data.mod[m].raw.X[:, keysidx],
+                            var=pd.DataFrame(index=mod_keys),
+                            obs=data.mod[m].obs,
+                        )
                     else:
                         if use_raw:
                             warnings.warn(
@@ -126,7 +139,6 @@ def embedding(
                         warnings.warn(
                             f"Layer {layer} is not present for the modality {m}, using count matrix instead"
                         )
-
                 x = fmod_adata.X.toarray() if issparse(fmod_adata.X) else fmod_adata.X
                 obs = obs.join(
                     pd.DataFrame(x, columns=mod_keys, index=fmod_adata.obs_names),
