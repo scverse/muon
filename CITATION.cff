@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Bredikhin"
+  given-names: "Danila"
+  orcid: "https://orcid.org/0000-0001-8089-6983"
+- family-names: "Kats"
+  given-names: "Ilia"
+  orcid: "https://orcid.org/0000-0001-5220-5671"
+title: "muon"
+version: 1.0.0
+date-released: 2021-06-01
+url: "https://github.com/PMBio/muon"
+preferred-citation:
+  type: article
+  authors:
+  - family-names: "Bredikhin"
+    given-names: "Danila"
+    orcid: "https://orcid.org/0000-0001-8089-6983"
+  - family-names: "Kats"
+    given-names: "Ilia"
+    orcid: "https://orcid.org/0000-0001-5220-5671"
+  doi: "10.1101/2021.06.01.445670"
+  journal: "bioRxiv"
+  month: 6
+  title: "Muon: multimodal omics analysis framework"
+  year: 2021
