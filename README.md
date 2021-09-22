@@ -99,4 +99,6 @@ from muon import prot as pt
 
 ---
 
-Some implementation details are noted in [DESIGN.md](./DESIGN.md). [Pull requests](./CONTRIBUTING.md) are welcome.
+Some implementation details are noted in [DESIGN.md](./DESIGN.md). 
+
+[Contributions](./CONTRIBUTING.md) in the form of [issues](https://github.com/PMBio/muon/issues), [pull requests](https://github.com/PMBio/muon/pulls) or [discussions](https://github.com/PMBio/muon/discussions) are welcome.
