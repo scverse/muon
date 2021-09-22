@@ -44,6 +44,7 @@ There is :doc:`atac module </omics/atac>` for chromatin accessibility data and :
    :caption: Getting started
 
    notebooks/quickstart_mudata.ipynb
+   tutorials
 
 .. toctree::
    :hidden:
