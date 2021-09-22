@@ -1,41 +1,21 @@
 <img src="./docs/img/muon_header.png" data-canonical-src="./docs/img/muon_header.png" width="700"/>
 
-`muon` is a multimodal omics Python framework.
+`muon` is a multimodal omics Python framework. 
+
+[Documentation](https://muon.readthedocs.io/) | [Tutorials](https://muon-tutorials.readthedocs.io/) | [Preprint](https://www.biorxiv.org/content/10.1101/2021.06.01.445670v1) | [Discord](https://discord.com/invite/MMsgDhnSwQ)
 
 [![Documentation Status](https://readthedocs.org/projects/muon/badge/?version=latest)](http://muon.readthedocs.io/?badge=latest)
 [![PyPi version](https://img.shields.io/pypi/v/muon)](https://pypi.org/project/muon)
 
 ## Data structure
 
-In the same vein as [scanpy](https://github.com/theislab/scanpy) and [AnnData](https://github.com/theislab/anndata) are designed to work with scRNA-seq data in Python, `muon` and `MuData` are designed to provide functionality to load, process, and store multimodal omics data.
+`muon` is designed around `MuData` (multimodal data) objects — in the same vein as [scanpy](https://github.com/theislab/scanpy) and [AnnData](https://github.com/theislab/anndata) are designed to work primarily with scRNA-seq data in Python. Individual modalities in `MuData` are naturally represented with `AnnData` objects.
 
-
-```
-MuData
-  .obs     -- annotation of observations (cells, samples)
-  .var     -- annotation of features (genes, genomic loci, etc.)
-  .obsm    -- multidimensional cell annotation, 
-              incl. a boolean for each modality
-              that links .obs to the cells of that modality
-  .varm    -- multidimensional feature annotation, 
-              incl. a boolean vector for each modality
-              that links .var to the features of that modality
-  .mod
-    AnnData
-      .X    -- data matrix (cells x features)
-      .obs  -- cells metadata (assay-specific)
-      .var  -- annotation of features (genes, peaks, genomic sites)
-      .obsm
-      .varm
-      .uns
-  .uns
-```
-
-By design, `muon` can incorporate disjoint multimodal experiments, i.e. the ones with different cells having different modalities measured. No redundant empty measurements are stored due to the distinct feature sets per assay as well as distinct cell sets mapped to a global set of observations.
+`MuData` class and `.h5mu` files I/O operations are part of [the standalone mudata library](https://github.com/pmbio/mudata).
 
 ### Input
 
-For reading multimodal omics data, `muon` relies on the functionality available in scanpy. `muon` comes with `MuData` — a multimodal container, in which every modality is an AnnData object:
+`MuData` class is implemented in the [mudata](https://github.com/pmbio/mudata) library and is exposed in `muon`:
 
 ```py
 from muon import MuData
@@ -43,7 +23,7 @@ from muon import MuData
 mdata = MuData({'rna': adata_rna, 'atac': adata_atac})
 ```
 
-If multimodal data from 10X Genomics is to be read, `muon` provides a reader that returns a `MuData` object with AnnData objects inside, each corresponding to its own modality:
+If [multimodal data from 10X Genomics](https://support.10xgenomics.com/single-cell-multiome-atac-gex/software/pipelines/latest/output/overview) is to be read, `muon` provides a reader that returns a `MuData` object with AnnData objects inside, each corresponding to its own modality:
 
 ```py
 import muon as mu
@@ -60,7 +40,7 @@ mu.read_10x_h5("filtered_feature_bc_matrix.h5")
 
 ### I/O with `.h5mu` files
 
-`muon` operates on multimodal data (MuData) that represents modalities as collections of AnnData objects. These collections can be saved to disk and retrieved using HDF5-based `.h5mu` files, which design is based on `.h5ad` file structure.
+Basic `.h5mu` files I/O functionality is implemented in [mudata](https://github.com/pmbio/mudata) and is exposed in `muon`. A `MuData` object represents modalities as collections of `AnnData` objects, and these collections can be saved on disk and retrieved using HDF5-based `.h5mu` files, which design is based on `.h5ad` file structure.
 
 ```py
 mdata.write("pbmc_10k.h5mu")
@@ -116,3 +96,7 @@ from muon import atac as ac
 # Protein (epitope) module:
 from muon import prot as pt
 ```
+
+---
+
+Some implementation details are noted in [DESIGN.md](./DESIGN.md). [Pull requests](./CONTRIBUTING.md) are welcome.
