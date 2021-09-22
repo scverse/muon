@@ -13,9 +13,13 @@ Release notes
 v0.1.1
 ------
 
+``MuData`` is now provided `as a separate package <https://mudata.readthedocs.io/>`_. Since this release, ``mudata`` is a hard dependency of ``muon``. Making the codebase more modular, this will also help developing tools around ``MuData`` that do not depend on ``scanpy`` or ``muon``.
+
 * Fixes:
 
-  * Fix reading ``.h5mu`` files in backed mode when modalities have ``.raw`` attributes.
+  * ``[mudata]`` Fix reading ``.h5mu`` files in backed mode when modalities have ``.raw`` attributes.
+
+  * Fix colouring plots by ``var_names`` that are present in ``.raw`` but not in the root ``AnnData`` object.
 
 * New features:
   

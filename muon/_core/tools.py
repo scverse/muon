@@ -13,7 +13,7 @@ import scanpy as sc
 import h5py
 from natsort import natsorted
 from anndata import AnnData
-from .mudata import MuData
+from mudata import MuData
 
 from scanpy._compat import Literal
 from scanpy import logging
