@@ -6,6 +6,7 @@ from collections import OrderedDict
 from typing import List, Union, Optional, Callable, Iterable
 from pathlib import Path
 from datetime import datetime
+from warnings import warn
 
 import numpy as np
 import pandas as pd
@@ -105,7 +106,6 @@ def add_peak_annotation(
         adata = data
     elif isinstance(data, MuData) and "atac" in data.mod:
         adata = data.mod["atac"]
-        # TODO: check that ATAC-seq slot is present with this name
     else:
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
@@ -115,13 +115,21 @@ def add_peak_annotation(
         pa = annotation
 
     # Convert null values to empty strings
-    pa.gene[pa.gene.isnull()] = ""
-    pa.distance[pa.distance.isnull()] = ""
-    pa.peak_type[pa.peak_type.isnull()] = ""
+    pa.loc[pa.gene.isnull(), "gene"] = ""
+    pa.loc[pa.distance.isnull(), "distance"] = ""
+    pa.loc[pa.peak_type.isnull(), "peak_type"] = ""
+
+    # If peak name is not in the annotation table, reconstruct it:
+    # peak = chrom:start-end
+    if "peak" not in pa.columns:
+        if "chrom" in pa.columns and "start" in pa.columns and "end" in pa.columns:
+            pa["peak"] = pa["chrom"].astype(str) + ":" + pa["start"].astype(str) + "-" + pa["end"].astype(str)
+        else:
+            raise AttributeError(f"Peak annotation does not in contain neighter peak column nor chrom, start, and end columns.")
 
     # Split genes, distances, and peaks into individual records
     pa_g = pd.DataFrame(pa.gene.str.split(";").tolist(), index=pa.peak).stack()
-    pa_d = pd.DataFrame(pa.distance.str.split(";").tolist(), index=pa.peak).stack()
+    pa_d = pd.DataFrame(pa.distance.astype(str).str.split(";").tolist(), index=pa.peak).stack()
     pa_p = pd.DataFrame(pa.peak_type.str.split(";").tolist(), index=pa.peak).stack()
 
     # Make a long dataframe indexed by gene
@@ -138,8 +146,8 @@ def add_peak_annotation(
     # DEPRECATED: Make distance values nullable integers
     # See https://pandas.pydata.org/pandas-docs/stable/user_guide/integer_na.html
     null_distance = pa_long.distance == ""
-    pa_long.distance[null_distance] = 0
-    pa_long.distance = pa_long.distance.astype(int)
+    pa_long.loc[null_distance, "distance"] = 0
+    pa_long.distance = pa_long.distance.astype(float).astype(int)
     # DEPRECATED: Int64 is not recognized when saving HDF5 files with scanpy.write
     # pa_long.distance = pa_long.distance.astype(int).astype("Int64")
     # pa_long.distance[null_distance] = np.nan
@@ -176,7 +184,6 @@ def add_peak_annotation_gene_names(
         adata = data
     elif isinstance(data, MuData) and "atac" in data.mod:
         adata = data.mod["atac"]
-        # TODO: check that ATAC-seq slot is present with this name
 
         if gene_names is None:
             if "rna" in data.mod:
@@ -687,22 +694,25 @@ def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path
 
     default_annotation = os.path.join(os.path.dirname(path), "atac_peak_annotation.tsv")
     if os.path.exists(default_annotation):
-        add_peak_annotation(adata, default_annotation)
-        print(f"Added peak annotation from {default_annotation} to .uns['atac']['peak_annotation']")
+        try:
+            add_peak_annotation(adata, default_annotation)
+            print(f"Added peak annotation from {default_annotation} to .uns['atac']['peak_annotation']")
 
-        if isinstance(data, MuData):
-            try:
-                add_peak_annotation_gene_names(data)
-                print("Added gene names to peak annotation in .uns['atac']['peak_annotation']")
-            except Exception:
-                pass
+            if isinstance(data, MuData):
+                try:
+                    add_peak_annotation_gene_names(data)
+                    print("Added gene names to peak annotation in .uns['atac']['peak_annotation']")
+                except Exception:
+                    pass
+        except AttributeError:
+            warn(f"Peak annotation from {default_annotation} could not be added. Please check the annotation file is formatted correctly.")
 
     # 3) Locate fragments file
 
     default_fragments = os.path.join(os.path.dirname(path), "atac_fragments.tsv.gz")
-    if os.path.exists(default_annotation):
-        locate_fragments(adata, default_fragments)
+    if os.path.exists(default_fragments):
         print(f"Located fragments file: {default_fragments}")
+        locate_fragments(adata, default_fragments)
 
 
 def count_fragments_features(
