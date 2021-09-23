@@ -27,6 +27,8 @@ v0.1.1
     
     * Handle fragments files with barcodes different than ``obs_names``.
 
+    * Support ``atac_peak_annotation.tsv`` files produced by Cell Ranger ARC 2.0.0.
+
 v0.1.0
 ------
 

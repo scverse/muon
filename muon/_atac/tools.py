@@ -123,9 +123,17 @@ def add_peak_annotation(
     # peak = chrom:start-end
     if "peak" not in pa.columns:
         if "chrom" in pa.columns and "start" in pa.columns and "end" in pa.columns:
-            pa["peak"] = pa["chrom"].astype(str) + ":" + pa["start"].astype(str) + "-" + pa["end"].astype(str)
+            pa["peak"] = (
+                pa["chrom"].astype(str)
+                + ":"
+                + pa["start"].astype(str)
+                + "-"
+                + pa["end"].astype(str)
+            )
         else:
-            raise AttributeError(f"Peak annotation does not in contain neighter peak column nor chrom, start, and end columns.")
+            raise AttributeError(
+                f"Peak annotation does not in contain neighter peak column nor chrom, start, and end columns."
+            )
 
     # Split genes, distances, and peaks into individual records
     pa_g = pd.DataFrame(pa.gene.str.split(";").tolist(), index=pa.peak).stack()
@@ -163,7 +171,7 @@ def add_peak_annotation(
 def add_peak_annotation_gene_names(
     data: Union[AnnData, MuData],
     gene_names: Optional[pd.DataFrame] = None,
-    join_on: str = "gene_ids",
+    join_on: str = None,
     return_annotation: bool = False,
 ):
     """
@@ -176,7 +184,8 @@ def add_peak_annotation_gene_names(
     gene_names
             A DataFrame indexed on the gene name
     join_on
-            Name of the column in the gene_names DataFrame corresponding to the peak annotation index
+            Name of the column in the gene_names DataFrame corresponding to the peak annotation index.
+            It is automatically set to "gene_ids" or "gene_name" if none is provided.
     return_annotation
             If return adata.uns['atac']['peak_annotation']. False by default.
     """
@@ -200,6 +209,11 @@ def add_peak_annotation_gene_names(
             "There is no peak annotation yet. Run muon.atac.tl.add_peak_annotation first."
         )
 
+    ann = adata.uns["atac"]["peak_annotation"]
+
+    if join_on is None:
+        join_on = "gene_ids"
+
     # Extract a table with gene IDs and gene names only
     gene_id_name = (
         gene_names.loc[:, [join_on]]
@@ -208,16 +222,22 @@ def add_peak_annotation_gene_names(
         .set_index(join_on)
     )
 
-    # Add gene names to the peak annotatoin table, then reset the index on gene IDs
-    ann = adata.uns["atac"]["peak_annotation"]
+    # Add gene names to the peak annotation table, then reset the index on gene IDs.
+    # If join_on == "gene_name", rename "gene" -> "gene_name" to stay unambiguous.
 
     # Check whether the annotation index is not gene IDs
     if len(np.intersect1d(ann.index.values, gene_id_name.index.values)) == 0:
+        # Check whether the annotation index is gene name already
+        if len(np.intersect1d(ann.index.values, gene_names.index.values)) != 0:
+            join_on = "gene_name"
+            ann.index.names = ["gene_name"]
+            adata.uns["atac"]["peak_annotation"] = ann
+
         if return_annotation:
             return ann
         return
 
-    ann = ann.join(gene_id_name).rename_axis("gene").reset_index(drop=False)
+    ann = ann.join(gene_id_name).rename_axis(join_on).reset_index(drop=False)
 
     # Use empty strings for intergenic peaks when there is no gene
     ann.loc[ann.gene_name.isnull(), "gene_name"] = ""
@@ -696,7 +716,9 @@ def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path
     if os.path.exists(default_annotation):
         try:
             add_peak_annotation(adata, default_annotation)
-            print(f"Added peak annotation from {default_annotation} to .uns['atac']['peak_annotation']")
+            print(
+                f"Added peak annotation from {default_annotation} to .uns['atac']['peak_annotation']"
+            )
 
             if isinstance(data, MuData):
                 try:
@@ -705,7 +727,9 @@ def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path
                 except Exception:
                     pass
         except AttributeError:
-            warn(f"Peak annotation from {default_annotation} could not be added. Please check the annotation file is formatted correctly.")
+            warn(
+                f"Peak annotation from {default_annotation} could not be added. Please check the annotation file is formatted correctly."
+            )
 
     # 3) Locate fragments file
 
