@@ -107,7 +107,7 @@ def embedding(
             for i, k in enumerate(keys):
                 for m in data.mod:
                     if keys_in_mod[m][i] == False and data.mod[m].raw is not None:
-                        keys_in_mod[m][i] = True
+                        keys_in_mod[m][i] = k in data.mod[m].raw.var_names
 
         for m in data.mod:
             if np.sum(keys_in_mod[m]) > 0:
