@@ -15,19 +15,13 @@ v0.1.1
 
 ``MuData`` is now provided `as a separate package <https://mudata.readthedocs.io/>`_. Since this release, ``mudata`` is a hard dependency of ``muon``. Making the codebase more modular, this will also help developing tools around ``MuData`` that do not depend on ``scanpy`` or ``muon``.
 
-* Fixes:
+We fixed a few things including reading ``.h5mu`` files in backed mode when modalities have ``.raw`` attributes (this is live in the ``mudata`` library), ``SNF`` functionality (:func:`muon.tl.snf`) and colouring plots by ``var_names`` that are present in ``.raw`` but not in the root ``AnnData`` object.
 
-  * ``[mudata]`` Fix reading ``.h5mu`` files in backed mode when modalities have ``.raw`` attributes.
-
-  * Fix colouring plots by ``var_names`` that are present in ``.raw`` but not in the root ``AnnData`` object.
-
-* New features:
-  
-  * ATAC module
+We also introduced some new features for the ATAC module including:
     
-    * Handle fragments files with barcodes different than ``obs_names``.
+    * handling fragments files with barcodes different than ``obs_names`` and
 
-    * Support ``atac_peak_annotation.tsv`` files produced by Cell Ranger ARC 2.0.0.
+    * supporting ``atac_peak_annotation.tsv`` files produced by Cell Ranger ARC 2.0.0.
 
 v0.1.0
 ------
