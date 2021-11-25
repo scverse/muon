@@ -9,6 +9,10 @@ Release notes
 
    *
 
+v0.1.2
+------
+
+* In-place filtering functions (:func:`muon.pp.filter_obs` and :func:`muon.pp.filter_var`) can be now run one after another without requiring :func:`muon.MuData.update`).
 
 v0.1.1
 ------
