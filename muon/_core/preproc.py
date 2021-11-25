@@ -733,18 +733,13 @@ def filter_obs(
         # filter_obs() for each modality
         for m, mod in data.mod.items():
             obsmap = data.obsmap[m][obs_subset]
-            obsmap = obsmap[obsmap != 0] - 1
-            filter_obs(mod, mod.obs_names[obsmap])
-        # Subset .obsmap
-        # This would return wrong indices however:
-        # for k, v in data.obsmap.items():
-        #     data.obsmap[k] = v[obs_subset]
-        #
-        # A fix is to get rid of obsmaps
-        # for them to be reconstructed later.
-        obsmap_keys = list(data.obsmap.keys())
-        for k in obsmap_keys:
-            del data.obsmap[k]
+            obsidx = obsmap > 0
+            filter_obs(mod, mod.obs_names[obsmap[obsidx] - 1])
+            maporder = np.argsort(obsmap[obsidx])
+            nobsmap = np.empty(maporder.size)
+            nobsmap[maporder] = np.arange(1, maporder.size + 1)
+            obsmap[obsidx] = nobsmap
+            data.obsmap[m] = obsmap
 
     return
 
@@ -846,17 +841,12 @@ def filter_var(
         # filter_var() for each modality
         for m, mod in data.mod.items():
             varmap = data.varmap[m][var_subset]
-            varmap = varmap[varmap != 0] - 1
-            filter_var(mod, mod.var_names[varmap])
-        # Subset .varmap
-        # This would return wrong indices however:
-        # for k, v in data.varmap.items():
-        #     data.varmap[k] = v[var_subset]
-        #
-        # A fix is to get rid of varmaps
-        # for them to be reconstructed later.
-        varmap_keys = list(data.varmap.keys())
-        for k in varmap_keys:
-            del data.varmap[k]
+            varidx = varmap > 0
+            filter_var(mod, mod.var_names[varmap[varidx] - 1])
+            maporder = np.argsort(varmap[varidx])
+            nvarmap = np.empty(maporder.size)
+            nvarmap[maporder] = np.arange(1, maporder.size + 1)
+            varmap[varidx] = nvarmap
+            data.varmap[m] = varmap
 
     return
