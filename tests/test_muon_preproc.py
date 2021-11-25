@@ -39,6 +39,28 @@ class TestInPlaceFiltering:
         assert md["mod1"].n_obs == mdata.obsm["mod1"][sub].sum()
         assert md["mod2"].n_obs == mdata.obsm["mod2"][sub].sum()
 
+    def test_filter_obs_mdata_consecutive(self, mdata, filepath_h5mu):
+        md = mdata.copy()
+        md.obs["condition1"] = np.random.normal(size=md.n_obs)
+        md.obs["condition2"] = np.random.normal(size=md.n_obs, scale=2)
+        total_sub = np.sum((md.obs["condition1"] > 0) * (md.obs["condition2"] > 0))
+        mu.pp.filter_obs(md, "condition1", lambda x: x > 0)
+        mu.pp.filter_obs(md, "condition2", lambda x: x > 0)
+        assert md.n_obs == total_sub
+
+    def test_filter_obs_mdata_consecutive_ragged(self, mdata, filepath_h5mu):
+        # It should also work if data is missing in some modalities
+        mod1_discard = np.random.choice(range(mdata["mod1"].n_obs), size=3, replace=False)
+        mod1_keep = [i for i in range(mdata["mod1"].n_obs) if i not in mod1_discard]
+        md = MuData({"mod1": mdata["mod1"][mod1_keep, :].copy(), "mod2": mdata["mod2"]})
+
+        md.obs["condition1"] = np.random.normal(size=md.n_obs)
+        md.obs["condition2"] = np.random.normal(size=md.n_obs, scale=2)
+        total_sub = np.sum((md.obs["condition1"] > 0) * (md.obs["condition2"] > 0))
+        mu.pp.filter_obs(md, "condition1", lambda x: x > 0)
+        mu.pp.filter_obs(md, "condition2", lambda x: x > 0)
+        assert md.n_obs == total_sub
+
     def test_filter_obs_adata_backed(self, mdata, filepath_h5mu):
         mdata.write(filepath_h5mu)
         mdata_ = mu.read_h5mu(filepath_h5mu, backed="r")
@@ -74,15 +96,19 @@ class TestInPlaceFiltering:
         sub = np.random.binomial(1, 0.5, md.n_vars).astype(bool)
         sub_mod1 = mdata.varm["mod1"][sub].sum()
         sub_mod2 = mdata.varm["mod2"][sub].sum()
-        print(md)
         mu.pp.filter_var(md, sub)
         assert md.n_vars == sub.sum()
-        print(md)
-        print(sub.sum())
-        print(sub_mod1)
-        print(sub_mod2)
         assert md["mod1"].n_vars == sub_mod1
         assert md["mod2"].n_vars == sub_mod2
+
+    def test_filter_var_mdata_consecutive(self, mdata, filepath_h5mu):
+        md = mdata.copy()
+        md.var["condition1"] = np.random.normal(size=md.n_var)
+        md.var["condition2"] = np.random.normal(size=md.n_var, scale=2)
+        total_sub = np.sum((md.var["condition1"] > 0) * (md.var["condition2"] > 0))
+        mu.pp.filter_var(md, "condition1", lambda x: x > 0)
+        mu.pp.filter_var(md, "condition2", lambda x: x > 0)
+        assert md.n_var == total_sub
 
     def test_filter_var_adata_backed(self, mdata, filepath_h5mu):
         mdata.write(filepath_h5mu)
