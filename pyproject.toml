@@ -42,6 +42,10 @@ docs = [
     "nbsphinx",
     "sphinx_automodapi"
 ]
+atac = [
+    "pybedtools",
+    "pysam"
+]
 
 [tool.flit.metadata.urls]
 Documentation = "https://muon.readthedocs.io/en/latest/"
