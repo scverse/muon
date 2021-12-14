@@ -736,7 +736,15 @@ def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path
     default_fragments = os.path.join(os.path.dirname(path), "atac_fragments.tsv.gz")
     if os.path.exists(default_fragments):
         print(f"Located fragments file: {default_fragments}")
-        locate_fragments(adata, default_fragments)
+        try:
+            locate_fragments(adata, default_fragments)
+        except ImportError:
+            warn(
+                "Pysam is not installed. To work with the fragments file please install pysam (pip install pysam)."
+            )
+            if "files" not in adata.uns:
+                adata.uns["files"] = OrderedDict()
+            adata.uns["files"]["fragments"] = default_fragments
 
 
 def count_fragments_features(
