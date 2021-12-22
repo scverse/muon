@@ -11,11 +11,11 @@
 
 `muon` is designed around `MuData` (multimodal data) objects — in the same vein as [scanpy](https://github.com/theislab/scanpy) and [AnnData](https://github.com/theislab/anndata) are designed to work primarily with scRNA-seq data in Python. Individual modalities in `MuData` are naturally represented with `AnnData` objects.
 
-`MuData` class and `.h5mu` files I/O operations are part of [the standalone mudata library](https://github.com/pmbio/mudata).
+`MuData` class and `.h5mu` files I/O operations are part of [the standalone mudata library](https://github.com/scverse/mudata).
 
 ### Input
 
-`MuData` class is implemented in the [mudata](https://github.com/pmbio/mudata) library and is exposed in `muon`:
+`MuData` class is implemented in the [mudata](https://github.com/scverse/mudata) library and is exposed in `muon`:
 
 ```py
 from muon import MuData
@@ -40,7 +40,7 @@ mu.read_10x_h5("filtered_feature_bc_matrix.h5")
 
 ### I/O with `.h5mu` files
 
-Basic `.h5mu` files I/O functionality is implemented in [mudata](https://github.com/pmbio/mudata) and is exposed in `muon`. A `MuData` object represents modalities as collections of `AnnData` objects, and these collections can be saved on disk and retrieved using HDF5-based `.h5mu` files, which design is based on `.h5ad` file structure.
+Basic `.h5mu` files I/O functionality is implemented in [mudata](https://github.com/scverse/mudata) and is exposed in `muon`. A `MuData` object represents modalities as collections of `AnnData` objects, and these collections can be saved on disk and retrieved using HDF5-based `.h5mu` files, which design is based on `.h5ad` file structure.
 
 ```py
 mdata.write("pbmc_10k.h5mu")
@@ -101,4 +101,4 @@ from muon import prot as pt
 
 Some implementation details are noted in [DESIGN.md](./DESIGN.md). 
 
-[Contributions](./CONTRIBUTING.md) in the form of [issues](https://github.com/PMBio/muon/issues), [pull requests](https://github.com/PMBio/muon/pulls) or [discussions](https://github.com/PMBio/muon/discussions) are welcome.
+[Contributions](./CONTRIBUTING.md) in the form of [issues](https://github.com/scverse/muon/issues), [pull requests](https://github.com/scverse/muon/pulls) or [discussions](https://github.com/scverse/muon/discussions) are welcome.
