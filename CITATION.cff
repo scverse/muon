@@ -10,7 +10,7 @@ authors:
 title: "muon"
 version: 1.0.0
 date-released: 2021-06-01
-url: "https://github.com/PMBio/muon"
+url: "https://github.com/scverse/muon"
 preferred-citation:
   type: article
   authors:
