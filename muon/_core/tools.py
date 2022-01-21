@@ -303,6 +303,11 @@ def mofa(
     n_iterations: int = 1000,
     convergence_mode: str = "fast",
     gpu_mode: bool = False,
+    svi_mode: bool = False,
+    batch_size: float = .2,
+    learning_rate: float = .75,
+    forgetting_rate: float = 0.,
+    start_stochastic: int = 1,
     use_float32: bool = False,
     smooth_covariate: Optional[str] = None,
     smooth_warping: bool = False,
@@ -361,6 +366,17 @@ def mofa(
             use reduced precision (float32)
     gpu_mode : optional
             if to use GPU mode
+    svi_mode : optional 
+            if to use SVI
+    batch_size : optional
+            fraction of samples MOFA is trained on during single training step (only applicable when MOFA 
+            is run in svi_mode=True)
+    learning_rate : optional
+            learning rate (only applicable when MOFA is run in svi_mode=True)
+    forgetting_rate : optional
+            forgetting_rate (only applicable when MOFA is run in svi_mode=True)
+    start_stochastic : optional 
+            starting iteration for SVI training (only applicable when MOFA is run in svi_mode=True)
     smooth_covariate : optional
             use a covariate (column in .obs) to learn smooth factors (MEFISTO)
     smooth_warping : optional
@@ -481,6 +497,14 @@ def mofa(
         save_interrupted=save_interrupted,
     )
 
+    if svi_mode:
+        logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting up SVI...")
+        ent.set_stochastic_options(
+            learning_rate=learning_rate,
+            forgetting_rate=forgetting_rate,
+            batch_size=batch_size, 
+            start_stochastic=start_stochastic)
+        
     # MEFISTO options
 
     smooth_kwargs_default = dict(
