@@ -9,6 +9,12 @@ Release notes
 
    *
 
+v0.1.3
+------
+
+* Plotting module has gained new plots such as :func:`muon.pl.scatter`. 
+
+
 v0.1.2
 ------
 

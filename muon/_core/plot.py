@@ -10,8 +10,83 @@ import seaborn as sns
 import scanpy as sc
 from anndata import AnnData
 
-
 from mudata import MuData
+from .utils import _get_values
+
+#
+# Scatter
+#
+
+
+def scatter(
+    data: Union[AnnData, MuData],
+    x: Optional[str] = None,
+    y: Optional[str] = None,
+    color: Optional[Union[str, Sequence[str]]] = None,
+    use_raw: Optional[bool] = None,
+    layers: Optional[Union[str, Sequence[str]]] = None,
+    **kwargs,
+):
+    """
+    Scatter plot along observations or variables axes.
+    Variables in each modality can be referenced,
+    e.g. ``"rna:X_pca"``.
+
+    See :func:`scanpy.pl.scatter` for details.
+
+    Parameters
+    ----------
+    data : Union[AnnData, MuData]
+        MuData or AnnData object
+    x : Optional[str]
+        x coordinate
+    y : Optional[str]
+        y coordinate
+    color : Optional[Union[str, Sequence[str]]], optional (default: None)
+        Keys for variables or annotations of observations (.obs columns),
+        or a hex colour specification.
+    use_raw : Optional[bool], optional (default: None)
+        Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
+        If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
+    layers : Optional[Union[str, Sequence[str]]], optional (default: None)
+        Names of the layers where x, y, and color come from.
+        No layer is used by default. A single layer value will be expanded to [layer, layer, layer].
+    """
+    if isinstance(data, AnnData):
+        return sc.pl.embedding(
+            data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs
+        )
+
+    if isinstance(layers, str) or layers is None:
+        layers = [layers, layers, layers]
+
+    obs = pd.DataFrame(
+        {
+            x: _get_values(data, x, use_raw=use_raw, layer=layers[0]),
+            y: _get_values(data, y, use_raw=use_raw, layer=layers[1]),
+        }
+    )
+    obs.index = data.obs_names
+    if color is not None:
+        # Workaround for scanpy#311, scanpy#1497
+        if isinstance(color, str):
+            color_obs = _get_values(data, color, use_raw=use_raw, layer=layers[2])
+            color_obs = pd.DataFrame({color: color_obs})
+        else:
+            # scanpy#311 / scanpy#1497 has to be fixed for this to work
+            color_obs = _get_values(data, color, use_raw=use_raw, layer=layers[2])
+        color_obs.index = data.obs_names
+        obs = pd.concat([obs, color_obs], axis=1, ignore_index=False)
+
+    ad = AnnData(obs=obs, uns=data.uns)
+
+    # return ad
+    return sc.pl.scatter(ad, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs)
+
+
+#
+# Embedding
+#
 
 
 def embedding(
@@ -49,7 +124,9 @@ def embedding(
         over `use_raw=True`.
     """
     if isinstance(data, AnnData):
-        return sc.pl.embedding(data, basis=basis, color=color, use_raw=use_raw, **kwargs)
+        return sc.pl.embedding(
+            data, basis=basis, color=color, use_raw=use_raw, layer=layer, **kwargs
+        )
 
     # `data` is MuData
     if basis not in data.obsm and "X_" + basis in data.obsm:
