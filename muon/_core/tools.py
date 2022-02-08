@@ -302,13 +302,13 @@ def mofa(
     spikeslab_factors: bool = False,
     n_iterations: int = 1000,
     convergence_mode: str = "fast",
+    use_float32: bool = False,
     gpu_mode: bool = False,
     svi_mode: bool = False,
-    batch_size: float = .2,
-    learning_rate: float = .75,
-    forgetting_rate: float = 0.,
-    start_stochastic: int = 1,
-    use_float32: bool = False,
+    svi_batch_size: float = 0.5,
+    svi_learning_rate: float = 1.0,
+    svi_forgetting_rate: float = 0.5,
+    svi_start_stochastic: int = 1,
     smooth_covariate: Optional[str] = None,
     smooth_warping: bool = False,
     smooth_kwargs: Optional[Mapping[str, Any]] = None,
@@ -366,17 +366,16 @@ def mofa(
             use reduced precision (float32)
     gpu_mode : optional
             if to use GPU mode
-    svi_mode : optional 
-            if to use SVI
-    batch_size : optional
-            fraction of samples MOFA is trained on during single training step (only applicable when MOFA 
-            is run in svi_mode=True)
-    learning_rate : optional
-            learning rate (only applicable when MOFA is run in svi_mode=True)
-    forgetting_rate : optional
-            forgetting_rate (only applicable when MOFA is run in svi_mode=True)
-    start_stochastic : optional 
-            starting iteration for SVI training (only applicable when MOFA is run in svi_mode=True)
+    svi_mode : optional
+            if to use Stochastic Variational Inference (SVI)
+    svi_batch_size : optional
+            batch size as a fraction (only applicable when svi_mode=True, 0.5 by default)
+    svi_learning_rate : optional
+            learning rate (only applicable when svi_mode=True, 1.0 by default)
+    svi_forgetting_rate : optional
+            forgetting_rate (only applicable when svi_mode=True, 0.5 by default)
+    svi_start_stochastic : optional
+            first iteration to start SVI (only applicable when svi_mode=True, 1 by default)
     smooth_covariate : optional
             use a covariate (column in .obs) to learn smooth factors (MEFISTO)
     smooth_warping : optional
@@ -500,11 +499,12 @@ def mofa(
     if svi_mode:
         logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting up SVI...")
         ent.set_stochastic_options(
-            learning_rate=learning_rate,
-            forgetting_rate=forgetting_rate,
-            batch_size=batch_size, 
-            start_stochastic=start_stochastic)
-        
+            learning_rate=svi_learning_rate,
+            forgetting_rate=svi_forgetting_rate,
+            batch_size=svi_batch_size,
+            start_stochastic=svi_start_stochastic,
+        )
+
     # MEFISTO options
 
     smooth_kwargs_default = dict(

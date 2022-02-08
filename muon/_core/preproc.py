@@ -471,7 +471,7 @@ def neighbors(
 
     weights = softmax(ratios, axis=1)
     neighbordistances = csr_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
-    largeidx = mdata.n_obs ** 2 > np.iinfo(np.int32).max
+    largeidx = mdata.n_obs**2 > np.iinfo(np.int32).max
     if largeidx:  # work around scipy bug https://github.com/scipy/scipy/issues/13155
         neighbordistances.indptr = neighbordistances.indptr.astype(np.int64)
         neighbordistances.indices = neighbordistances.indices.astype(np.int64)

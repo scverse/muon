@@ -36,7 +36,7 @@ class TestMOFASimple(unittest.TestCase):
         r2 = []
         for i in range(n_factors):
             yhat = np.dot(self.mdata.obsm["X_mofa"][:, [i]], self.mdata.varm["LFs"][:, [i]].T)
-            r2.append(1 - np.sum((y - yhat) ** 2) / np.sum(y ** 2))
+            r2.append(1 - np.sum((y - yhat) ** 2) / np.sum(y**2))
 
         # Only first 5 factors should have high R2
         self.assertTrue(all([i > 0.1 for i in r2[:5]]))
