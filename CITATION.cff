@@ -23,8 +23,8 @@ preferred-citation:
   - family-names: "Stegle"
     given-names: "Oliver"
     orcid: "https://orcid.org/0000-0002-8818-7193"
-  doi: "10.1101/2021.06.01.445670"
-  journal: "bioRxiv"
-  month: 6
-  title: "Muon: multimodal omics analysis framework"
-  year: 2021
+  doi: "10.1186/s13059-021-02577-8"
+  journal: "Genome Biology"
+  month: 2
+  title: "MUON: multimodal omics analysis framework"
+  year: 2022
