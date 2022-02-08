@@ -118,7 +118,7 @@ def _get_values(
         if (use_raw is None or use_raw) and layer is not None:
             for m in data.mod:
                 if key_in_mod[m] == False and data.mod[m].raw is not None:
-                    key_in_mod[m] = k in data.mod[m].raw.var_names
+                    key_in_mod[m] = key in data.mod[m].raw.var_names
                     if key_in_mod[m] and data.mod[m].raw is None and layer is None:
                         warnings.warn(
                             f"Attibute .raw is None for the modality {m}, using .X instead"
