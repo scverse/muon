@@ -68,7 +68,7 @@ def _get_values(
     if isinstance(data, MuData):
         if ":" in key:
             maybe_mod, maybe_key = key.split(":", 1)
-            if maybe_mod in data.mod:
+            if maybe_mod in data.mod and key not in data.var_names and key not in data.obsm:
                 key_mod = maybe_mod
                 mod_key = maybe_key
 
@@ -76,7 +76,7 @@ def _get_values(
     obsm_key, obsm_index = None, None
     if ":" in key and key_mod is None:
         maybe_obsm_key, maybe_index = key.split(":", 1)
-        if maybe_obsm_key in data.obsm:
+        if maybe_obsm_key in data.obsm and key not in data.var_names:
             try:
                 maybe_index = int(maybe_index)
             except ValueError:
