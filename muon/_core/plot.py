@@ -80,8 +80,10 @@ def scatter(
 
     ad = AnnData(obs=obs, uns=data.uns)
 
-    # return ad
-    return sc.pl.scatter(ad, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs)
+    # Note that use_raw and layers are not provided to the plotting function
+    # as the corresponding values were fetched from individual modalities
+    # and are now stored in .obs
+    return sc.pl.scatter(ad, x=x, y=y, color=color, **kwargs)
 
 
 #

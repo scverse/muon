@@ -134,7 +134,7 @@ def _get_values(
                     layer = None
 
         # .raw slots might have exclusive var_names
-        if (use_raw is None or use_raw) and layer is not None:
+        if (use_raw is None or use_raw) and layer is None:
             for m in data.mod:
                 if key_in_mod[m] == False and data.mod[m].raw is not None:
                     key_in_mod[m] = key in data.mod[m].raw.var_names
@@ -159,7 +159,7 @@ def _get_values(
             )
 
     elif isinstance(data, AnnData):
-        if (use_raw is None or use_raw) and data.raw is not None:
+        if (use_raw is None or use_raw) and data.raw is not None and layer is None:
             keysidx = data.raw.var.index.get_indexer_for([key])
             if keysidx == -1:
                 raise ValueError(f"Key {key} could not be found.")
