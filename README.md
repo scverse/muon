@@ -2,7 +2,7 @@
 
 `muon` is a multimodal omics Python framework. 
 
-[Documentation](https://muon.readthedocs.io/) | [Tutorials](https://muon-tutorials.readthedocs.io/) | [Preprint](https://www.biorxiv.org/content/10.1101/2021.06.01.445670v1) | [Discord](https://discord.com/invite/MMsgDhnSwQ)
+[Documentation](https://muon.readthedocs.io/) | [Tutorials](https://muon-tutorials.readthedocs.io/) | [Publication](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-021-02577-8)
 
 [![Documentation Status](https://readthedocs.org/projects/muon/badge/?version=latest)](http://muon.readthedocs.io/?badge=latest)
 [![PyPi version](https://img.shields.io/pypi/v/muon)](https://pypi.org/project/muon)
