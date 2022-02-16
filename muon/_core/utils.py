@@ -17,6 +17,7 @@ def _get_values(
     key: Optional[str] = None,
     use_raw: Optional[bool] = None,
     layer: Optional[str] = None,
+    obsmap: Optional[np.ndarray] = None,
 ) -> Optional[Iterable]:
     """
     A helper function to get values
@@ -45,13 +46,25 @@ def _get_values(
         Name of the layer in the modality where a feature (from `color`) is derived from.
         No layer is used by default. If a valid `layer` is provided, this takes precedence
         over `use_raw=True`.
+    obsmap : Optional[np.ndarray], optional (default: None)
+        Provide a vector of the desired size were 0 are missing values and non-zero values
+        correspond to the 1-based index of the value. 
+        This is used internally for when AnnData as a modality has less observations
+        than MuData has globally (i.e. other modalities have other cells).
     """
     if key is None:
         return None
 
+    def _maybe_apply_obsmap(vec, m):
+        if m is not None:
+            # Avoid numpy conversion of uint indices to float
+            m = m.astype(int)
+            return pd.Series([vec[i-1] if i!=0 else np.nan for i in m]).values
+        return vec
+
     # Handle multiple keys
     if isinstance(key, Iterable) and not isinstance(key, str):
-        all_values = [_get_values(data, k, use_raw=use_raw, layer=layer) for k in key]
+        all_values = [_get_values(data, k, use_raw=use_raw, layer=layer, obsmap=obsmap) for k in key]
         df = pd.DataFrame(all_values).T
         df.columns = [k for k in key if k is not None]
         return df
@@ -61,22 +74,23 @@ def _get_values(
 
     # .obs
     if key in data.obs.columns:
-        return data.obs[key].values
+        values = data.obs[key].values
+        return _maybe_apply_obsmap(values, obsmap)
 
     # Handle composite keys, e.g. rna:n_counts
     key_mod, mod_key = None, None
-    if isinstance(data, MuData):
+    if isinstance(data, MuData) and key not in data.var_names and key not in data.obsm:
         if ":" in key:
             maybe_mod, maybe_key = key.split(":", 1)
-            if maybe_mod in data.mod and key not in data.var_names and key not in data.obsm:
+            if maybe_mod in data.mod:
                 key_mod = maybe_mod
                 mod_key = maybe_key
 
     # Handle composite keys, e.g. X_umap:1
     obsm_key, obsm_index = None, None
-    if ":" in key and key_mod is None:
+    if ":" in key and key_mod is None and key not in data.var_names:
         maybe_obsm_key, maybe_index = key.split(":", 1)
-        if maybe_obsm_key in data.obsm and key not in data.var_names:
+        if maybe_obsm_key in data.obsm:
             try:
                 maybe_index = int(maybe_index)
             except ValueError:
@@ -90,15 +104,16 @@ def _get_values(
     # .obsm
     if obsm_key:
         values = data.obsm[obsm_key][:, maybe_index - 1]
-
         if issparse(values):
             values = np.array(values.todense()).squeeze()
-        return values
+        return _maybe_apply_obsmap(values, obsmap)
 
     # .var_names
     if isinstance(data, MuData):
         if key_mod and mod_key:
-            return _get_values(data.mod[key_mod], key=mod_key, use_raw=use_raw, layer=layer)
+            if not data.obs_names.equals(data.mod[key_mod].obs_names) and obsmap is None:
+                obsmap = data.obsmap[key_mod]
+            return _get_values(data.mod[key_mod], key=mod_key, use_raw=use_raw, layer=layer, obsmap=obsmap)
 
         # {'rna': True, 'prot': False}
         key_in_mod = {m: key in data.mod[m].var_names for m in data.mod}
@@ -133,7 +148,9 @@ def _get_values(
             )
         else:  # sum(key_in_mod.values()) == 1
             use_mod = [m for m, v in key_in_mod.items() if v][0]
-            return _get_values(data.mod[use_mod], key=key, use_raw=use_raw, layer=layer)
+            if not data.obs_names.equals(data.mod[use_mod].obs_names) and obsmap is None:
+                obsmap = data.obsmap[use_mod]
+            return _get_values(data.mod[use_mod], key=key, use_raw=use_raw, layer=layer, obsmap=obsmap)
 
     elif isinstance(data, AnnData):
         if (use_raw is None or use_raw) and data.raw is not None:
@@ -173,6 +190,8 @@ def _get_values(
 
         if issparse(values):
             values = np.array(values.todense()).squeeze()
+        values = _maybe_apply_obsmap(values, obsmap)
+
         return values
     else:
         raise TypeError("Expected data to be MuData or AnnData")
