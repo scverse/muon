@@ -11,7 +11,12 @@ from muon import MuData
 
 from muon._core.utils import _get_values
 
-@pytest.fixture(params=[{"same_obs": True, "same_obs": False}, ])
+
+@pytest.fixture(
+    params=[
+        {"same_obs": True, "same_obs": False},
+    ]
+)
 def mdata(request):
     mdata = MuData(
         {
@@ -41,18 +46,21 @@ def mdata(request):
 
     # obsm
 
-    mdata.obsm["global_emb"] = np.random.normal(size=(n,2))
+    mdata.obsm["global_emb"] = np.random.normal(size=(n, 2))
 
-    mdata["mod1"].obsm["mod1_emb"] = np.random.normal(size=(n1,20))
-    mdata["mod2"].obsm["mod2_emb"] = np.random.normal(size=(n2,20))
+    mdata["mod1"].obsm["mod1_emb"] = np.random.normal(size=(n1, 20))
+    mdata["mod2"].obsm["mod2_emb"] = np.random.normal(size=(n2, 20))
 
     mdata.update()
 
     if not request.param["same_obs"]:
-        mdata.mod["mod1"] = mdata["mod1"][np.random.choice(np.arange(n1), size=n1 // 2, replace=False)].copy()
+        mdata.mod["mod1"] = mdata["mod1"][
+            np.random.choice(np.arange(n1), size=n1 // 2, replace=False)
+        ].copy()
         mdata.update()
 
     yield mdata
+
 
 class TestTraitParsing:
 
@@ -93,4 +101,3 @@ class TestTraitParsing:
 
 if __name__ == "__main__":
     unittest.main()
-

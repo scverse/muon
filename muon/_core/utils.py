@@ -48,7 +48,7 @@ def _get_values(
         over `use_raw=True`.
     obsmap : Optional[np.ndarray], optional (default: None)
         Provide a vector of the desired size were 0 are missing values and non-zero values
-        correspond to the 1-based index of the value. 
+        correspond to the 1-based index of the value.
         This is used internally for when AnnData as a modality has less observations
         than MuData has globally (i.e. other modalities have other cells).
     """
@@ -59,12 +59,14 @@ def _get_values(
         if m is not None:
             # Avoid numpy conversion of uint indices to float
             m = m.astype(int)
-            return pd.Series([vec[i-1] if i!=0 else np.nan for i in m]).values
+            return pd.Series([vec[i - 1] if i != 0 else np.nan for i in m]).values
         return vec
 
     # Handle multiple keys
     if isinstance(key, Iterable) and not isinstance(key, str):
-        all_values = [_get_values(data, k, use_raw=use_raw, layer=layer, obsmap=obsmap) for k in key]
+        all_values = [
+            _get_values(data, k, use_raw=use_raw, layer=layer, obsmap=obsmap) for k in key
+        ]
         df = pd.DataFrame(all_values).T
         df.columns = [k for k in key if k is not None]
         return df
@@ -113,7 +115,9 @@ def _get_values(
         if key_mod and mod_key:
             if not data.obs_names.equals(data.mod[key_mod].obs_names) and obsmap is None:
                 obsmap = data.obsmap[key_mod]
-            return _get_values(data.mod[key_mod], key=mod_key, use_raw=use_raw, layer=layer, obsmap=obsmap)
+            return _get_values(
+                data.mod[key_mod], key=mod_key, use_raw=use_raw, layer=layer, obsmap=obsmap
+            )
 
         # {'rna': True, 'prot': False}
         key_in_mod = {m: key in data.mod[m].var_names for m in data.mod}
@@ -150,7 +154,9 @@ def _get_values(
             use_mod = [m for m, v in key_in_mod.items() if v][0]
             if not data.obs_names.equals(data.mod[use_mod].obs_names) and obsmap is None:
                 obsmap = data.obsmap[use_mod]
-            return _get_values(data.mod[use_mod], key=key, use_raw=use_raw, layer=layer, obsmap=obsmap)
+            return _get_values(
+                data.mod[use_mod], key=key, use_raw=use_raw, layer=layer, obsmap=obsmap
+            )
 
     elif isinstance(data, AnnData):
         if (use_raw is None or use_raw) and data.raw is not None:
