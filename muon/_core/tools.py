@@ -606,7 +606,7 @@ def mofa(
         data.obsm["X_mofa"] = z
 
     # Weights
-    w = np.concatenate([f["expectations"]["W"][m][:,:] for m in data.mod], axis=1).T
+    w = np.concatenate([f["expectations"]["W"][m][:, :] for m in data.mod], axis=1).T
     if use_var:
         # Set the weights of features that were not used to zero
         data.varm["LFs"] = np.zeros(shape=(data.n_vars, w.shape[1]))
