@@ -288,7 +288,7 @@ def mofa(
     data: Union[AnnData, MuData],
     groups_label: bool = None,
     use_raw: bool = False,
-    use_layer: bool = None,
+    use_layer: str = None,
     use_var: Optional[str] = "highly_variable",
     use_obs: Optional[str] = None,
     likelihoods: Optional[Union[str, List[str]]] = None,
@@ -606,7 +606,7 @@ def mofa(
         data.obsm["X_mofa"] = z
 
     # Weights
-    w = np.concatenate([v[:, :] for k, v in f["expectations"]["W"].items()], axis=1).T
+    w = np.concatenate([f["expectations"]["W"][m][:,:] for m in data.mod], axis=1).T
     if use_var:
         # Set the weights of features that were not used to zero
         data.varm["LFs"] = np.zeros(shape=(data.n_vars, w.shape[1]))
@@ -1334,3 +1334,27 @@ def umap(
     mdata.obsm["X_umap"] = adata.obsm["X_umap"]
     mdata.uns["umap"] = adata.uns["umap"]
     return mdata if copy else None
+
+
+def ica(
+    data: Union[AnnData, MuData],
+    basis="X_pca",
+    n_components=None,
+    *,
+    random_state=None,
+    scale=False,
+    copy=False,
+    **kwargs,
+):
+    """Run Independent component analysis"""
+    from sklearn.decomposition import FastICA
+
+    ica = FastICA(random_state=random_state, n_components=n_components, **kwargs)
+    x_ica = ica.fit_transcrotm(data.obsm[basis])
+
+    if scale:
+        x_ica /= x_ica.std(axis=0)
+
+    data = data.copy() if copy else data
+    data.obsm["X_ica"] = x_ica
+    return data if copy else None
