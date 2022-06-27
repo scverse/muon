@@ -1,4 +1,4 @@
-from typing import Union, List, Optional, Iterable, Sequence
+from typing import Union, List, Optional, Iterable, Sequence, Dict
 import warnings
 
 from matplotlib.axes import Axes
@@ -210,7 +210,13 @@ def embedding(
                     fmod_adata = data.mod[m][:, mod_keys]
 
                 if layer is not None:
-                    if layer in data.mod[m].layers:
+                    if isinstance(layer, Dict):
+                        m_layer = layer.get(m, None)
+                        if m_layer is not None:
+                            fmod_adata.X = data.mod[m][:, mod_keys].layers[m_layer]
+                            if use_raw:
+                                warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}")
+                    elif layer in data.mod[m].layers:
                         fmod_adata.X = data.mod[m][:, mod_keys].layers[layer]
                         if use_raw:
                             warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}")
