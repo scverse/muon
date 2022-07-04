@@ -12,8 +12,12 @@ Release notes
 v0.1.3
 ------
 
-* Plotting module has gained new plots such as :func:`muon.pl.scatter`. 
-
+This release comes with new features and improvements:
+* MOFA can be now run in the stochastic mode (SVI) using the new arguments for :func:`muon.tl.mofa`
+* MOFA model weights can be visualised with :func:`mu.pl.mofa_loadings`
+* Plotting module has gained new plots such as :func:`muon.pl.scatter`
+* It is now possible to define layers as `{modality: layer}` in :func:`mu.pl.embedding`
+* `pysam` not being installed is now handled more gracefully (#46).
 
 v0.1.2
 ------
