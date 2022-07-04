@@ -22,7 +22,8 @@ jobs:
         python -m pip install umap-learn
         python -m pip install .
         # python -m pip install mofapy2
-        python -m pip install git+https://github.com/bioFAM/mofapy2@dev
+        python -m pip install git+https://github.com/bioFAM/mofapy2
+        python -m pip install git+https://github.com/scverse/mudata
     - name: Lint with flake8
       run: |
         pip install flake8
