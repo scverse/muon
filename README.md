@@ -102,3 +102,5 @@ from muon import prot as pt
 Some implementation details are noted in [DESIGN.md](./DESIGN.md). 
 
 [Contributions](./CONTRIBUTING.md) in the form of [issues](https://github.com/scverse/muon/issues), [pull requests](https://github.com/scverse/muon/pulls) or [discussions](https://github.com/scverse/muon/discussions) are welcome.
+
+`muon` is a part of [scverse](https://scverse.org).
