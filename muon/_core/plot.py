@@ -213,11 +213,13 @@ def embedding(
                     if isinstance(layer, Dict):
                         m_layer = layer.get(m, None)
                         if m_layer is not None:
-                            fmod_adata.X = data.mod[m][:, mod_keys].layers[m_layer]
+                            x = data.mod[m][:, mod_keys].layers[m_layer]
+                            fmod_adata.X = x.todense() if issparse(x) else x
                             if use_raw:
                                 warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}")
                     elif layer in data.mod[m].layers:
-                        fmod_adata.X = data.mod[m][:, mod_keys].layers[layer]
+                        x = data.mod[m][:, mod_keys].layers[layer]
+                        fmod_adata.X = x.todense() if issparse(x) else x
                         if use_raw:
                             warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}")
                     else:
@@ -363,3 +365,64 @@ def histogram(
     plt.show()
 
     return None
+
+
+def mofa_loadings(
+    mdata: MuData,
+    factors: Union[str, Sequence[int], None] = None,
+    include_lowest: bool = True,
+    n_points: Union[int, None] = None,
+    show: Optional[bool] = None,
+    save: Union[str, bool, None] = None,
+):
+    """\
+    Rank genes according to contributions to MOFA factors.
+    Mirrors the interface of scanpy.pl.pca_loadings.
+
+    Parameters
+    ----------
+    mdata
+        MuData objects with .obsm["X_mofa"] and .varm["LFs"].
+    factors
+        For example, ``'1,2,3'`` means ``[1, 2, 3]``, first, second, third factors.
+    include_lowest
+        Whether to show the variables with both highest and lowest loadings.
+    show
+        Show the plot, do not return axis.
+    n_points
+        Number of variables to plot for each factor.
+    save
+        If `True` or a `str`, save the figure.
+        A string is appended to the default filename.
+        Infer the filetype if ending on {`'.pdf'`, `'.png'`, `'.svg'`}.
+    """
+    from scanpy.plotting._anndata import ranking
+    from scanpy.plotting._utils import savefig_or_show
+
+    if factors is None:
+        factors = [1, 2, 3]
+    elif isinstance(factors, str):
+        factors = [int(x) for x in factors.split(",")]
+    factors = np.array(factors) - 1
+
+    if np.any(factors < 0):
+        raise ValueError("Component indices must be greater than zero.")
+
+    if n_points is None:
+        n_points = min(30, mdata.n_vars)
+    elif mdata.n_vars < n_points:
+        raise ValueError(
+            f"Tried to plot {n_points} variables, but passed mudata only has {mdata.n_vars}."
+        )
+
+    for m in mdata.mod:
+        ranking(
+            mdata[:, mdata.varmap[m] != 0],
+            "varm",
+            "LFs",
+            n_points=n_points,
+            indices=factors,
+            include_lowest=include_lowest,
+        )
+
+        savefig_or_show("mofa_loadings", show=show, save=save)
