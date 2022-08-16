@@ -25,7 +25,7 @@ requires = [
     "h5py",
     "anndata",
     "scanpy",
-    "sklearn",
+    "scikit-learn",
     "umap-learn",
     "numba",
     "loompy",
