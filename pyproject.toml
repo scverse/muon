@@ -28,7 +28,6 @@ requires = [
     "scikit-learn",
     "umap-learn",
     "numba",
-    "loompy",
     "protobuf",
     "tqdm",
     "mudata",
