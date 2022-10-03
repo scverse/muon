@@ -1,7 +1,6 @@
 from typing import Union, Callable, Optional, Sequence, Dict, Iterable
 from functools import reduce
 import warnings
-from collections import OrderedDict
 from itertools import repeat
 
 import numpy as np
@@ -393,7 +392,7 @@ def neighbors(
         if issparse(X):
             X = X.tocsr()
             cmetric = _jaccard_sparse_euclidean_metric
-            metric_kwds = OrderedDict(
+            metric_kwds = dict(
                 X_indices=X.indices,
                 X_indptr=X.indptr,
                 X_data=X.data,
@@ -405,7 +404,7 @@ def neighbors(
             )
         else:
             cmetric = _jaccard_euclidean_metric
-            metric_kwds = OrderedDict(
+            metric_kwds = dict(
                 X=X,
                 neighbors_indices=neighbordistances.indices,
                 neighbors_indptr=neighbordistances.indptr,
@@ -850,3 +849,53 @@ def filter_var(
             data.varmap[m] = varmap
 
     return
+
+
+# Subsampling observations
+
+
+def sample_obs(
+    data: Union[AnnData, MuData],
+    frac: float = 0.1,
+    groupby: Optional[str] = None,
+    min_n: Optional[int] = None,
+):
+    """
+    Return an object with some of the observations (subsampling).
+
+    Parameters
+    ----------
+    data: AnnData or MuData
+        AnnData or MuData object.
+    frac: float (0.1 by default)
+        A fraction of observations to return.
+    groupby: str
+        Categorical column in .obs that is used for prior grouping
+        before sampling observations.
+    min_n: int
+        Return min_n observations if fraction frac of observations
+        is below min_n. When groupby is not None, min_n is applied
+        per group.
+
+    Returns a view of the data.
+    """
+    if groupby is None:
+        new_n = np.ceil(data.n_obs * frac).astype(int)
+        if min_n is not None and new_n < min_n:
+            new_n = min_n
+        obs_indices = np.random.choice(range(data.n_obs), size=new_n, replace=False)
+        return data[obs_indices]
+    elif groupby not in data.obs:
+        raise ValueError(f"{groupby} is not in .obs")
+    elif data.obs[groupby].dtype != "category":
+        raise TypeError(f".obs['{groupby}'] is not categorical")
+    else:
+        obs_names = []
+        for cat in data.obs[groupby].cat.categories:
+            view = data[data.obs[groupby] == cat]
+            new_n = np.ceil(view.n_obs * frac).astype(int)
+            if min_n is not None and new_n < min_n:
+                new_n = min_n
+            obs_names.append(np.random.choice(view.obs_names.values, size=new_n, replace=False))
+        obs_names = np.concatenate(obs_names)
+        return data[obs_names]

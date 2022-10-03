@@ -2,7 +2,6 @@ import io
 import os
 from glob import glob
 import pkgutil
-from collections import OrderedDict
 from typing import List, Union, Optional, Callable, Iterable
 from pathlib import Path
 from datetime import datetime
@@ -161,7 +160,7 @@ def add_peak_annotation(
     # pa_long.distance[null_distance] = np.nan
 
     if "atac" not in adata.uns:
-        adata.uns["atac"] = OrderedDict()
+        adata.uns["atac"] = dict()
     adata.uns["atac"]["peak_annotation"] = pa_long
 
     if return_annotation:
@@ -596,7 +595,7 @@ def locate_file(data: Union[AnnData, MuData], key: str, file: str):
         raise FileNotFoundError(f"File {file} does not exist")
 
     if "files" not in adata.uns:
-        adata.uns["files"] = OrderedDict()
+        adata.uns["files"] = dict()
     adata.uns["files"][key] = file
 
 
@@ -679,7 +678,7 @@ def locate_fragments(data: Union[AnnData, MuData], fragments: str, return_fragme
         frag = pysam.TabixFile(fragments, parser=pysam.asBed())
 
         if "files" not in adata.uns:
-            adata.uns["files"] = OrderedDict()
+            adata.uns["files"] = dict()
         adata.uns["files"]["fragments"] = fragments
 
         if return_fragments:
@@ -743,7 +742,7 @@ def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path
                 "Pysam is not installed. To work with the fragments file please install pysam (pip install pysam)."
             )
             if "files" not in adata.uns:
-                adata.uns["files"] = OrderedDict()
+                adata.uns["files"] = dict()
             adata.uns["files"]["fragments"] = default_fragments
 
 
@@ -815,11 +814,17 @@ def count_fragments_features(
             f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {features.shape[0]} features..."
         )
 
+        stranded = "Strand" in features.columns
         for i in tqdm(range(n_features)):  # iterate over features (e.g. genes)
             f = features.iloc[i]
-            for fr in fragments.fetch(
-                f.Chromosome, f.Start - extend_upstream, f.End + extend_downstream
-            ):
+            if stranded and f.Strand == "-":
+                f_from = f.Start - extend_downstream
+                f_to = f.End + extend_upstream
+            else:
+                f_from = f.Start - extend_upstream
+                f_to = f.End + extend_downstream
+
+            for fr in fragments.fetch(f.Chromosome, f_from, f_to):
                 try:
                     ind = d[fr.name]  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
                     mx.rows[i].append(ind)
