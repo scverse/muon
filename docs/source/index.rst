@@ -1,9 +1,7 @@
 Get to know muon
 ================
 
-[![PyPi version](https://img.shields.io/pypi/v/muon)](https://pypi.org/project/muon)
-
-[GitHub Repository](https://github.com/scverse/muon) | [Publication](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-021-02577-8) | [Tutorials](https://muon-tutorials.readthedocs.io/)
+`GitHub Repository <https://github.com/scverse/muon>`_ | `Publication <https://genomebiology.biomedcentral.com/articles/10.1186/s13059-021-02577-8>`_ | `Tutorials <https://muon-tutorials.readthedocs.io/>`_
 
 ``muon`` is a Python framework for multimodal omics analysis. While there are many features that ``muon`` brings to the table, there are three key areas that its functionality is focused on.
 
