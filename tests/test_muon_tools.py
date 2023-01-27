@@ -42,6 +42,16 @@ class TestMOFASimple(unittest.TestCase):
         self.assertTrue(all([i > 0.1 for i in r2[:5]]))
         self.assertFalse(any([i > 0.1 for i in r2[5:]]))
 
+    def test_mofa_anndata(self):
+        mu.tl.mofa(
+            self.mdata["y1"],
+            n_factors=10,
+            quiet=True,
+            verbose=False,
+        )
+        self.assertTrue("X_mofa" in self.mdata["y1"].obsm)
+        self.assertTrue("LFs" in self.mdata["y1"].varm)
+
 
 @pytest.mark.usefixtures("filepath_hdf5")
 class TestMOFA2D:
