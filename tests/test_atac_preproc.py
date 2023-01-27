@@ -20,7 +20,7 @@ class TestTFIDF(unittest.TestCase):
         self.assertEqual(str("%.3f" % adata.X[3, 0]), "4.770")
 
     def test_tfidf_view(self):
-        view = self.adata[:,:]
+        view = self.adata[:, :]
         ac.pp.tfidf(view, log_tf=True, log_idf=True)
         self.assertEqual(str("%.3f" % view.X[0, 0]), "4.659")
 
@@ -43,6 +43,7 @@ class TestTFIDF(unittest.TestCase):
         ac.pp.tfidf(adata, log_tf=True, log_idf=True, to_layer="new")
         self.assertEqual(adata.X[0, 0], orig_value)
         self.assertEqual(str("%.3f" % adata.layers["new"][0, 0]), "4.659")
+
 
 class TestTFIDFSparse(unittest.TestCase):
     def setUp(self):
