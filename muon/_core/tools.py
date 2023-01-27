@@ -227,7 +227,7 @@ def _set_mofa_data_from_mudata(
             .tolist()
         )
         # List of names of groups for samples ordered as they are when split according to their group
-        model.data_opts["samples_groups"] = np.concatenate(samples_groups.values)
+        model.data_opts["samples_groups"] = np.concatenate(samples_groups.values).astype(str)
         if save_metadata:
             # List of metadata tables for each group of samples
             model.data_opts["samples_metadata"] = [

@@ -52,6 +52,20 @@ class TestMOFASimple(unittest.TestCase):
         self.assertTrue("X_mofa" in self.mdata["y1"].obsm)
         self.assertTrue("LFs" in self.mdata["y1"].varm)
 
+    def test_mofa_anndata_groups_cat(self):
+        adata = self.mdata["y1"].copy()
+        adata.obs["ab"] = np.random.choice(["a", "b"], adata.n_obs)
+        adata.obs["ab"] = adata.obs.ab.astype("category")
+        mu.tl.mofa(
+            adata,
+            groups_label="ab",
+            n_factors=10,
+            quiet=True,
+            verbose=False,
+        )
+        self.assertTrue("X_mofa" in adata.obsm)
+        self.assertTrue("LFs" in adata.varm)
+
 
 @pytest.mark.usefixtures("filepath_hdf5")
 class TestMOFA2D:
