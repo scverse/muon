@@ -188,9 +188,26 @@ def embedding(
                     if keys_in_mod[m][i] == False and data.mod[m].raw is not None:
                         keys_in_mod[m][i] = k in data.mod[m].raw.var_names
 
+        # e.g. color="rna:CD8A" - especially relevant for mdata.axis == -1
+        mod_key_modifier: dict[str, str] = dict()
+        for i, k in enumerate(keys):
+            mod_key_modifier[k] = k
+            for m in data.mod:
+                if not keys_in_mod[m][i]:
+                    k_clean = k
+                    if k.startswith(f"{m}:"):
+                        k_clean = k.split(":", 1)[1]
+                        mod_key_modifier[k] = k_clean
+
+                    keys_in_mod[m][i] = k_clean in data.mod[m].var_names
+                    if use_raw is None or use_raw:
+                        if keys_in_mod[m][i] == False and data.mod[m].raw is not None:
+                            keys_in_mod[m][i] = k_clean in data.mod[m].raw.var_names
+
         for m in data.mod:
             if np.sum(keys_in_mod[m]) > 0:
                 mod_keys = np.array(keys)[keys_in_mod[m]]
+                mod_keys = np.array([mod_key_modifier[k] for k in mod_keys])
 
                 if use_raw is None or use_raw:
                     if data.mod[m].raw is not None:
@@ -231,6 +248,8 @@ def embedding(
                     pd.DataFrame(x, columns=mod_keys, index=fmod_adata.obs_names),
                     how="left",
                 )
+
+        color = [mod_key_modifier[k] for k in keys]
 
     ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp, uns=adata.uns)
     return sc.pl.embedding(ad, basis=basis_mod, color=color, **kwargs)
