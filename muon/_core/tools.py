@@ -304,6 +304,7 @@ def mofa(
     convergence_mode: str = "fast",
     use_float32: bool = False,
     gpu_mode: bool = False,
+    gpu_device: Optional[bool] = None,
     svi_mode: bool = False,
     svi_batch_size: float = 0.5,
     svi_learning_rate: float = 1.0,
@@ -366,6 +367,8 @@ def mofa(
             use reduced precision (float32)
     gpu_mode : optional
             if to use GPU mode
+    gpu_mode : optional
+            which GPU device to use
     svi_mode : optional
             if to use Stochastic Variational Inference (SVI)
     svi_batch_size : optional
@@ -485,16 +488,35 @@ def mofa(
         factors=n_factors,
     )
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting training options...")
-    ent.set_train_options(
-        iter=n_iterations,
-        convergence_mode=convergence_mode,
-        gpu_mode=gpu_mode,
-        seed=seed,
-        verbose=verbose,
-        quiet=quiet,
-        outfile=outfile,
-        save_interrupted=save_interrupted,
-    )
+
+    try:
+        ent.set_train_options(
+            iter=n_iterations,
+            convergence_mode=convergence_mode,
+            gpu_mode=gpu_mode,
+            gpu_device=gpu_device,
+            seed=seed,
+            verbose=verbose,
+            quiet=quiet,
+            outfile=outfile,
+            save_interrupted=save_interrupted,
+        )
+    except TypeError:
+        # mofapy2 <0.7 does not have a gpu_device argument
+        if gpu_device is not None:
+            logging.warning(
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Upgrade mofapy2 to 0.7 or above in order to support custrom gpu_device setting."
+            )
+        ent.set_train_options(
+            iter=n_iterations,
+            convergence_mode=convergence_mode,
+            gpu_mode=gpu_mode,
+            seed=seed,
+            verbose=verbose,
+            quiet=quiet,
+            outfile=outfile,
+            save_interrupted=save_interrupted,
+        )
 
     if svi_mode:
         logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting up SVI...")
