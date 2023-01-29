@@ -22,7 +22,7 @@ from anndata import AnnData
 from mudata import MuData
 
 from . import utils as atacutils
-from .._core.utils import get_gene_annotation_from_rna
+from .._rna.utils import get_gene_annotation_from_rna
 from .fragments import locate_fragments, _tss_pileup
 
 
