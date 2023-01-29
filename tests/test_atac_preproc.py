@@ -107,7 +107,7 @@ class TestFragments(unittest.TestCase):
         #         chr10,32935557,32958230,ENSG00000150093,ITGB1"""
         #     )
         # )
-        genes = mu.utils.get_gene_annotation_from_rna(self.mdata)
+        genes = mu._rna.utils.get_gene_annotation_from_rna(self.mdata)
 
         adata = ac.fr._tss_pileup(
             adata=self.atac, features=genes, extend_upstream=1000, extend_downstream=1000
