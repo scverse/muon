@@ -1,7 +1,7 @@
-from typing import Union, Callable, Optional, Sequence, Dict
+from typing import Union, Callable, Optional, Sequence, Dict, Iterable
 from functools import reduce
 import warnings
-from collections import OrderedDict
+from itertools import repeat
 
 import numpy as np
 from scipy.sparse import csr_matrix, issparse, SparseEfficiencyWarning
@@ -14,17 +14,18 @@ from scanpy import logging
 from scanpy.tools._utils import _choose_representation
 from scanpy.neighbors import _compute_connectivities_umap
 from scanpy._compat import Literal
-import umap
+from umap.distances import euclidean
+from umap.sparse import sparse_euclidean, sparse_jaccard
 from umap.umap_ import nearest_neighbors
 from numba import njit, prange
 
-from .._core.mudata import MuData
+from mudata import MuData
 
 # Computational methods for preprocessing
 
-_euclidean = njit(umap.distances.euclidean.py_func, inline="always", fastmath=True)
-_sparse_euclidean = njit(umap.sparse.sparse_euclidean.py_func, inline="always")
-_sparse_jaccard = njit(umap.sparse.sparse_jaccard.py_func, inline="always")
+_euclidean = njit(euclidean.py_func, inline="always", fastmath=True)
+_sparse_euclidean = njit(sparse_euclidean.py_func, inline="always")
+_sparse_jaccard = njit(sparse_jaccard.py_func, inline="always")
 
 
 @njit
@@ -100,7 +101,8 @@ def _sparse_csr_fast_knn_(
         cols = indices[start:end]
         rowdata = data[start:end]
 
-        idx = np.argsort(rowdata)  # would like to use argpartition, but not supported by numba
+        # would like to use argpartition, but not supported by numba
+        idx = np.argsort(rowdata)
         startidx = i * n_neighbors
         endidx = (i + 1) * n_neighbors
         # numba's parallel loops only support reductions, not assignment
@@ -109,7 +111,8 @@ def _sparse_csr_fast_knn_(
     return knn_data, knn_indices, knn_indptr
 
 
-def _sparse_csr_fast_knn(X: csr_matrix, n_neighbors: int):  # numba doesn't know about SciPy
+# numba doesn't know about SciPy
+def _sparse_csr_fast_knn(X: csr_matrix, n_neighbors: int):
     data, indices, indptr = _sparse_csr_fast_knn_(
         X.shape[0], X.indptr, X.indices, X.data, n_neighbors
     )
@@ -149,6 +152,80 @@ def _make_slice_intervals(idx, maxsize=10000):
     return np.concatenate(allstarts), np.concatenate(allstops)
 
 
+def _l2norm(
+    adata: AnnData, rep: Optional[Union[Iterable[str], str]] = None, n_pcs: Optional[int] = 0
+):
+    X = _choose_representation(adata, rep, n_pcs)
+    norm = X / np.linalg.norm(X, ord=2, axis=1, keepdims=True)
+    norm[~np.isfinite(norm)] = 0
+    X.astype(norm.dtype, copy=False)
+    X[:] = norm
+
+
+def l2norm(
+    mdata: Union[MuData, AnnData],
+    mod: Optional[Union[Iterable[str], str]] = None,
+    rep: Optional[Union[Iterable[str], str]] = None,
+    n_pcs: Optional[Union[Iterable[int], int]] = 0,
+    copy: bool = False,
+) -> Optional[Union[MuData, AnnData]]:
+    """
+    Normalize observations to unit L2 norm.
+
+    Args:
+        mdata: The MuData or AnnData object to normalize.
+        mod: If ``mdata`` is a MuData object, this specifies the modalities to normalize.
+            ``None`` indicates all modalities.
+        rep: The representation to normalize. ``X`` or any key for ``.obsm`` is valid. If
+            ``None``, the representation is chosen automatically. If ``mdata`` is a MuData
+            object and this is not an iterable, the given representation will be used for
+            all modalities.
+        n_pcs: The number of principal components to use. This affects the result only if
+            a PCA representation is being normalized. If ``mdata`` is a MuData object and
+            this is not an iterable, the given number will be used for all modalities.
+        copy: Return a copy instead of writing to `mdata`.
+
+    Returns: Depending on ``copy``, returns or updates ``mdata``.
+    """
+    if isinstance(mdata, AnnData):
+        if rep is not None and not isinstance(rep, str):
+            it = iter(rep)
+            rep = next(it)
+            try:
+                next(it)
+            except StopIteration as e:
+                pass
+            else:
+                raise RuntimeError("If 'rep' is an Iterable, it must have length 1")
+        if n_pcs is not None and isinstance(n_pcs, Iterable):
+            it = iter(n_pcs)
+            n_pcs = next(it)
+            try:
+                next(it)
+            except StopIteration as e:
+                pass
+            else:
+                raise RuntimeError("If 'n_pcs' is an Iterable, it must have length 1")
+        if copy:
+            mdata = mdata.copy()
+        _l2norm(mdata, rep, n_pcs)
+    else:
+        if mod is None:
+            mod = mdata.mod.keys()
+        elif isinstance(mod, str):
+            mod = [mod]
+        if rep is None or isinstance(rep, str):
+            rep = repeat(rep)
+        if n_pcs is None or isinstance(n_pcs, int):
+            n_pcs = repeat(n_pcs)
+        if copy:
+            mdata = mdata.copy()
+        for m, r, n in zip(mod, rep, n_pcs):
+            _l2norm(mdata.mod[m], r, n)
+
+    return mdata if copy else None
+
+
 def neighbors(
     mdata: MuData,
     n_neighbors: Optional[int] = None,
@@ -182,7 +259,8 @@ def neighbors(
     ] = "euclidean",
     low_memory: Optional[bool] = None,
     key_added: Optional[str] = None,
-    weight_key: Optional[str] = "modality_weight",
+    weight_key: Optional[str] = "mod_weight",
+    add_weights_to_modalities: bool = False,
     eps: float = 1e-4,
     copy: bool = False,
     random_state: Optional[Union[int, np.random.RandomState]] = 42,
@@ -192,7 +270,9 @@ def neighbors(
 
     This implements the multimodal nearest neighbor method of Hao et al. and Swanson et al. The neighbor search
     efficiency on this heavily relies on UMAP. In particular, you may want to decrease n_multineighbors for large
-    data set to avoid excessive peak memory use.
+    data set to avoid excessive peak memory use. Note that to achieve results as close as possible to the Seurat
+    implementation, observations must be normalized to unit L2 norm (see :func:`l2norm`) prior to running per-modality
+    nearest-neighbor search.
 
     References:
         Hao et al, 2020 (`doi:10.1101/2020.10.12.335331 <https://dx.doi.org/10.1101/2020.10.12.335331>`_)
@@ -217,7 +297,9 @@ def neighbors(
             connectivities are stored in ``.obsp["distances"]`` and ``.obsp["connectivities"]``, respectively. If specified, the
             neighbors data is added to ``.uns[key_added]``, distances are stored in ``.obsp[key_added + "_distances"]`` and
             connectivities in ``.obsp[key_added + "_connectivities"]``.
-        weight_key: Weight key to add to each modality's ``.obs``. By default, it is ``"modality_weight"``.
+        weight_key: Weight key to add to each modality's ``.obs`` or to ``mdata.obs``. By default, it is ``"mod_weight"``.
+        add_weights_to_modalities: If to add weights to individual modalities. By default, it is ``False``
+            and the weights will be added to ``mdata.obs``.
         eps: Small number to avoid numerical errors.
         copy: Return a copy instead of writing to ``mdata``.
         random_state: Random seed.
@@ -310,7 +392,7 @@ def neighbors(
         if issparse(X):
             X = X.tocsr()
             cmetric = _jaccard_sparse_euclidean_metric
-            metric_kwds = OrderedDict(
+            metric_kwds = dict(
                 X_indices=X.indices,
                 X_indptr=X.indptr,
                 X_data=X.data,
@@ -322,7 +404,7 @@ def neighbors(
             )
         else:
             cmetric = _jaccard_euclidean_metric
-            metric_kwds = OrderedDict(
+            metric_kwds = dict(
                 X=X,
                 neighbors_indices=neighbordistances.indices,
                 neighbors_indptr=neighbordistances.indptr,
@@ -388,7 +470,7 @@ def neighbors(
 
     weights = softmax(ratios, axis=1)
     neighbordistances = csr_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
-    largeidx = mdata.n_obs ** 2 > np.iinfo(np.int32).max
+    largeidx = mdata.n_obs**2 > np.iinfo(np.int32).max
     if largeidx:  # work around scipy bug https://github.com/scipy/scipy/issues/13155
         neighbordistances.indptr = neighbordistances.indptr.astype(np.int64)
         neighbordistances.indices = neighbordistances.indices.astype(np.int64)
@@ -425,7 +507,8 @@ def neighbors(
                     neighbordistances = graph
                 else:
                     neighbordistances += graph
-            else:  # the naive version of neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
+            # the naive version of neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
+            else:
                 # uses way too much memory
                 if largeidx:
                     graph.indptr = graph.indptr.astype(np.int64)
@@ -455,16 +538,24 @@ def neighbors(
         fullidx = np.where(observations.isin(observations1))[0]
 
         if weight_key:
-            mdata.mod[m].obs[weight_key] = weights[fullidx, i]
+            if add_weights_to_modalities:
+                mdata.mod[m].obs[weight_key] = weights[fullidx, i]
+            else:
+                # mod_weight -> mod:mod_weight
+                mdata.obs[":".join([m, weight_key])] = weights[fullidx, i]
 
         rep = reps[m]
         csigmas = sigmas[m]
         if issparse(rep):
-            neighdist = lambda cell, nz: -cdist(
-                rep[cell, :].toarray(), rep[nz, :].toarray(), metric=metric
-            )
+
+            def neighdist(cell, nz):
+                return -cdist(rep[cell, :].toarray(), rep[nz, :].toarray(), metric=metric)
+
         else:
-            neighdist = lambda cell, nz: -cdist(rep[np.newaxis, cell, :], rep[nz, :], metric=metric)
+
+            def neighdist(cell, nz):
+                return -cdist(rep[np.newaxis, cell, :], rep[nz, :], metric=metric)
+
         for cell, j in enumerate(fullidx):
             row = slice(neighbordistances.indptr[cell], neighbordistances.indptr[cell + 1])
             nz = neighbordistances.indices[row]
@@ -520,9 +611,6 @@ def intersect_obs(mdata: MuData):
     Subset observations (samples or cells) in-place
     taking observations present only in all modalities.
 
-    This function is currently a draft, and it can be removed
-    or its behaviour might be changed in future.
-
     Parameters
     ----------
     mdata: MuData
@@ -547,18 +635,17 @@ def intersect_obs(mdata: MuData):
 # Utility functions: filtering observations
 
 
-def filter_obs(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Callable] = None):
+def filter_obs(
+    data: Union[AnnData, MuData], var: Union[str, Sequence[str]], func: Optional[Callable] = None
+) -> None:
     """
     Filter observations (samples or cells) in-place
     using any column in .obs or in .X.
 
-    This function is currently a draft, and it can be removed
-    or its behaviour might be changed in future.
-
     Parameters
     ----------
-    adata: AnnData
-            AnnData object
+    data: AnnData or MuData
+            AnnData or MuData object
     var: str or Sequence[str]
             Column name in .obs or in .X to be used for filtering.
             Alternatively, obs_names can be provided directly.
@@ -568,49 +655,90 @@ def filter_obs(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
             the func argument can be omitted.
     """
 
+    if data.is_view:
+        raise ValueError(
+            "The provided adata is a view. In-place filtering does not operate on views."
+        )
+    if data.isbacked:
+        if isinstance(data, AnnData):
+            warnings.warn(
+                "AnnData object is backed. The requested subset of the matrix .X will be read into memory, and the object will not be backed anymore."
+            )
+        else:
+            warnings.warn(
+                "MuData object is backed. The requested subset of the .X matrices of its modalities will be read into memory, and the object will not be backed anymore."
+            )
+
     if isinstance(var, str):
-        if var in adata.obs.columns:
+        if var in data.obs.columns:
             if func is None:
-                if adata.obs[var].dtypes.name == "bool":
-                    func = lambda x: x
+                if data.obs[var].dtypes.name == "bool":
+
+                    def func(x):
+                        return x
+
                 else:
                     raise ValueError(f"Function has to be provided since {var} is not boolean")
-            obs_subset = func(adata.obs[var].values)
-        elif var in adata.var_names:
-            obs_subset = func(adata.X[:, np.where(adata.var_names == var)[0]].reshape(-1))
+            obs_subset = func(data.obs[var].values)
+        elif var in data.var_names:
+            obs_subset = func(data.X[:, np.where(data.var_names == var)[0]].reshape(-1))
         else:
             raise ValueError(
                 f"Column name from .obs or one of the var_names was expected but got {var}."
             )
     else:
         if func is None:
-            obs_subset = adata.obs_names.isin(var)
+            if np.array(var).dtype == np.bool:
+                obs_subset = np.array(var)
+            else:
+                obs_subset = data.obs_names.isin(var)
         else:
             raise ValueError(f"When providing obs_names directly, func has to be None.")
 
     # Subset .obs
-    adata._obs = adata.obs[obs_subset]
-    adata._n_obs = adata.obs.shape[0]
-
-    # Subset .X
-    adata._X = adata.X[obs_subset]
-
-    # Subset layers
-    for layer in adata.layers:
-        adata.layers[layer] = adata.layers[layer][obs_subset]
-
-    # Subset raw
-    if adata.raw is not None:
-        adata.raw._X = adata.raw.X[obs_subset]
-        adata.raw._n_obs = adata.raw.X.shape[0]
+    data._obs = data.obs[obs_subset]
+    data._n_obs = data.obs.shape[0]
 
     # Subset .obsm
-    for k, v in adata.obsm.items():
-        adata.obsm[k] = v[obs_subset]
+    for k, v in data.obsm.items():
+        data.obsm[k] = v[obs_subset]
 
     # Subset .obsp
-    for k, v in adata.obsp.items():
-        adata.obsp[k] = v[obs_subset][:, obs_subset]
+    for k, v in data.obsp.items():
+        data.obsp[k] = v[obs_subset][:, obs_subset]
+
+    if isinstance(data, AnnData):
+        # Subset .X
+        try:
+            data._X = data.X[obs_subset, :]
+        except TypeError:
+            data._X = data.X[np.where(obs_subset)[0], :]
+            # For some h5py versions, indexing arrays must have integer dtypes
+            # https://github.com/h5py/h5py/issues/1847
+        if data.isbacked:
+            data.file.close()
+            data.filename = None
+
+        # Subset layers
+        for layer in data.layers:
+            data.layers[layer] = data.layers[layer][obs_subset, :]
+
+        # Subset raw
+        if data.raw is not None:
+            data.raw._X = data.raw.X[obs_subset, :]
+            data.raw._n_obs = data.raw.X.shape[0]
+
+    else:
+        # filter_obs() for each modality
+        for m, mod in data.mod.items():
+            obsmap = data.obsmap[m][obs_subset]
+            obsidx = obsmap > 0
+            filter_obs(mod, mod.obs_names[obsmap[obsidx] - 1])
+            maporder = np.argsort(obsmap[obsidx])
+            nobsmap = np.empty(maporder.size)
+            nobsmap[maporder] = np.arange(1, maporder.size + 1)
+            obsmap[obsidx] = nobsmap
+            data.obsmap[m] = obsmap
 
     return
 
@@ -618,18 +746,17 @@ def filter_obs(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
 # Utility functions: filtering variables
 
 
-def filter_var(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Callable] = None):
+def filter_var(
+    data: Union[AnnData, MuData], var: Union[str, Sequence[str]], func: Optional[Callable] = None
+):
     """
     Filter variables (features, e.g. genes) in-place
     using any column in .var or row in .X.
 
-    This function is currently a draft, and it can be removed
-    or its behaviour might be changed in future.
-
     Parameters
     ----------
-    adata: AnnData
-            AnnData object
+    data: AnnData or MuData
+            AnnData or MuData object
     var: str or Sequence[str]
             Column name in .var or row name in .X to be used for filtering.
             Alternatively, var_names can be provided directly.
@@ -639,45 +766,136 @@ def filter_var(adata: AnnData, var: Union[str, Sequence[str]], func: Optional[Ca
             the func argument can be omitted.
     """
 
+    if data.is_view:
+        raise ValueError(
+            "The provided adata is a view. In-place filtering does not operate on views."
+        )
+    if data.isbacked:
+        if isinstance(data, AnnData):
+            warnings.warn(
+                "AnnData object is backed. The requested subset of the matrix .X will be read into memory, and the object will not be backed anymore."
+            )
+        else:
+            warnings.warn(
+                "MuData object is backed. The requested subset of the .X matrices of its modalities will be read into memory, and the object will not be backed anymore."
+            )
+
     if isinstance(var, str):
-        if var in adata.var.columns:
+        if var in data.var.columns:
             if func is None:
-                if adata.var[var].dtypes.name == "bool":
-                    func = lambda x: x
+                if data.var[var].dtypes.name == "bool":
+
+                    def func(x):
+                        return x
+
                 else:
                     raise ValueError(f"Function has to be provided since {var} is not boolean")
-            var_subset = func(adata.var[var].values)
-        elif var in adata.obs_names:
-            var_subset = func(adata.X[:, np.where(adata.obs_names == var)[0]].reshape(-1))
+            var_subset = func(data.var[var].values)
+        elif var in data.obs_names:
+            var_subset = func(data.X[:, np.where(data.obs_names == var)[0]].reshape(-1))
         else:
             raise ValueError(
                 f"Column name from .var or one of the obs_names was expected but got {var}."
             )
     else:
         if func is None:
-            var_subset = adata.var_names.isin(var)
+            if np.array(var).dtype == np.bool:
+                var_subset = var
+            else:
+                var_subset = data.var_names.isin(var)
         else:
             raise ValueError(f"When providing var_names directly, func has to be None.")
 
     # Subset .var
-    adata._var = adata.var[var_subset]
-    adata._n_vars = adata.var.shape[0]
-
-    # Subset .X
-    adata._X = adata.X[:, var_subset]
-
-    # Subset layers
-    for layer in adata.layers:
-        adata.layers[layer] = adata.layers[layer][:, var_subset]
-
-    # NOTE: .raw is not subsetted
+    data._var = data.var[var_subset]
+    data._n_vars = data.var.shape[0]
 
     # Subset .varm
-    for k, v in adata.varm.items():
-        adata.varm[k] = v[var_subset]
+    for k, v in data.varm.items():
+        data.varm[k] = v[var_subset]
 
     # Subset .varp
-    for k, v in adata.varp.items():
-        adata.varp[k] = v[var_subset][:, var_subset]
+    for k, v in data.varp.items():
+        data.varp[k] = v[var_subset][:, var_subset]
+
+    if isinstance(data, AnnData):
+        # Subset .X
+        try:
+            data._X = data.X[:, var_subset]
+        except TypeError:
+            data._X = data.X[:, np.where(var_subset)[0]]
+            # For some h5py versions, indexing arrays must have integer dtypes
+            # https://github.com/h5py/h5py/issues/1847
+        if data.isbacked:
+            data.file.close()
+            data.filename = None
+
+        # Subset layers
+        for layer in data.layers:
+            data.layers[layer] = data.layers[layer][:, var_subset]
+
+        # NOTE: .raw is not subsetted
+
+    else:
+        # filter_var() for each modality
+        for m, mod in data.mod.items():
+            varmap = data.varmap[m][var_subset]
+            varidx = varmap > 0
+            filter_var(mod, mod.var_names[varmap[varidx] - 1])
+            maporder = np.argsort(varmap[varidx])
+            nvarmap = np.empty(maporder.size)
+            nvarmap[maporder] = np.arange(1, maporder.size + 1)
+            varmap[varidx] = nvarmap
+            data.varmap[m] = varmap
 
     return
+
+
+# Subsampling observations
+
+
+def sample_obs(
+    data: Union[AnnData, MuData],
+    frac: float = 0.1,
+    groupby: Optional[str] = None,
+    min_n: Optional[int] = None,
+):
+    """
+    Return an object with some of the observations (subsampling).
+
+    Parameters
+    ----------
+    data: AnnData or MuData
+        AnnData or MuData object.
+    frac: float (0.1 by default)
+        A fraction of observations to return.
+    groupby: str
+        Categorical column in .obs that is used for prior grouping
+        before sampling observations.
+    min_n: int
+        Return min_n observations if fraction frac of observations
+        is below min_n. When groupby is not None, min_n is applied
+        per group.
+
+    Returns a view of the data.
+    """
+    if groupby is None:
+        new_n = np.ceil(data.n_obs * frac).astype(int)
+        if min_n is not None and new_n < min_n:
+            new_n = min_n
+        obs_indices = np.random.choice(range(data.n_obs), size=new_n, replace=False)
+        return data[obs_indices]
+    elif groupby not in data.obs:
+        raise ValueError(f"{groupby} is not in .obs")
+    elif data.obs[groupby].dtype != "category":
+        raise TypeError(f".obs['{groupby}'] is not categorical")
+    else:
+        obs_names = []
+        for cat in data.obs[groupby].cat.categories:
+            view = data[data.obs[groupby] == cat]
+            new_n = np.ceil(view.n_obs * frac).astype(int)
+            if min_n is not None and new_n < min_n:
+                new_n = min_n
+            obs_names.append(np.random.choice(view.obs_names.values, size=new_n, replace=False))
+        obs_names = np.concatenate(obs_names)
+        return data[obs_names]

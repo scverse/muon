@@ -36,11 +36,35 @@ class TestMOFASimple(unittest.TestCase):
         r2 = []
         for i in range(n_factors):
             yhat = np.dot(self.mdata.obsm["X_mofa"][:, [i]], self.mdata.varm["LFs"][:, [i]].T)
-            r2.append(1 - np.sum((y - yhat) ** 2) / np.sum(y ** 2))
+            r2.append(1 - np.sum((y - yhat) ** 2) / np.sum(y**2))
 
         # Only first 5 factors should have high R2
         self.assertTrue(all([i > 0.1 for i in r2[:5]]))
         self.assertFalse(any([i > 0.1 for i in r2[5:]]))
+
+    def test_mofa_anndata(self):
+        mu.tl.mofa(
+            self.mdata["y1"],
+            n_factors=10,
+            quiet=True,
+            verbose=False,
+        )
+        self.assertTrue("X_mofa" in self.mdata["y1"].obsm)
+        self.assertTrue("LFs" in self.mdata["y1"].varm)
+
+    def test_mofa_anndata_groups_cat(self):
+        adata = self.mdata["y1"].copy()
+        adata.obs["ab"] = np.random.choice(["a", "b"], adata.n_obs)
+        adata.obs["ab"] = adata.obs.ab.astype("category")
+        mu.tl.mofa(
+            adata,
+            groups_label="ab",
+            n_factors=10,
+            quiet=True,
+            verbose=False,
+        )
+        self.assertTrue("X_mofa" in adata.obsm)
+        self.assertTrue("LFs" in adata.varm)
 
 
 @pytest.mark.usefixtures("filepath_hdf5")
@@ -98,7 +122,7 @@ class TestMOFA2D:
 
         assert all(mdata.obs.group.values == mdata.obs.true_group.values)
 
-        for sample, value in (("sample9_groupA", 1.700673), ("sample17_groupB", -2.034121)):
+        for sample, value in (("sample9_groupA", 1.719391), ("sample17_groupB", -2.057848)):
             si = np.where(mdata.obs.index == sample)[0]
             assert mdata.obsm["X_mofa"][si, 0] == pytest.approx(value)
 

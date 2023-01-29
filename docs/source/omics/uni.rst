@@ -26,6 +26,17 @@ When subsetting ``AnnData`` objects with :func:`scanpy.pp.filter_cells` / :func:
 	#   sc.pp.filter_cells(atac, max_counts=50000)
 	# but does in-place filtering avoiding copying the object
 
+In-place filtering functions also accept names of observations or variables to be subsetted as well as boolean vectors.
+::
+  obs_names_subset = ['AAACAGCCAATCCCTT-1', 'AAACAGCCAATGCGCT-1', ...]
+  mu.pp.filter_obs(adata, obs_names_subset)
+
+  adata.var.include_feature.values.dtype.name
+  # => 'bool'
+  mu.pp.filter_var(adata, adata.var.include_feature.values)
+
+In-place filtering is not defined for views. On backed objects, it has to be used with care: data for the requested subset of ``.X`` will be read into memory and the object will not be backed anymore.
+
 
 Histograms
 ----------

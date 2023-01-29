@@ -8,17 +8,22 @@ from warnings import warn
 
 import numpy as np
 import pandas as pd
+from scipy.sparse import issparse, csr_matrix
 import scanpy as sc
 import h5py
 from natsort import natsorted
 from anndata import AnnData
-from .mudata import MuData
+from mudata import MuData
 
 from scanpy._compat import Literal
 from scanpy import logging
+from scanpy.tools._utils import _choose_representation
+from scanpy.neighbors import _compute_connectivities_umap
 
-from typing import Union, Optional, List, Iterable, Mapping, Sequence, Type, Any
+from typing import Union, Optional, List, Iterable, Mapping, Sequence, Type, Any, Dict
 from types import MappingProxyType
+
+from .preproc import _sparse_csr_fast_knn
 
 try:
     from louvain.VertexPartition import MutableVertexPartition as LouvainMutableVertexPartition
@@ -114,7 +119,7 @@ def _set_mofa_data_from_mudata(
         for m in mdata.mod.keys():
             adata = mdata.mod[m]
             if use_layer in adata.layers.keys():
-                if callable(getattr(adata.layers[use_layer], "todense", None)):
+                if issparse(adata.layers[use_layer]):
                     data.append(np.array(adata.layers[use_layer].todense()))
                 else:
                     data.append(adata.layers[use_layer].copy())
@@ -130,7 +135,7 @@ def _set_mofa_data_from_mudata(
     else:
         for m in mdata.mod.keys():
             adata = mdata.mod[m]
-            if callable(getattr(adata.X, "todense", None)):
+            if issparse(adata.X):
                 data.append(np.array(adata.X.todense()))
             else:
                 data.append(adata.X.copy())
@@ -222,7 +227,7 @@ def _set_mofa_data_from_mudata(
             .tolist()
         )
         # List of names of groups for samples ordered as they are when split according to their group
-        model.data_opts["samples_groups"] = np.concatenate(samples_groups.values)
+        model.data_opts["samples_groups"] = np.concatenate(samples_groups.values).astype(str)
         if save_metadata:
             # List of metadata tables for each group of samples
             model.data_opts["samples_metadata"] = [
@@ -283,21 +288,28 @@ def mofa(
     data: Union[AnnData, MuData],
     groups_label: bool = None,
     use_raw: bool = False,
-    use_layer: bool = None,
+    use_layer: str = None,
     use_var: Optional[str] = "highly_variable",
     use_obs: Optional[str] = None,
     likelihoods: Optional[Union[str, List[str]]] = None,
     n_factors: int = 10,
     scale_views: bool = False,
     scale_groups: bool = False,
+    center_groups: bool = True,
     ard_weights: bool = True,
     ard_factors: bool = True,
     spikeslab_weights: bool = True,
     spikeslab_factors: bool = False,
     n_iterations: int = 1000,
     convergence_mode: str = "fast",
+    use_float32: bool = False,
     gpu_mode: bool = False,
-    Y_ELBO_TauTrick: bool = True,
+    gpu_device: Optional[bool] = None,
+    svi_mode: bool = False,
+    svi_batch_size: float = 0.5,
+    svi_learning_rate: float = 1.0,
+    svi_forgetting_rate: float = 0.5,
+    svi_start_stochastic: int = 1,
     smooth_covariate: Optional[str] = None,
     smooth_warping: bool = False,
     smooth_kwargs: Optional[Mapping[str, Any]] = None,
@@ -337,6 +349,8 @@ def mofa(
             scale views to unit variance
     scale_groups : optional
             scale groups to unit variance
+    center_groups : optional
+            center groups to zero mean (True by default)
     ard_weights : optional
             use view-wise sparsity
     ard_factors : optional
@@ -349,10 +363,22 @@ def mofa(
             upper limit on the number of iterations
     convergence_mode : optional
             fast, medium, or slow convergence mode
+    use_float32 : optional
+            use reduced precision (float32)
     gpu_mode : optional
             if to use GPU mode
-    Y_ELBO_TauTrick : optional
-            if to use ELBO Tau trick to speed up computations
+    gpu_mode : optional
+            which GPU device to use
+    svi_mode : optional
+            if to use Stochastic Variational Inference (SVI)
+    svi_batch_size : optional
+            batch size as a fraction (only applicable when svi_mode=True, 0.5 by default)
+    svi_learning_rate : optional
+            learning rate (only applicable when svi_mode=True, 1.0 by default)
+    svi_forgetting_rate : optional
+            forgetting_rate (only applicable when svi_mode=True, 0.5 by default)
+    svi_start_stochastic : optional
+            first iteration to start SVI (only applicable when svi_mode=True, 1 by default)
     smooth_covariate : optional
             use a covariate (column in .obs) to learn smooth factors (MEFISTO)
     smooth_warping : optional
@@ -362,7 +388,7 @@ def mofa(
     smooth_kwargs : optional
             additional arguments for MEFISTO (covariates_names, scale_cov, start_opt, n_grid, opt_freq,
             warping_freq, warping_ref, warping_open_begin, warping_open_end,
-            sparseGP, frac_inducing, model_groups)
+            sparseGP, frac_inducing, model_groups, new_values)
     save_parameters : optional
             if to save training parameters
     save_data : optional
@@ -397,6 +423,8 @@ def mofa(
     if isinstance(data, AnnData):
         logging.info("Wrapping an AnnData object into an MuData container")
         mdata = MuData(data)
+        # Modality name is used as a prefix by default
+        mdata.obs = data.obs
     elif isinstance(data, MuData):
         mdata = data
     else:
@@ -431,7 +459,12 @@ def mofa(
         if isinstance(lik, str) and isinstance(lik, Iterable):
             lik = [lik for _ in range(len(mdata.mod))]
 
-    ent.set_data_options(scale_views=scale_views, scale_groups=scale_groups)
+    ent.set_data_options(
+        scale_views=scale_views,
+        scale_groups=scale_groups,
+        center_groups=center_groups,
+        use_float32=use_float32,
+    )
     logging.info(
         f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting data from MuData object..."
     )
@@ -455,17 +488,44 @@ def mofa(
         factors=n_factors,
     )
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting training options...")
-    ent.set_train_options(
-        iter=n_iterations,
-        convergence_mode=convergence_mode,
-        gpu_mode=gpu_mode,
-        Y_ELBO_TauTrick=Y_ELBO_TauTrick,
-        seed=seed,
-        verbose=verbose,
-        quiet=quiet,
-        outfile=outfile,
-        save_interrupted=save_interrupted,
-    )
+
+    try:
+        ent.set_train_options(
+            iter=n_iterations,
+            convergence_mode=convergence_mode,
+            gpu_mode=gpu_mode,
+            gpu_device=gpu_device,
+            seed=seed,
+            verbose=verbose,
+            quiet=quiet,
+            outfile=outfile,
+            save_interrupted=save_interrupted,
+        )
+    except TypeError:
+        # mofapy2 <0.7 does not have a gpu_device argument
+        if gpu_device is not None:
+            logging.warning(
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Upgrade mofapy2 to 0.7 or above in order to support custrom gpu_device setting."
+            )
+        ent.set_train_options(
+            iter=n_iterations,
+            convergence_mode=convergence_mode,
+            gpu_mode=gpu_mode,
+            seed=seed,
+            verbose=verbose,
+            quiet=quiet,
+            outfile=outfile,
+            save_interrupted=save_interrupted,
+        )
+
+    if svi_mode:
+        logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting up SVI...")
+        ent.set_stochastic_options(
+            learning_rate=svi_learning_rate,
+            forgetting_rate=svi_forgetting_rate,
+            batch_size=svi_batch_size,
+            start_stochastic=svi_start_stochastic,
+        )
 
     # MEFISTO options
 
@@ -482,6 +542,7 @@ def mofa(
         warping_open_end=True,
         sparseGP=False,
         frac_inducing=None,
+        new_values=None,
     )
 
     if not smooth_kwargs:
@@ -524,12 +585,24 @@ def mofa(
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Running the model...")
     ent.run()
 
+    if (
+        smooth_kwargs is not None
+        and "new_values" in smooth_kwargs
+        and smooth_kwargs["new_values"]
+        and smooth_covariate
+    ):
+        logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Interpolating factors...")
+        new_values = np.array(smooth_kwargs["new_values"])
+        if new_values.ndim == 1:
+            new_values = new_values.reshape(-1, 1)
+        ent.predict_factor(new_covariates=new_values)
+
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Saving the model...")
     ent.save(
         outfile, save_data=save_data, save_parameters=save_parameters, expectations=expectations
     )
 
-    f = h5py.File(outfile)
+    f = h5py.File(outfile, "r")
     if copy:
         data = data.copy()
 
@@ -555,7 +628,12 @@ def mofa(
         data.obsm["X_mofa"] = z
 
     # Weights
-    w = np.concatenate([v[:, :] for k, v in f["expectations"]["W"].items()], axis=1).T
+    expectations_w = f["expectations"]["W"]
+    if hasattr(data, "mod"):
+        w = np.concatenate([expectations_w[m][:, :] for m in data.mod], axis=1).T
+    else:
+        w = expectations_w["data"][:, :].T
+
     if use_var:
         # Set the weights of features that were not used to zero
         data.varm["LFs"] = np.zeros(shape=(data.n_vars, w.shape[1]))
@@ -563,7 +641,7 @@ def mofa(
     else:
         data.varm["LFs"] = w
 
-    # aligned times
+    # Aligned times
     if smooth_covariate is not None and smooth_warping:
         for c in range(ent.dimensionalities["C"]):
             cnm = ent.smooth_opts["covariates_names"][c] + "_warped"
@@ -571,6 +649,57 @@ def mofa(
             if groups_label:
                 cval = pd.DataFrame(cval, index=zs).loc[common_obs].to_numpy()
             data.obs[cnm] = cval
+
+    # Parameters
+    data.uns["mofa"] = {
+        "params": {
+            "data": {
+                "groups_label": groups_label,
+                "use_raw": use_raw,
+                "use_layer": use_layer,
+                "likelihoods": f["model_options"]["likelihoods"][:].astype(str),
+                "features_subset": use_var,
+                "use_obs": use_obs,
+                "scale_views": scale_views,
+                "scale_groups": scale_groups,
+                "center_groups": center_groups,
+                "use_float32": use_float32,
+            },
+            "model": {
+                "ard_factors": ard_factors,
+                "ard_weights": ard_weights,
+                "spikeslab_weights": spikeslab_weights,
+                "spikeslab_factors": spikeslab_factors,
+                "n_factors": n_factors,
+            },
+            "training": {
+                "n_iterations": n_iterations,
+                "convergence_mode": convergence_mode,
+                "gpu_mode": gpu_mode,
+                "seed": seed,
+            },
+        }
+    }
+
+    # Variance explained
+    try:
+        views = f["views"]["views"][:].astype(str)
+        variance_per_group = f["variance_explained"]["r2_per_factor"]
+        variance = {m: {} for m in views}
+
+        groups = f["groups"]["groups"][:].astype(str)
+        if len(groups) > 1:
+            for group in list(variance_per_group.keys()):
+                for i, view in enumerate(views):
+                    variance[view][group] = variance_per_group[group][i, :]
+        else:
+            for i, view in enumerate(views):
+                variance[view] = variance_per_group[groups[0]][i, :]
+        data.uns["mofa"]["variance"] = variance
+    except:
+        warn("Cannot save variance estimates")
+
+    f.close()
 
     if copy:
         return data
@@ -585,7 +714,16 @@ def mofa(
 #
 
 
-def snf(mdata: MuData, key: str = "connectivities", k: int = 20, iterations: int = 20):
+def snf(
+    mdata: MuData,
+    n_neighbors: int = 20,
+    neighbor_keys: Optional[Union[str, Dict[str, Optional[str]]]] = None,
+    key_added: Optional[str] = None,
+    n_iterations: int = 20,
+    sigma: float = 0.5,
+    eps: float = np.finfo(np.float64).eps,
+    copy: bool = False,
+) -> Optional[MuData]:
     """
     Similarity network fusion (SNF)
 
@@ -598,33 +736,129 @@ def snf(mdata: MuData, key: str = "connectivities", k: int = 20, iterations: int
     ----------
     mdata:
             MuData object
-    key: str (default: 'connectivities')
-            Key in .obsp to be used as SNF algorithm input.
-            Has to exist in all modalities.
-    k: int (default: 20)
+    n_neighbors: int (default: 20)
             Number of neighbours to be used in the K-nearest neighbours step
-    iterations: int (default: 20)
+    neighbor_keys: Keys in .uns where per-modality neighborhood information is stored. Defaults to ``"neighbors"``.
+            If set as a dictionary, only the modalities present in ``neighbor_keys`` will be used for multimodal nearest neighbor search.
+            If set as a string, has to exist in all modalities.
+    key_added: If not specified, the multimodal neighbors data is stored in ``.uns["neighbors"]``, distances and
+            connectivities are stored in ``.obsp["distances"]`` and ``.obsp["connectivities"]``, respectively. If specified, the
+            neighbors data is added to ``.uns[key_added]``, distances are stored in ``.obsp[key_added + "_distances"]`` and
+            connectivities in ``.obsp[key_added + "_connectivities"]``.
+    n_iterations: int (default: 20)
             Number of iterations for the diffusion process
+    sigma: float (default: 0.5)
+            Variance for the local model when calculating affinity matrices
+    eps: Small number to avoid numerical errors.
+    copy: Return a copy instead of writing to ``mdata``.
     """
+    import scipy.stats as stats
+
+    mdata = mdata.copy() if copy else mdata
+
+    if neighbor_keys is None:
+        modalities = mdata.mod.keys()
+        neighbor_keys = {}
+    elif isinstance(neighbor_keys, str):
+        modalities = mdata.mod.keys()
+        neighbor_keys = {m: neighbor_keys for m in modalities}
+    else:
+        modalities = neighbor_keys.keys()
+
+    mod_neighbors = np.empty((len(modalities),), dtype=np.uint16)
+    mod_reps = {}
+    reps = {}
+    mod_n_pcs = {}
+    neighbors_params = {}
+    for i, mod in enumerate(modalities):
+        nkey = neighbor_keys.get(mod, "neighbors")
+
+        try:
+            nparams = mdata.mod[mod].uns[nkey]
+        except KeyError:
+            raise ValueError(
+                f'Did not find .uns["{nkey}"] for modality "{mod}". Run `sc.pp.neighbors` on all modalities first.'
+            )
+
+        use_rep = nparams["params"].get("use_rep", None)
+        n_pcs = nparams["params"].get("n_pcs", None)
+        mod_neighbors[i] = nparams["params"].get("n_neighbors", 0)
+
+        neighbors_params[mod] = nparams
+        reps[mod] = _choose_representation(mdata.mod[mod], use_rep, n_pcs)
+        mod_reps[mod] = (
+            use_rep if use_rep is not None else -1
+        )  # otherwise this is not saved to h5mu
+        mod_n_pcs[mod] = n_pcs if n_pcs is not None else -1
+
+    def _affinity_matrix(dist, k, sigma):
+        """
+        Compute the affinity matrix for a distance matrix
+
+        Reference implementation can be found in the SNFtool R package:
+        https://github.com/cran/SNFtool/blob/master/R/affinityMatrix.R
+
+        PARAMETERS
+        ----------
+        mdata:
+                MuData object
+        k: int (default: 20)
+                Number of neighbours to be used in the K-nearest neighbours step
+        sigma: float (default: 0.5)
+                Variance for the local model when calculating affinity matrices
+        """
+        dist = (dist + dist.T) / 2
+        if issparse(dist):
+            dist.setdiag(0)
+            dist.eliminate_zeros()
+        else:
+            np.fill_diagonal(dist, 0)
+
+        # FIXME: adopt for sparse matrices
+        if issparse(dist):
+            logging.warning(
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Using dense distance matrix when computing affinity matrix..."
+            )
+            dist = dist.todense()
+        sorted_columns = np.apply_along_axis(np.sort, 1, dist)
+
+        def finite_mean(x, *args, **kwargs):
+            return np.mean(x[~np.isinf(x)], *args, **kwargs)
+
+        means = np.apply_along_axis(finite_mean, 1, sorted_columns[:, 1 : k + 1]) + eps
+        sig = np.add.outer(means, means) / 3 + dist / 3 + eps
+        densities = stats.norm(0, sigma * sig).pdf(dist)
+
+        w = (densities + densities.T) / 2
+        return w
+
     wall = []
     for mod in mdata.mod:
-        # TODO: check the key exists in every modality
-        wall.append(mdata.mod[mod].obsp[key])
+        nkey = neighbor_keys.get(mod, "neighbors")
+        # the key has to exists in every modality
+        if nkey not in mdata.mod[mod].uns:
+            raise ValueError(f"The key '{nkey}' is missing from the .uns slot of modality '{mod}'")
+        mod_distances = mdata.mod[mod].obsp[neighbors_params[mod]["distances_key"]]
+        w = _affinity_matrix(mod_distances, k=n_neighbors, sigma=sigma)
+        wall.append(w)
 
     def _normalize(x):
         row_sum_mdiag = x.sum(axis=1) - x.diagonal()
         row_sum_mdiag[row_sum_mdiag == 0] = 1
-        x = x / (2 * row_sum_mdiag)
+        x = x / (2 * row_sum_mdiag[:, None])
         np.fill_diagonal(x, 0.5)
         x = (x + x.T) / 2
         return x
 
     def _dominateset(x, k=20):
         def _zero(arr):
+            if k >= len(arr):
+                raise ValueError(f"'n_neighbors' seems to be too high.")
+            arr = arr.copy()
             arr[np.argsort(arr)[: (len(arr) - k)]] = 0
             return arr
 
-        x = np.apply_along_axis(_zero, 0, wall[0])
+        x = np.apply_along_axis(_zero, 0, x)
         return x / x.sum(axis=1)
 
     for i in range(len(wall)):
@@ -632,24 +866,24 @@ def snf(mdata: MuData, key: str = "connectivities", k: int = 20, iterations: int
 
     new = []
     for i in range(len(wall)):
-        new.append(_dominateset(wall[i], k))
+        new.append(_dominateset(wall[i], n_neighbors))
 
     nextW = [None] * len(wall)
 
     logging.info(
-        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting {iterations} iterations..."
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting {n_iterations} iterations..."
     )
-    for ti in range(iterations):
+    for ti in range(n_iterations):
         for j in range(len(wall)):
             sumWJ = np.zeros(shape=(wall[j].shape[0], wall[j].shape[1]))
             for ki in range(len(wall)):
                 if ki != j:
                     sumWJ = sumWJ + wall[ki]
-            nextW[j] = new[j] * (sumWJ / (len(wall) - 1)) * new[j].T
+            nextW[j] = np.dot(np.dot(new[j], (sumWJ / (len(wall) - 1))), new[j].T)
         for j in range(len(wall)):
             wall[j] = _normalize(nextW[j])
         logging.info(
-            f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Done: iteration {ti} of {iterations}."
+            f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Done: iteration {ti} of {n_iterations}."
         )
 
     # Sum diffused matrices
@@ -657,7 +891,34 @@ def snf(mdata: MuData, key: str = "connectivities", k: int = 20, iterations: int
     w = w / len(wall)
     w = _normalize(w)
 
-    mdata.obsp[key] = w
+    # Keep n neighbours
+    logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Calculating distances...")
+    neighbordistances = _sparse_csr_fast_knn(csr_matrix(0.5 - w), n_neighbors)
+
+    # TODO: use _compute_connectivities_umap?
+    logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Calculating connectivities...")
+    connectivities = _sparse_csr_fast_knn(csr_matrix(w), n_neighbors)
+
+    if key_added is None:
+        key_added = "neighbors"
+        conns_key = "connectivities"
+        dists_key = "distances"
+    else:
+        conns_key = key_added + "_connectivities"
+        dists_key = key_added + "_distances"
+    neighbors_dict = {"connectivities_key": conns_key, "distances_key": dists_key}
+    neighbors_dict["params"] = {
+        "n_neighbors": n_neighbors,
+        "eps": eps,
+        "use_rep": mod_reps,
+        "n_pcs": mod_n_pcs,
+        "method": "snf",
+    }
+    mdata.obsp[conns_key] = connectivities
+    mdata.obsp[dists_key] = neighbordistances
+    mdata.uns[key_added] = neighbors_dict
+
+    return mdata if copy else None
 
 
 #
@@ -1041,9 +1302,7 @@ def umap(
     try:
         neighbors = mdata.uns[neighbors_key]
     except KeyError:
-        raise ValueError(
-            f'Did not find .uns["{neighbors_key}"]. Run `muon.pp.weighted_neighbors` first.'
-        )
+        raise ValueError(f'Did not find .uns["{neighbors_key}"]. Run `muon.pp.neighbors` first.')
 
     from scanpy.tools._utils import _choose_representation
     from copy import deepcopy
@@ -1102,3 +1361,27 @@ def umap(
     mdata.obsm["X_umap"] = adata.obsm["X_umap"]
     mdata.uns["umap"] = adata.uns["umap"]
     return mdata if copy else None
+
+
+def ica(
+    data: Union[AnnData, MuData],
+    basis="X_pca",
+    n_components=None,
+    *,
+    random_state=None,
+    scale=False,
+    copy=False,
+    **kwargs,
+):
+    """Run Independent component analysis"""
+    from sklearn.decomposition import FastICA
+
+    ica = FastICA(random_state=random_state, n_components=n_components, **kwargs)
+    x_ica = ica.fit_transcrotm(data.obsm[basis])
+
+    if scale:
+        x_ica /= x_ica.std(axis=0)
+
+    data = data.copy() if copy else data
+    data.obsm["X_ica"] = x_ica
+    return data if copy else None

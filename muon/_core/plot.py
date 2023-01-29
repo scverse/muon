@@ -1,4 +1,4 @@
-from typing import Union, List, Optional, Iterable, Sequence
+from typing import Union, List, Optional, Iterable, Sequence, Dict
 import warnings
 
 from matplotlib.axes import Axes
@@ -10,8 +10,85 @@ import seaborn as sns
 import scanpy as sc
 from anndata import AnnData
 
+from mudata import MuData
+from .utils import _get_values
 
-from .mudata import MuData
+#
+# Scatter
+#
+
+
+def scatter(
+    data: Union[AnnData, MuData],
+    x: Optional[str] = None,
+    y: Optional[str] = None,
+    color: Optional[Union[str, Sequence[str]]] = None,
+    use_raw: Optional[bool] = None,
+    layers: Optional[Union[str, Sequence[str]]] = None,
+    **kwargs,
+):
+    """
+    Scatter plot along observations or variables axes.
+    Variables in each modality can be referenced,
+    e.g. ``"rna:X_pca"``.
+
+    See :func:`scanpy.pl.scatter` for details.
+
+    Parameters
+    ----------
+    data : Union[AnnData, MuData]
+        MuData or AnnData object
+    x : Optional[str]
+        x coordinate
+    y : Optional[str]
+        y coordinate
+    color : Optional[Union[str, Sequence[str]]], optional (default: None)
+        Keys for variables or annotations of observations (.obs columns),
+        or a hex colour specification.
+    use_raw : Optional[bool], optional (default: None)
+        Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
+        If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
+    layers : Optional[Union[str, Sequence[str]]], optional (default: None)
+        Names of the layers where x, y, and color come from.
+        No layer is used by default. A single layer value will be expanded to [layer, layer, layer].
+    """
+    if isinstance(data, AnnData):
+        return sc.pl.embedding(
+            data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs
+        )
+
+    if isinstance(layers, str) or layers is None:
+        layers = [layers, layers, layers]
+
+    obs = pd.DataFrame(
+        {
+            x: _get_values(data, x, use_raw=use_raw, layer=layers[0]),
+            y: _get_values(data, y, use_raw=use_raw, layer=layers[1]),
+        }
+    )
+    obs.index = data.obs_names
+    if color is not None:
+        # Workaround for scanpy#311, scanpy#1497
+        if isinstance(color, str):
+            color_obs = _get_values(data, color, use_raw=use_raw, layer=layers[2])
+            color_obs = pd.DataFrame({color: color_obs})
+        else:
+            # scanpy#311 / scanpy#1497 has to be fixed for this to work
+            color_obs = _get_values(data, color, use_raw=use_raw, layer=layers[2])
+        color_obs.index = data.obs_names
+        obs = pd.concat([obs, color_obs], axis=1, ignore_index=False)
+
+    ad = AnnData(obs=obs, uns=data.uns)
+
+    # Note that use_raw and layers are not provided to the plotting function
+    # as the corresponding values were fetched from individual modalities
+    # and are now stored in .obs
+    return sc.pl.scatter(ad, x=x, y=y, color=color, **kwargs)
+
+
+#
+# Embedding
+#
 
 
 def embedding(
@@ -49,7 +126,9 @@ def embedding(
         over `use_raw=True`.
     """
     if isinstance(data, AnnData):
-        return sc.pl.embedding(data, basis=basis, color=color, use_raw=use_raw, **kwargs)
+        return sc.pl.embedding(
+            data, basis=basis, color=color, use_raw=use_raw, layer=layer, **kwargs
+        )
 
     # `data` is MuData
     if basis not in data.obsm and "X_" + basis in data.obsm:
@@ -97,17 +176,47 @@ def embedding(
     else:
         raise TypeError("Expected color to be a string or an iterable.")
 
-    # Fetch respective features from the
+    # Fetch respective features
     if not all([key in obs for key in keys]):
         # {'rna': [True, False], 'prot': [False, True]}
         keys_in_mod = {m: [key in data.mod[m].var_names for key in keys] for m in data.mod}
+
+        # .raw slots might have exclusive var_names
+        if use_raw is None or use_raw:
+            for i, k in enumerate(keys):
+                for m in data.mod:
+                    if keys_in_mod[m][i] == False and data.mod[m].raw is not None:
+                        keys_in_mod[m][i] = k in data.mod[m].raw.var_names
+
+        # e.g. color="rna:CD8A" - especially relevant for mdata.axis == -1
+        mod_key_modifier: dict[str, str] = dict()
+        for i, k in enumerate(keys):
+            mod_key_modifier[k] = k
+            for m in data.mod:
+                if not keys_in_mod[m][i]:
+                    k_clean = k
+                    if k.startswith(f"{m}:"):
+                        k_clean = k.split(":", 1)[1]
+                        mod_key_modifier[k] = k_clean
+
+                    keys_in_mod[m][i] = k_clean in data.mod[m].var_names
+                    if use_raw is None or use_raw:
+                        if keys_in_mod[m][i] == False and data.mod[m].raw is not None:
+                            keys_in_mod[m][i] = k_clean in data.mod[m].raw.var_names
+
         for m in data.mod:
             if np.sum(keys_in_mod[m]) > 0:
                 mod_keys = np.array(keys)[keys_in_mod[m]]
+                mod_keys = np.array([mod_key_modifier[k] for k in mod_keys])
 
                 if use_raw is None or use_raw:
                     if data.mod[m].raw is not None:
-                        fmod_adata = data.mod[m].raw[:, mod_keys]
+                        keysidx = data.mod[m].raw.var.index.get_indexer_for(mod_keys)
+                        fmod_adata = AnnData(
+                            X=data.mod[m].raw.X[:, keysidx],
+                            var=pd.DataFrame(index=mod_keys),
+                            obs=data.mod[m].obs,
+                        )
                     else:
                         if use_raw:
                             warnings.warn(
@@ -118,20 +227,29 @@ def embedding(
                     fmod_adata = data.mod[m][:, mod_keys]
 
                 if layer is not None:
-                    if layer in data.mod[m].layers:
-                        fmod_adata.X = data.mod[m][:, mod_keys].layers[layer].X
+                    if isinstance(layer, Dict):
+                        m_layer = layer.get(m, None)
+                        if m_layer is not None:
+                            x = data.mod[m][:, mod_keys].layers[m_layer]
+                            fmod_adata.X = x.todense() if issparse(x) else x
+                            if use_raw:
+                                warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}")
+                    elif layer in data.mod[m].layers:
+                        x = data.mod[m][:, mod_keys].layers[layer]
+                        fmod_adata.X = x.todense() if issparse(x) else x
                         if use_raw:
                             warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}")
                     else:
                         warnings.warn(
                             f"Layer {layer} is not present for the modality {m}, using count matrix instead"
                         )
-
                 x = fmod_adata.X.toarray() if issparse(fmod_adata.X) else fmod_adata.X
                 obs = obs.join(
                     pd.DataFrame(x, columns=mod_keys, index=fmod_adata.obs_names),
                     how="left",
                 )
+
+        color = [mod_key_modifier[k] for k in keys]
 
     ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp, uns=adata.uns)
     return sc.pl.embedding(ad, basis=basis_mod, color=color, **kwargs)
@@ -266,3 +384,64 @@ def histogram(
     plt.show()
 
     return None
+
+
+def mofa_loadings(
+    mdata: MuData,
+    factors: Union[str, Sequence[int], None] = None,
+    include_lowest: bool = True,
+    n_points: Union[int, None] = None,
+    show: Optional[bool] = None,
+    save: Union[str, bool, None] = None,
+):
+    """\
+    Rank genes according to contributions to MOFA factors.
+    Mirrors the interface of scanpy.pl.pca_loadings.
+
+    Parameters
+    ----------
+    mdata
+        MuData objects with .obsm["X_mofa"] and .varm["LFs"].
+    factors
+        For example, ``'1,2,3'`` means ``[1, 2, 3]``, first, second, third factors.
+    include_lowest
+        Whether to show the variables with both highest and lowest loadings.
+    show
+        Show the plot, do not return axis.
+    n_points
+        Number of variables to plot for each factor.
+    save
+        If `True` or a `str`, save the figure.
+        A string is appended to the default filename.
+        Infer the filetype if ending on {`'.pdf'`, `'.png'`, `'.svg'`}.
+    """
+    from scanpy.plotting._anndata import ranking
+    from scanpy.plotting._utils import savefig_or_show
+
+    if factors is None:
+        factors = [1, 2, 3]
+    elif isinstance(factors, str):
+        factors = [int(x) for x in factors.split(",")]
+    factors = np.array(factors) - 1
+
+    if np.any(factors < 0):
+        raise ValueError("Component indices must be greater than zero.")
+
+    if n_points is None:
+        n_points = min(30, mdata.n_vars)
+    elif mdata.n_vars < n_points:
+        raise ValueError(
+            f"Tried to plot {n_points} variables, but passed mudata only has {mdata.n_vars}."
+        )
+
+    for m in mdata.mod:
+        ranking(
+            mdata[:, mdata.varmap[m] != 0],
+            "varm",
+            "LFs",
+            n_points=n_points,
+            indices=factors,
+            include_lowest=include_lowest,
+        )
+
+        savefig_or_show("mofa_loadings", show=show, save=save)

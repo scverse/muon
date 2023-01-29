@@ -16,8 +16,8 @@ def fetch_atac_mod(data: Union[AnnData, MuData]):
     return adata
 
 
-def parse_region_string(region: str):
-    feat_list = re.split("_|-|:", region)
+def parse_region_string(region: str) -> pd.DataFrame:
+    feat_list = re.split("-|:", region)
     feature_df = pd.DataFrame(columns=["Chromosome", "Start", "End"])
     feature_df.loc[0] = feat_list
     feature_df = feature_df.astype({"Start": int, "End": int})

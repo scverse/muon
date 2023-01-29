@@ -75,3 +75,12 @@ Weighted nearest neighbours (WNN) is a procedure to define a neighbourhood graph
 	>>> mu.pp.neighbors(mdata)
 	>>> mu.tl.umap(mdata)
 
+
+Utility functions
+-----------------
+
+To manage the complexity of having to deal with multiple modalities, there is a handful of utility functions in `muon`. This includes in-place filtering: just as it works `for a single modality <uni.rst#in-place-filtering>`_, :func:`muon.pp.filter_obs` and :func:`muon.pp.filter_var` will filter observations or variables in each modality as well as in the attributes of the ``MuData`` object.
+
+In order to keep observations present in all the modalities, there is :func:`muon.pp.intersect_obs`. Using the in-place filtering under the hood, it will modify the ``MuData`` object and the contained modalities to only have the common observations:
+
+        >>> mu.pp.intersect_obs(mdata)

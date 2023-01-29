@@ -53,7 +53,7 @@ Normalisation
 
 There can be multiple options for ATAC-seq data normalisation.
 
-One of them is constructing term-document matrix from the original count matrix. This is typically followed by singular value decomposition (SVD) — the same technique that convential principal component analysis (PCA) uses — to generate latent components, and these two steps together are referred to as latent semantic indexing (LSI). 
+One of them is constructing term-document matrix from the original count matrix. This is typically followed by singular value decomposition (SVD) — the same technique that conventional principal component analysis (PCA) uses — to generate latent components, and these two steps together are referred to as latent semantic indexing (LSI). 
 
 Note that there are different flavours of computing the term frequency — inverse document frequency (TF-IDF) matrix, optionally log-transforming individual terms (TF, IDF, or both).
 

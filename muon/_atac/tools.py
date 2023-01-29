@@ -2,10 +2,10 @@ import io
 import os
 from glob import glob
 import pkgutil
-from collections import OrderedDict
-from typing import Iterable, List, Optional, Union
+from typing import List, Union, Optional, Callable, Iterable
 from pathlib import Path
 from datetime import datetime
+from warnings import warn
 
 
 import numpy as np
@@ -19,10 +19,12 @@ from scipy.sparse import lil_matrix
 from scanpy import logging
 
 from anndata import AnnData
+from mudata import MuData
+
 from . import utils as atacutils
-from .._core.mudata import MuData
 from .._core.utils import get_gene_annotation_from_rna
 from .fragments import locate_fragments, _tss_pileup
+
 
 #
 # Computational methods for transforming and analysing count data
@@ -108,13 +110,29 @@ def add_peak_annotation(
         pa = annotation
 
     # Convert null values to empty strings
-    pa.gene[pa.gene.isnull()] = ""
-    pa.distance[pa.distance.isnull()] = ""
-    pa.peak_type[pa.peak_type.isnull()] = ""
+    pa.loc[pa.gene.isnull(), "gene"] = ""
+    pa.loc[pa.distance.isnull(), "distance"] = ""
+    pa.loc[pa.peak_type.isnull(), "peak_type"] = ""
+
+    # If peak name is not in the annotation table, reconstruct it:
+    # peak = chrom:start-end
+    if "peak" not in pa.columns:
+        if "chrom" in pa.columns and "start" in pa.columns and "end" in pa.columns:
+            pa["peak"] = (
+                pa["chrom"].astype(str)
+                + ":"
+                + pa["start"].astype(str)
+                + "-"
+                + pa["end"].astype(str)
+            )
+        else:
+            raise AttributeError(
+                f"Peak annotation does not in contain neighter peak column nor chrom, start, and end columns."
+            )
 
     # Split genes, distances, and peaks into individual records
     pa_g = pd.DataFrame(pa.gene.str.split(";").tolist(), index=pa.peak).stack()
-    pa_d = pd.DataFrame(pa.distance.str.split(";").tolist(), index=pa.peak).stack()
+    pa_d = pd.DataFrame(pa.distance.astype(str).str.split(";").tolist(), index=pa.peak).stack()
     pa_p = pd.DataFrame(pa.peak_type.str.split(";").tolist(), index=pa.peak).stack()
 
     # Make a long dataframe indexed by gene
@@ -131,14 +149,14 @@ def add_peak_annotation(
     # DEPRECATED: Make distance values nullable integers
     # See https://pandas.pydata.org/pandas-docs/stable/user_guide/integer_na.html
     null_distance = pa_long.distance == ""
-    pa_long.distance[null_distance] = 0
-    pa_long.distance = pa_long.distance.astype(int)
+    pa_long.loc[null_distance, "distance"] = 0
+    pa_long.distance = pa_long.distance.astype(float).astype(int)
     # DEPRECATED: Int64 is not recognized when saving HDF5 files with scanpy.write
     # pa_long.distance = pa_long.distance.astype(int).astype("Int64")
     # pa_long.distance[null_distance] = np.nan
 
     if "atac" not in adata.uns:
-        adata.uns["atac"] = OrderedDict()
+        adata.uns["atac"] = dict()
     adata.uns["atac"]["peak_annotation"] = pa_long
 
     if return_annotation:
@@ -148,7 +166,7 @@ def add_peak_annotation(
 def add_peak_annotation_gene_names(
     data: Union[AnnData, MuData],
     gene_names: Optional[pd.DataFrame] = None,
-    join_on: str = "gene_ids",
+    join_on: str = None,
     return_annotation: bool = False,
 ):
     """
@@ -161,7 +179,8 @@ def add_peak_annotation_gene_names(
     gene_names
             A DataFrame indexed on the gene name
     join_on
-            Name of the column in the gene_names DataFrame corresponding to the peak annotation index
+            Name of the column in the gene_names DataFrame corresponding to the peak annotation index.
+            It is automatically set to "gene_ids" or "gene_name" if none is provided.
     return_annotation
             If return adata.uns['atac']['peak_annotation']. False by default.
     """
@@ -169,7 +188,6 @@ def add_peak_annotation_gene_names(
         adata = data
     elif isinstance(data, MuData) and "atac" in data.mod:
         adata = data.mod["atac"]
-        # TODO: check that ATAC-seq slot is present with this name
 
         if gene_names is None:
             if "rna" in data.mod:
@@ -186,6 +204,11 @@ def add_peak_annotation_gene_names(
             "There is no peak annotation yet. Run muon.atac.tl.add_peak_annotation first."
         )
 
+    ann = adata.uns["atac"]["peak_annotation"]
+
+    if join_on is None:
+        join_on = "gene_ids"
+
     # Extract a table with gene IDs and gene names only
     gene_id_name = (
         gene_names.loc[:, [join_on]]
@@ -194,16 +217,22 @@ def add_peak_annotation_gene_names(
         .set_index(join_on)
     )
 
-    # Add gene names to the peak annotatoin table, then reset the index on gene IDs
-    ann = adata.uns["atac"]["peak_annotation"]
+    # Add gene names to the peak annotation table, then reset the index on gene IDs.
+    # If join_on == "gene_name", rename "gene" -> "gene_name" to stay unambiguous.
 
     # Check whether the annotation index is not gene IDs
     if len(np.intersect1d(ann.index.values, gene_id_name.index.values)) == 0:
+        # Check whether the annotation index is gene name already
+        if len(np.intersect1d(ann.index.values, gene_names.index.values)) != 0:
+            join_on = "gene_name"
+            ann.index.names = ["gene_name"]
+            adata.uns["atac"]["peak_annotation"] = ann
+
         if return_annotation:
             return ann
         return
 
-    ann = ann.join(gene_id_name).rename_axis("gene").reset_index(drop=False)
+    ann = ann.join(gene_id_name).rename_axis(join_on).reset_index(drop=False)
 
     # Use empty strings for intergenic peaks when there is no gene
     ann.loc[ann.gene_name.isnull(), "gene_name"] = ""
@@ -412,6 +441,20 @@ def scan_sequences(
     pvalue: float = 0.0001,
     max_hits: int = 10,
 ):
+    """
+    Scan sequences (e.g. peaks)
+    searching for motifs (JASPAR by default).
+
+    Parameters
+    ----------
+    data
+        AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+
+    Returns
+    -------
+    matches
+        Pandas dataframe with matched motifs and respective sequence IDs.
+    """
     try:
         import MOODS.tools
         import MOODS.scan
@@ -488,6 +531,13 @@ def get_sequences(data: Union[AnnData, MuData], bed: str, fasta_file: str, bed_f
     if bed_file is not None:
         assert bed is None
         bed = open(bed_file).read()
+    else:
+        if bed is None:
+            # Use all the ATAC features,
+            # expected to be named as chrX:NNN-NNN
+            bed = "\n".join(
+                [i.replace(":", "-", 1).replace("-", "\t", 2) for i in adata.var.index.values]
+            )
 
     scanner = pybedtools.BedTool(bed, from_string=True)
     scanner = scanner.sequence(fi=fasta_file)
@@ -521,7 +571,7 @@ def locate_file(data: Union[AnnData, MuData], key: str, file: str):
         raise FileNotFoundError(f"File {file} does not exist")
 
     if "files" not in adata.uns:
-        adata.uns["files"] = OrderedDict()
+        adata.uns["files"] = dict()
     adata.uns["files"][key] = file
 
 
@@ -544,6 +594,78 @@ def locate_genome(data: Union[AnnData, MuData], fasta_file: str):
     locate_file(data, "genome", fasta_file)
 
 
+#
+# Fragments
+#
+# Fragments file is a BED-like file describing individual fragments.
+# A single record in such a file typically includes 5 tab-separated fields:
+#
+# chr1 10000 11000 GTCAGTCAGTCAGTCA-1 1
+# ^    ^     ^     ^                  ^
+# |    |     |     |                  |
+# |    |     |     4: name (cell barcode)
+# |    |     3: end (3' fragment position, exclusive)
+# |    2: start (5' fragment position, inclusive)|
+# 1: contig (chromosome)              5: score (number of cuts per fragment)
+#
+# Fragments file is compressed (.gz) and has to be indexed
+# with Tabix in order to be used (.gz.tbi).
+#
+
+
+def locate_fragments(data: Union[AnnData, MuData], fragments: str, return_fragments: bool = False):
+    """
+    Parse fragments file and add a variable to access it to the .uns["files"]["fragments"]
+
+    Fragments file is never read to memory, and connection to the file is closed
+    upon function completion.
+
+    Parameters
+    ----------
+    data
+            AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+    fragments
+            A path to the compressed tab-separated fragments file (e.g. atac_fragments.tsv.gz).
+    return_fragments
+            If return the Tabix connection the fragments file. False by default.
+    """
+    frag = None
+    try:
+        if isinstance(data, AnnData):
+            adata = data
+        elif isinstance(data, MuData) and "atac" in data.mod:
+            adata = data.mod["atac"]
+        else:
+            raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+        try:
+            import pysam
+        except ImportError:
+            raise ImportError(
+                "pysam is not available. It is required to work with the fragments file. \
+                Install pysam from PyPI (`pip install pysam`) \
+                or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
+            )
+
+        # Here we make sure we can create a connection to the fragments file
+        frag = pysam.TabixFile(fragments, parser=pysam.asBed())
+
+        if "files" not in adata.uns:
+            adata.uns["files"] = dict()
+        adata.uns["files"]["fragments"] = fragments
+
+        if return_fragments:
+            return frag
+
+    except Exception as e:
+        print(e)
+
+    finally:
+        if frag is not None and not return_fragments:
+            # The connection has to be closed
+            frag.close()
+
+
 def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path]):
     """
     Locate default files for ATAC-seq
@@ -559,22 +681,167 @@ def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path
 
     default_annotation = os.path.join(os.path.dirname(path), "atac_peak_annotation.tsv")
     if os.path.exists(default_annotation):
-        add_peak_annotation(adata, default_annotation)
-        print(f"Added peak annotation from {default_annotation} to .uns['atac']['peak_annotation']")
+        try:
+            add_peak_annotation(adata, default_annotation)
+            print(
+                f"Added peak annotation from {default_annotation} to .uns['atac']['peak_annotation']"
+            )
 
-        if isinstance(data, MuData):
-            try:
-                add_peak_annotation_gene_names(data)
-                print("Added gene names to peak annotation in .uns['atac']['peak_annotation']")
-            except Exception:
-                pass
+            if isinstance(data, MuData):
+                try:
+                    add_peak_annotation_gene_names(data)
+                    print("Added gene names to peak annotation in .uns['atac']['peak_annotation']")
+                except Exception:
+                    pass
+        except AttributeError:
+            warn(
+                f"Peak annotation from {default_annotation} could not be added. Please check the annotation file is formatted correctly."
+            )
 
     # 3) Locate fragments file
 
     default_fragments = os.path.join(os.path.dirname(path), "atac_fragments.tsv.gz")
-    if os.path.exists(default_annotation):
-        locate_fragments(adata, default_fragments)
+    if os.path.exists(default_fragments):
         print(f"Located fragments file: {default_fragments}")
+        try:
+            locate_fragments(adata, default_fragments)
+        except ImportError:
+            warn(
+                "Pysam is not installed. To work with the fragments file please install pysam (pip install pysam)."
+            )
+            if "files" not in adata.uns:
+                adata.uns["files"] = dict()
+            adata.uns["files"]["fragments"] = default_fragments
+
+
+def count_fragments_features(
+    data: Union[AnnData, MuData],
+    features: Optional[pd.DataFrame] = None,
+    stranded: bool = False,
+    extend_upstream: int = 2e3,
+    extend_downstream: int = 0,
+) -> AnnData:
+    """
+    Count fragments overlapping given Features. Returns cells x features matrix.
+
+        Parameters
+        ----------
+        data
+                AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+        features
+                A DataFrame with feature annotation, e.g. genes.
+                Annotation should contain columns (case-insensitive): 
+                chr/chrom/chromosome (longer takes precedence), start, end.
+        stranded
+                Use strand information for each feature.
+                Has to be encoded as a "strand" (case-insensitive) column in features.
+                When stranded=True, extend_upsteam and extend_downstream will be used
+                according to each feature's strand information.
+        extend_upsteam
+                Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
+        extend_downstream
+                Number of nucleotides to extend every gene downstream (0 by default)
+    """
+    if isinstance(data, AnnData):
+        adata = data
+    elif isinstance(data, MuData) and "atac" in data.mod:
+        adata = data.mod["atac"]
+    else:
+        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+
+    if features is None:
+        # Try to gene gene annotation in the data.mod['rna']
+        if (
+            isinstance(data, MuData)
+            and "rna" in data.mod
+            and "interval" in data.mod["rna"].var.columns
+        ):
+            features = get_gene_annotation_from_rna(data)
+        else:
+            raise ValueError(
+                "Argument `features` is required. It should be a BED-like DataFrame with gene coordinates and names."
+            )
+
+    if "files" not in adata.uns or "fragments" not in adata.uns["files"]:
+        raise KeyError(
+            "There is no fragments file located yet. Run muon.atac.tl.locate_fragments first."
+        )
+
+    try:
+        import pysam
+    except ImportError:
+        raise ImportError(
+            "pysam is not available. It is required to work with the fragments file. Install pysam from PyPI (`pip install pysam`) or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
+        )
+
+    n = adata.n_obs
+    n_features = features.shape[0]
+
+    # TODO: refactor and reuse this code
+    # TODO: write tests (see #59, #68)
+
+    f_cols = np.array([col.lower() for col in features.columns.values])
+    for col in ("start", "end"):
+        if col not in f_cols:
+            raise ValueError(f"No column with feature {col}s could be found")
+
+    chrom_col: Optional[str] = None
+    for col in ("chromosome", "chrom", "chr"):
+        if col in f_cols:
+            chrom_col = col
+            break
+    if chrom_col is None:
+        raise ValueError("No column with chromosome for features could be found")
+        
+    start_col = features.columns.values[np.where(f_cols == "start")[0][0]]
+    end_col = features.columns.values[np.where(f_cols == "end")[0][0]]
+    chr_col = features.columns.values[np.where(f_cols == chrom_col)[0][0]]
+
+    strand_col: Optional[str] = None
+    if stranded:
+        if "strand" not in f_cols:
+            raise ValueError("No column with strand for features could be found")
+        strand_col = features.columns.values[np.where(f_cols == chrom_col)[0][0]]
+
+    fragments = pysam.TabixFile(adata.uns["files"]["fragments"], parser=pysam.asBed())
+    try:
+        # List of lists matrix is quick and convenient to fill by row
+        mx = lil_matrix((n_features, n), dtype=int)
+
+        logging.info(
+            f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {features.shape[0]} features..."
+        )
+
+        stranded = "Strand" in features.columns
+        for i in tqdm(range(n_features)):  # iterate over features (e.g. genes)
+            f = features.iloc[i]
+            if stranded and f[strand_col] == "-":
+                f_from = f[start_col] - extend_downstream
+                f_to = f[end_col] + extend_upstream
+            else:
+                f_from = f[start_col] - extend_upstream
+                f_to = f[end_col] + extend_downstream
+
+            for fr in fragments.fetch(f.Chromosome, f_from, f_to):
+                try:
+                    ind = adata.obs.index.get_loc(fr.name)  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
+                    mx.rows[i].append(ind)
+                    mx.data[i].append(int(fr.score))  # number of cuts per fragment (e.g. 2)
+                except:
+                    pass
+
+        # Faster to convert to csr first and then transpose
+        mx = mx.tocsr().transpose()
+
+        return AnnData(X=mx, obs=adata.obs, var=features)
+
+    except Exception as e:
+        logging.error(e)
+        raise e
+
+    finally:
+        # The connection has to be closed
+        fragments.close()
 
 
 def tss_enrichment(
@@ -585,6 +852,7 @@ def tss_enrichment(
     n_tss: int = 2000,
     return_tss: bool = True,
     random_state=None,
+    barcodes: Optional[str] = None,
 ):
     """
     Calculate TSS enrichment according to ENCODE guidelines. Adds a column `tss_score` to the `.obs` DataFrame and
@@ -607,6 +875,9 @@ def tss_enrichment(
         Whether to return the TSS pileup matrix. Needed for enrichment plots.
     random_state : int, array-like, BitGenerator, np.random.RandomState, optional
         Argument passed to pandas.DataFrame.sample() for sampling features.
+    barcodes
+        Column name in the .obs of the AnnData
+        with barcodes corresponding to the ones in the fragments file.
 
     Returns
     ----------
@@ -636,7 +907,11 @@ def tss_enrichment(
 
     # Pile up tss regions
     tss_pileup = _tss_pileup(
-        adata, features, extend_upstream=extend_upstream, extend_downstream=extend_downstream
+        adata,
+        features,
+        extend_upstream=extend_upstream,
+        extend_downstream=extend_downstream,
+        barcodes=barcodes,
     )
 
     flank_means, center_means = _calculate_tss_score(data=tss_pileup)
@@ -655,6 +930,91 @@ def tss_enrichment(
 
     if return_tss:
         return tss_pileup
+
+
+def _tss_pileup(
+    adata: AnnData,
+    features: pd.DataFrame,
+    extend_upstream: int = 1000,
+    extend_downstream: int = 1000,
+    barcodes: Optional[str] = None,
+) -> AnnData:
+    """
+    Pile up reads in TSS regions. Returns a cell x position matrix that can be used for QC.
+
+    Parameters
+    ----------
+    data
+        AnnData object with associated fragments file.
+    features
+        A DataFrame with feature annotation, e.g. genes.
+        Annotation has to contain columns: Chromosome, Start, End.
+    extend_upsteam
+        Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
+    extend_downstream
+        Number of nucleotides to extend every gene downstream (0 by default)
+    barcodes
+        Column name in the .obs of the AnnData
+        with barcodes corresponding to the ones in the fragments file.
+    """
+    if "files" not in adata.uns or "fragments" not in adata.uns["files"]:
+        raise KeyError(
+            "There is no fragments file located yet. Run muon.atac.tl.locate_fragments first."
+        )
+
+    try:
+        import pysam
+    except ImportError:
+        raise ImportError(
+            "pysam is not available. It is required to work with the fragments file. Install pysam from PyPI (`pip install pysam`) or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
+        )
+
+    n = adata.n_obs
+    n_features = extend_downstream + extend_upstream + 1
+
+    # Dictionary with matrix positions
+    if barcodes and barcodes in adata.obs.columns:
+        d = {k: v for k, v in zip(adata.obs.loc[:, barcodes], range(n))}
+    else:
+        d = {k: v for k, v in zip(adata.obs.index, range(n))}
+
+    # Not sparse since we expect most positions to be filled
+    mx = np.zeros((n, n_features), dtype=int)
+
+    fragments = pysam.TabixFile(adata.uns["files"]["fragments"], parser=pysam.asBed())
+
+    # Subset the features to the chromosomes present in the fragments file
+    chromosomes = fragments.contigs
+    features = features[features.Chromosome.isin(chromosomes)]
+
+    # logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {features.shape[0]} features...")
+
+    for i in tqdm(
+        range(features.shape[0]), desc="Fetching Regions..."
+    ):  # iterate over features (e.g. genes)
+
+        f = features.iloc[i]
+        tss_start = f.Start - extend_upstream  # First position of the TSS region
+        for fr in fragments.fetch(
+            f.Chromosome, f.Start - extend_upstream, f.Start + extend_downstream
+        ):
+            try:
+                rowind = d[fr.name]  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
+                score = int(fr.score)  # number of cuts per fragment (e.g. 2)
+                colind_start = max(fr.start - tss_start, 0)
+                colind_end = min(fr.end - tss_start, n_features)  # ends are non-inclusive in bed
+                mx[rowind, colind_start:colind_end] += score
+            except:
+                pass
+
+    fragments.close()
+
+    anno = pd.DataFrame(
+        {"TSS_position": range(-extend_upstream, extend_downstream + 1)},
+    )
+    anno.index = anno.index.astype(str)
+
+    return AnnData(X=mx, obs=adata.obs, var=anno, dtype=int)
 
 
 def _calculate_tss_score(data: AnnData, flank_size: int = 100, center_size: int = 1001):
@@ -700,11 +1060,13 @@ def nucleosome_signal(
     n: Union[int, float] = None,
     nucleosome_free_upper_bound: int = 147,
     mononuleosomal_upper_bound: int = 294,
+    barcodes: Optional[str] = None,
 ):
     """
     Computes the ratio of nucleosomal cut fragments to nucleosome-free fragments per cell.
     Nucleosome-free fragments are shorter than 147 bp while mono-mucleosomal fragments are between
     147 bp and 294 bp long.
+
     Parameters
     ----------
     data
@@ -715,6 +1077,9 @@ def nucleosome_signal(
         Number of bases up to which a fragment counts as nucleosome free. Default: 147
     mononuleosomal_upper_bound
         Number of bases up to which a fragment counts as mononuleosomal. Default: 294
+    barcodes
+        Column name in the .obs of the AnnData
+        with barcodes corresponding to the ones in the fragments file.
     """
     adata = atacutils.fetch_atac_mod(data)
 
@@ -733,7 +1098,10 @@ def nucleosome_signal(
     fragments = pysam.TabixFile(adata.uns["files"]["fragments"], parser=pysam.asBed())
 
     # Dictionary with matrix row indices
-    d = {k: v for k, v in zip(adata.obs.index, range(adata.n_obs))}
+    if barcodes and barcodes in adata.obs.columns:
+        d = {k: v for k, v in zip(adata.obs.loc[:, barcodes], range(adata.n_obs))}
+    else:
+        d = {k: v for k, v in zip(adata.obs.index, range(adata.n_obs))}
     mat = np.zeros(shape=(adata.n_obs, 2), dtype=int)
 
     fr = fragments.fetch()
