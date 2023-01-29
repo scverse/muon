@@ -1,8 +1,8 @@
 import re
 import pandas as pd
 from anndata import AnnData
+from mudata import MuData
 from typing import Union
-from .._core.mudata import MuData
 
 
 def fetch_atac_mod(data: Union[AnnData, MuData]):
