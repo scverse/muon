@@ -2,7 +2,7 @@ import re
 import pandas as pd
 
 
-def parse_region_string(region: str):
+def parse_region_string(region: str) -> pd.DataFrame:
     feat_list = re.split("-|:", region)
     feature_df = pd.DataFrame(columns=["Chromosome", "Start", "End"])
     feature_df.loc[0] = feat_list

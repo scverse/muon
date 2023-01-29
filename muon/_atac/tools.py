@@ -748,6 +748,7 @@ def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path
 def count_fragments_features(
     data: Union[AnnData, MuData],
     features: Optional[pd.DataFrame] = None,
+    stranded: bool = False,
     extend_upstream: int = 2e3,
     extend_downstream: int = 0,
 ) -> AnnData:
@@ -760,7 +761,13 @@ def count_fragments_features(
                 AnnData object with peak counts or multimodal MuData object with 'atac' modality.
         features
                 A DataFrame with feature annotation, e.g. genes.
-                Annotation has to contain columns: Chromosome, Start, End.
+                Annotation should contain columns (case-insensitive): 
+                chr/chrom/chromosome (longer takes precedence), start, end.
+        stranded
+                Use strand information for each feature.
+                Has to be encoded as a "strand" (case-insensitive) column in features.
+                When stranded=True, extend_upsteam and extend_downstream will be used
+                according to each feature's strand information.
         extend_upsteam
                 Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
         extend_downstream
@@ -801,8 +808,31 @@ def count_fragments_features(
     n = adata.n_obs
     n_features = features.shape[0]
 
-    # Dictionary with matrix positions
-    d = {k: v for k, v in zip(adata.obs.index, range(n))}
+    # TODO: refactor and reuse this code
+    # TODO: write tests (see #59, #68)
+
+    f_cols = np.array([col.lower() for col in features.columns.values])
+    for col in ("start", "end"):
+        if col not in f_cols:
+            raise ValueError(f"No column with feature {col}s could be found")
+
+    chrom_col: Optional[str] = None
+    for col in ("chromosome", "chrom", "chr"):
+        if col in f_cols:
+            chrom_col = col
+            break
+    if chrom_col is None:
+        raise ValueError("No column with chromosome for features could be found")
+        
+    start_col = features.columns.values[np.where(f_cols == "start")[0][0]]
+    end_col = features.columns.values[np.where(f_cols == "end")[0][0]]
+    chr_col = features.columns.values[np.where(f_cols == chrom_col)[0][0]]
+
+    strand_col: Optional[str] = None
+    if stranded:
+        if "strand" not in f_cols:
+            raise ValueError("No column with strand for features could be found")
+        strand_col = features.columns.values[np.where(f_cols == chrom_col)[0][0]]
 
     fragments = pysam.TabixFile(adata.uns["files"]["fragments"], parser=pysam.asBed())
     try:
@@ -816,16 +846,16 @@ def count_fragments_features(
         stranded = "Strand" in features.columns
         for i in tqdm(range(n_features)):  # iterate over features (e.g. genes)
             f = features.iloc[i]
-            if stranded and f.Strand == "-":
-                f_from = f.Start - extend_downstream
-                f_to = f.End + extend_upstream
+            if stranded and f[strand_col] == "-":
+                f_from = f[start_col] - extend_downstream
+                f_to = f[end_col] + extend_upstream
             else:
-                f_from = f.Start - extend_upstream
-                f_to = f.End + extend_downstream
+                f_from = f[start_col] - extend_upstream
+                f_to = f[end_col] + extend_downstream
 
             for fr in fragments.fetch(f.Chromosome, f_from, f_to):
                 try:
-                    ind = d[fr.name]  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
+                    ind = adata.obs.index.get_loc(fr.name)  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
                     mx.rows[i].append(ind)
                     mx.data[i].append(int(fr.score))  # number of cuts per fragment (e.g. 2)
                 except:

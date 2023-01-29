@@ -111,6 +111,11 @@ def dsb(
         )
         empty = empty[~empty.obs_names.isin(cells.obs_names)]
     else:
+        warn(
+            f"empty_counts_range will be deprecated in the future versions",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if data_raw is not None:
             if not isinstance(data_raw, MuData) or "rna" not in data_raw.mod:
                 warn(
