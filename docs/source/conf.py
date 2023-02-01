@@ -15,14 +15,13 @@ import sys
 import recommonmark
 from recommonmark.transform import AutoStructify
 
-# sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath("../"))
 
 
 # -- Project information -----------------------------------------------------
 
 project = "muon"
-copyright = "2020 - 2022, Danila Bredikhin"
+copyright = "2020 - 2023, Danila Bredikhin"
 author = "Danila Bredikhin"
 
 
@@ -75,7 +74,9 @@ html_static_path = ["_static"]
 html_logo = "../img/muon_logo.png"
 html_theme_options = {
     "logo_only": True,
-    "display_version": False,
+    "show_toc_level": 2,
+    "repository_url": "https://github.com/scverse/muon",
+    "use_repository_button": True,
 }
 
 # app setup hook
