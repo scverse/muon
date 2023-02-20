@@ -7,18 +7,24 @@ from pathlib import Path
 from datetime import datetime
 from warnings import warn
 
+
 import numpy as np
 import pandas as pd
 import scanpy as sc
 from tqdm import tqdm
 from scipy.sparse.linalg import svds
+
 from scipy.sparse import csr_matrix
 from scipy.sparse import lil_matrix
 from scanpy import logging
+
 from anndata import AnnData
-from . import utils
 from mudata import MuData
+
+from . import utils as atacutils
 from .._rna.utils import get_gene_annotation_from_rna
+from .fragments import locate_fragments, _tss_pileup
+
 
 #
 # Computational methods for transforming and analysing count data
@@ -38,12 +44,7 @@ def lsi(data: Union[AnnData, MuData], scale_embeddings=True, n_comps=50):
     n_comps: int (default: 50)
             Number of components to calculate with SVD
     """
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     # In an unlikely scnenario when there are less 50 features, set n_comps to that value
     n_comps = min(n_comps, adata.X.shape[1])
@@ -101,12 +102,7 @@ def add_peak_annotation(
     return_annotation
             If return adata.uns['atac']['peak_annotation']. False by default.
     """
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     if isinstance(annotation, str):
         pa = pd.read_csv(annotation, sep=sep)
@@ -275,12 +271,7 @@ def add_genes_peaks_groups(
     add_distance : bool (False by default)
         If to add distance to the ranked peaks per group.
     """
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     if "rank_genes_groups" not in adata.uns:
         raise KeyError(
@@ -363,12 +354,7 @@ def rank_peaks_groups(
         If to add distance to the ranked peaks per group
     """
 
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData):
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     sc.tl.rank_genes_groups(adata, groupby, **kwargs)
 
@@ -528,12 +514,7 @@ def get_sequences(data: Union[AnnData, MuData], bed: str, fasta_file: str, bed_f
             "Pybedtools is not available. Install pybedtools from PyPI (`pip install pybedtools`) or from GitHub (`pip install git+https://github.com/daler/pybedtools`)"
         )
 
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     if "files" not in adata.uns or "genome" not in adata.uns["files"]:
         if fasta_file is not None:
@@ -584,12 +565,7 @@ def locate_file(data: Union[AnnData, MuData], key: str, file: str):
     file
             A path to the file (e.g. ./atac_fragments.tsv.gz).
     """
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     if not os.path.exists(file):
         raise FileNotFoundError(f"File {file} does not exist")
@@ -615,9 +591,6 @@ def locate_genome(data: Union[AnnData, MuData], fasta_file: str):
     fasta_file
             A path to the file (e.g. ./atac_fragments.tsv.gz).
     """
-    if not isinstance(data, AnnData) and not (isinstance(data, MuData) and "atac" in data.mod):
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
-
     locate_file(data, "genome", fasta_file)
 
 
@@ -702,12 +675,7 @@ def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path
     - attempt to locate fragments file (atac_fragments.tsv.gz)
     """
 
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     # 2) Add peak annotation
 
@@ -749,6 +717,7 @@ def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path
 def count_fragments_features(
     data: Union[AnnData, MuData],
     features: Optional[pd.DataFrame] = None,
+    stranded: bool = False,
     extend_upstream: int = 2e3,
     extend_downstream: int = 0,
 ) -> AnnData:
@@ -761,7 +730,13 @@ def count_fragments_features(
                 AnnData object with peak counts or multimodal MuData object with 'atac' modality.
         features
                 A DataFrame with feature annotation, e.g. genes.
-                Annotation has to contain columns: Chromosome, Start, End.
+                Annotation should contain columns (case-insensitive):
+                chr/chrom/chromosome (longer takes precedence), start, end.
+        stranded
+                Use strand information for each feature.
+                Has to be encoded as a "strand" (case-insensitive) column in features.
+                When stranded=True, extend_upsteam and extend_downstream will be used
+                according to each feature's strand information.
         extend_upsteam
                 Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
         extend_downstream
@@ -802,8 +777,31 @@ def count_fragments_features(
     n = adata.n_obs
     n_features = features.shape[0]
 
-    # Dictionary with matrix positions
-    d = {k: v for k, v in zip(adata.obs.index, range(n))}
+    # TODO: refactor and reuse this code
+    # TODO: write tests (see #59, #68)
+
+    f_cols = np.array([col.lower() for col in features.columns.values])
+    for col in ("start", "end"):
+        if col not in f_cols:
+            raise ValueError(f"No column with feature {col}s could be found")
+
+    chrom_col: Optional[str] = None
+    for col in ("chromosome", "chrom", "chr"):
+        if col in f_cols:
+            chrom_col = col
+            break
+    if chrom_col is None:
+        raise ValueError("No column with chromosome for features could be found")
+
+    start_col = features.columns.values[np.where(f_cols == "start")[0][0]]
+    end_col = features.columns.values[np.where(f_cols == "end")[0][0]]
+    chr_col = features.columns.values[np.where(f_cols == chrom_col)[0][0]]
+
+    strand_col: Optional[str] = None
+    if stranded:
+        if "strand" not in f_cols:
+            raise ValueError("No column with strand for features could be found")
+        strand_col = features.columns.values[np.where(f_cols == chrom_col)[0][0]]
 
     fragments = pysam.TabixFile(adata.uns["files"]["fragments"], parser=pysam.asBed())
     try:
@@ -817,16 +815,16 @@ def count_fragments_features(
         stranded = "Strand" in features.columns
         for i in tqdm(range(n_features)):  # iterate over features (e.g. genes)
             f = features.iloc[i]
-            if stranded and f.Strand == "-":
-                f_from = f.Start - extend_downstream
-                f_to = f.End + extend_upstream
+            if stranded and f[strand_col] == "-":
+                f_from = f[start_col] - extend_downstream
+                f_to = f[end_col] + extend_upstream
             else:
-                f_from = f.Start - extend_upstream
-                f_to = f.End + extend_downstream
+                f_from = f[start_col] - extend_upstream
+                f_to = f[end_col] + extend_downstream
 
             for fr in fragments.fetch(f.Chromosome, f_from, f_to):
                 try:
-                    ind = d[fr.name]  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
+                    ind = adata.obs.index.get_loc(fr.name)  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
                     mx.rows[i].append(ind)
                     mx.data[i].append(int(fr.score))  # number of cuts per fragment (e.g. 2)
                 except:
@@ -888,12 +886,7 @@ def tss_enrichment(
 
 
     """
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     if features is None:
         # Try to gene gene annotation in the data.mod['rna']
@@ -1088,12 +1081,7 @@ def nucleosome_signal(
         Column name in the .obs of the AnnData
         with barcodes corresponding to the ones in the fragments file.
     """
-    if isinstance(data, AnnData):
-        adata = data
-    elif isinstance(data, MuData) and "atac" in data.mod:
-        adata = data.mod["atac"]
-    else:
-        raise TypeError("Expected AnnData or MuData object with 'atac' modality")
+    adata = atacutils.fetch_atac_mod(data)
 
     if "files" not in adata.uns or "fragments" not in adata.uns["files"]:
         raise KeyError(
@@ -1155,65 +1143,3 @@ def nucleosome_signal(
         )
 
     return None
-
-
-def fetch_regions_to_df(
-    fragment_path: str,
-    features: Union[pd.DataFrame, str],
-    extend_upstream: int = 0,
-    extend_downstream: int = 0,
-    relative_coordinates=False,
-) -> pd.DataFrame:
-    """
-    Parse peak annotation file and return it as DataFrame.
-
-    Parameters
-    ----------
-    fragment_path
-        Location of the fragments file (must be tabix indexed).
-    features
-        A DataFrame with feature annotation, e.g. genes or a string of format `chr1:1-2000000` or`chr1-1-2000000`.
-        Annotation has to contain columns: Chromosome, Start, End.
-    extend_upsteam
-        Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
-    extend_downstream
-        Number of nucleotides to extend every gene downstream (0 by default)
-    relative_coordinates
-        Return the coordinates with their relative position to the middle of the features.
-    """
-
-    try:
-        import pysam
-    except ImportError:
-        raise ImportError(
-            "pysam is not available. It is required to work with the fragments file. Install pysam from PyPI (`pip install pysam`) or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
-        )
-
-    if isinstance(features, str):
-        features = utils.parse_region_string(features)
-
-    fragments = pysam.TabixFile(fragment_path, parser=pysam.asBed())
-    n_features = features.shape[0]
-
-    dfs = []
-    for i in tqdm(
-        range(n_features), desc="Fetching Regions..."
-    ):  # iterate over features (e.g. genes)
-        f = features.iloc[i]
-        fr = fragments.fetch(f.Chromosome, f.Start - extend_upstream, f.End + extend_downstream)
-        df = pd.DataFrame(
-            [(x.contig, x.start, x.end, x.name, x.score) for x in fr],
-            columns=["Chromosome", "Start", "End", "Cell", "Score"],
-        )
-        if df.shape[0] != 0:
-            df["Feature"] = f.Chromosome + "_" + str(f.Start) + "_" + str(f.End)
-
-            if relative_coordinates:
-                middle = int(f.Start + (f.End - f.Start) / 2)
-                df.Start = df.Start - middle
-                df.End = df.End - middle
-
-            dfs.append(df)
-
-    df = pd.concat(dfs, axis=0, ignore_index=True)
-    return df
