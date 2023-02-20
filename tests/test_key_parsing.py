@@ -63,7 +63,6 @@ def mdata(request):
 
 
 class TestTraitParsing:
-
     # Observations
 
     def test_global_obs(self, mdata):

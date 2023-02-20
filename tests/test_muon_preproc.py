@@ -22,7 +22,6 @@ def mdata():
 
 @pytest.mark.usefixtures("filepath_h5mu")
 class TestInPlaceFiltering:
-
     # Observations
 
     def test_filter_obs_adata(self, mdata, filepath_h5mu):

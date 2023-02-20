@@ -79,6 +79,7 @@ html_theme_options = {
     "use_repository_button": True,
 }
 
+
 # app setup hook
 def setup(app):
     app.add_config_value(

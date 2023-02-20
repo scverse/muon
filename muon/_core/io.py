@@ -47,7 +47,6 @@ def read_10x_h5(filename: PathLike, extended: bool = True, *args, **kwargs) -> M
     # - attempt to locate fragments file
 
     if extended:
-
         # 1) Read interval field from the HDF5 file
         h5file = h5py.File(filename, "r")
 

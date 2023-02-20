@@ -520,7 +520,6 @@ def scan_sequences(
 
 
 def get_sequences(data: Union[AnnData, MuData], bed: str, fasta_file: str, bed_file: str = None):
-
     try:
         import pybedtools
     except ImportError:
@@ -999,7 +998,6 @@ def _tss_pileup(
     for i in tqdm(
         range(features.shape[0]), desc="Fetching Regions..."
     ):  # iterate over features (e.g. genes)
-
         f = features.iloc[i]
         tss_start = f.Start - extend_upstream  # First position of the TSS region
         for fr in fragments.fetch(

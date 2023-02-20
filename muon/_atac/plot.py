@@ -257,7 +257,6 @@ def tss_enrichment(
     title: str = "TSS Enrichment",
     ax: Optional[Axes] = None,
 ):
-
     """
     Plot relative enrichment scores around a TSS.
 
