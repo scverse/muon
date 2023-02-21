@@ -709,12 +709,14 @@ def filter_obs(
 
     if isinstance(data, AnnData):
         # Subset .X
-        try:
-            data._X = data.X[obs_subset, :]
-        except TypeError:
-            data._X = data.X[np.where(obs_subset)[0], :]
-            # For some h5py versions, indexing arrays must have integer dtypes
-            # https://github.com/h5py/h5py/issues/1847
+        if data._X is not None:
+            try:
+                data._X = data.X[obs_subset, :]
+            except TypeError:
+                data._X = data.X[np.where(obs_subset)[0], :]
+                # For some h5py versions, indexing arrays must have integer dtypes
+                # https://github.com/h5py/h5py/issues/1847
+
         if data.isbacked:
             data.file.close()
             data.filename = None

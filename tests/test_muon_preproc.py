@@ -2,12 +2,13 @@ import unittest
 import pytest
 
 import os
+from functools import reduce
 
 import numpy as np
 from scipy.sparse import csr_matrix
 from anndata import AnnData
+from mudata import MuData
 import muon as mu
-from muon import MuData
 
 
 @pytest.fixture()
@@ -130,6 +131,35 @@ class TestInPlaceFiltering:
         with pytest.raises(ValueError):
             sub = np.random.binomial(1, 0.5, view.n_vars).astype(bool)
             mu.pp.filter_var(view, sub)
+
+
+@pytest.mark.usefixtures("filepath_h5mu")
+class TestIntersectObs:
+    @pytest.mark.parametrize("empty_X", [False, True])
+    def test_filter_intersect_obs(self, mdata, filepath_h5mu, empty_X):
+        modalities = {}
+        for mod, modality in mdata.mod.items():
+            mod_obs_names = [f"obs{i+1}" for i in range(modality.n_obs)]
+            for obs in np.random.choice(
+                range(modality.n_obs), size=modality.n_obs // 10, replace=False
+            ):
+                mod_obs_names[obs] = f"{mod}_" + str(mod_obs_names[obs])
+
+            modalities[mod] = modality.copy()
+            if empty_X:
+                modalities[mod].X = None
+            modalities[mod].obs_names = mod_obs_names
+
+        mdata_ = MuData(modalities)
+
+        common_obs = reduce(
+            lambda a, b: [i for i in a if i in b],
+            [adata.obs_names for adata in mdata_.mod.values()],
+        )
+
+        mu.pp.intersect_obs(mdata_)
+        assert mdata_.n_obs == len(common_obs)
+        assert all(mdata_.obs_names == common_obs)
 
 
 if __name__ == "__main__":
