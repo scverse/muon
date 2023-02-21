@@ -761,7 +761,7 @@ def count_fragments_features(
                 AnnData object with peak counts or multimodal MuData object with 'atac' modality.
         features
                 A DataFrame with feature annotation, e.g. genes.
-                Annotation should contain columns (case-insensitive): 
+                Annotation should contain columns (case-insensitive):
                 chr/chrom/chromosome (longer takes precedence), start, end.
         stranded
                 Use strand information for each feature.
@@ -823,7 +823,7 @@ def count_fragments_features(
             break
     if chrom_col is None:
         raise ValueError("No column with chromosome for features could be found")
-        
+
     start_col = features.columns.values[np.where(f_cols == "start")[0][0]]
     end_col = features.columns.values[np.where(f_cols == "end")[0][0]]
     chr_col = features.columns.values[np.where(f_cols == chrom_col)[0][0]]
