@@ -282,6 +282,8 @@ def histogram(
     data: Union[AnnData, MuData],
     keys: Union[str, Sequence[str]],
     groupby: Optional[Union[str]] = None,
+    show: Optional[bool] = None,
+    save: Union[str, bool, None] = None,
     **kwags,
 ):
     """
@@ -294,7 +296,14 @@ def histogram(
         Keys to plot.
     groupby
         Column name(s) of .obs slot of the AnnData object according to which the plot is split.
+    show
+        Show the plot, do not return axis.
+    save
+        If `True` or a `str`, save the figure.
+        A string is appended to the default filename.
+        Infer the filetype if ending on {`'.pdf'`, `'.png'`, `'.svg'`}.
     """
+    from scanpy.plotting._utils import savefig_or_show
 
     if not isinstance(data, AnnData) and not isinstance(data, MuData):
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
@@ -381,9 +390,7 @@ def histogram(
                 for col, x in enumerate(g.axes[row])
             ]
 
-    plt.show()
-
-    return None
+    savefig_or_show("histogram_", show=show, save=save)
 
 
 def mofa_loadings(
@@ -406,10 +413,10 @@ def mofa_loadings(
         For example, ``'1,2,3'`` means ``[1, 2, 3]``, first, second, third factors.
     include_lowest
         Whether to show the variables with both highest and lowest loadings.
-    show
-        Show the plot, do not return axis.
     n_points
         Number of variables to plot for each factor.
+    show
+        Show the plot, do not return axis.
     save
         If `True` or a `str`, save the figure.
         A string is appended to the default filename.
@@ -444,4 +451,4 @@ def mofa_loadings(
             include_lowest=include_lowest,
         )
 
-        savefig_or_show("mofa_loadings", show=show, save=save)
+        savefig_or_show("mofa_loadings_", show=show, save=save)
