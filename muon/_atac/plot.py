@@ -314,6 +314,8 @@ def fragment_histogram(
     region: str = "chr1-1-2000000",
     groupby: Optional[Union[str]] = None,
     barcodes: Optional[str] = None,
+    show: Optional[bool] = None,
+    save: Union[str, bool, None] = None,
 ):
     """
     Plot Histogram of Fragment lengths within specified region.
@@ -328,7 +330,14 @@ def fragment_histogram(
     barcodes
         Column name of .obs slot of the AnnData object
         with barcodes corresponding to the ones in the fragments file.
+    show
+        Show the plot, do not return axis.
+    save
+        If `True` or a `str`, save the figure.
+        A string is appended to the default filename.
+        Infer the filetype if ending on {`'.pdf'`, `'.png'`, `'.svg'`}.
     """
+    from scanpy.plotting._utils import savefig_or_show
 
     if isinstance(data, AnnData):
         adata = data
@@ -374,6 +383,4 @@ def fragment_histogram(
         g.set_xlabel("Fragment length (bp)")
     g.set(xlim=(0, 1000))
 
-    plt.show()
-
-    return None
+    savefig_or_show("fragment_histogram_", show=show, save=save)
