@@ -15,12 +15,11 @@ from natsort import natsorted
 from anndata import AnnData
 from mudata import MuData
 
-from scanpy._compat import Literal
 from scanpy import logging
 from scanpy.tools._utils import _choose_representation
 from scanpy.neighbors import _compute_connectivities_umap
 
-from typing import Union, Optional, List, Iterable, Mapping, Sequence, Type, Any, Dict
+from typing import Union, Optional, List, Iterable, Mapping, Sequence, Type, Any, Dict, Literal
 from types import MappingProxyType
 
 from .preproc import _sparse_csr_fast_knn

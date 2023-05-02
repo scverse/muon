@@ -1,4 +1,4 @@
-from typing import Union, Callable, Optional, Sequence, Dict, Iterable
+from typing import Union, Callable, Optional, Sequence, Dict, Iterable, Literal
 from functools import reduce
 import warnings
 from itertools import repeat
@@ -13,7 +13,6 @@ from anndata import AnnData
 from scanpy import logging
 from scanpy.tools._utils import _choose_representation
 from scanpy.neighbors import _compute_connectivities_umap
-from scanpy._compat import Literal
 from umap.distances import euclidean
 from umap.sparse import sparse_euclidean, sparse_jaccard
 from umap.umap_ import nearest_neighbors
