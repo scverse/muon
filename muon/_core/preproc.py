@@ -687,7 +687,7 @@ def filter_obs(
             )
     else:
         if func is None:
-            if np.array(var).dtype == np.bool:
+            if np.array(var).dtype == bool:
                 obs_subset = np.array(var)
             else:
                 obs_subset = data.obs_names.isin(var)
@@ -800,7 +800,7 @@ def filter_var(
             )
     else:
         if func is None:
-            if np.array(var).dtype == np.bool:
+            if np.array(var).dtype == bool:
                 var_subset = var
             else:
                 var_subset = data.var_names.isin(var)

@@ -363,7 +363,7 @@ def fragment_histogram(
     if hasattr(sns, "histplot"):
         kwargs = {"binwidth": binwidth}
     else:
-        n_bins = np.int(np.ceil(fragments.length.max() / binwidth))
+        n_bins = int(np.ceil(fragments.length.max() / binwidth))
         kwargs = {"bins": n_bins, "kde": False}
 
     if groupby is not None:
