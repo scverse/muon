@@ -164,7 +164,10 @@ def embedding(
             adata=adata, keys=keys, average=average, func=func, use_raw=use_raw, layer=layer
         )
         ad = AnnData(x, obs=adata.obs, obsm=adata.obsm)
-        return sc.pl.embedding(ad, basis=basis, color=attr_names, **kwargs)
+        retval = sc.pl.embedding(ad, basis=basis, color=attr_names, **kwargs)
+        for aname in attr_names:
+            adata.uns[f"{aname}_colors"] = ad.uns[f"{aname}_colors"]
+        return retval
 
     else:
         return sc.pl.embedding(adata, basis=basis, use_raw=use_raw, layer=layer, **kwargs)

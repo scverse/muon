@@ -72,6 +72,7 @@ def scatter(
         if isinstance(color, str):
             color_obs = _get_values(data, color, use_raw=use_raw, layer=layers[2])
             color_obs = pd.DataFrame({color: color_obs})
+            color = [color]
         else:
             # scanpy#311 / scanpy#1497 has to be fixed for this to work
             color_obs = _get_values(data, color, use_raw=use_raw, layer=layers[2])
@@ -83,7 +84,11 @@ def scatter(
     # Note that use_raw and layers are not provided to the plotting function
     # as the corresponding values were fetched from individual modalities
     # and are now stored in .obs
-    return sc.pl.scatter(ad, x=x, y=y, color=color, **kwargs)
+    retval = sc.pl.scatter(ad, x=x, y=y, color=color, **kwargs)
+    if color is not None:
+        for col in color:
+            data.uns[f"{col}_colors"] = ad.uns[f"{col}_colors"]
+    return retval
 
 
 #
@@ -170,7 +175,7 @@ def embedding(
 
     # Some `color` has been provided
     if isinstance(color, str):
-        keys = [color]
+        keys = color = [color]
     elif isinstance(color, Iterable):
         keys = color
     else:
@@ -252,7 +257,10 @@ def embedding(
         color = [mod_key_modifier[k] for k in keys]
 
     ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp, uns=adata.uns)
-    return sc.pl.embedding(ad, basis=basis_mod, color=color, **kwargs)
+    retval = sc.pl.embedding(ad, basis=basis_mod, color=color, **kwargs)
+    for key, col in zip(keys, color):
+        adata.uns[f"{key}_colors"] = ad.uns[f"{col}_colors"]
+    return retval
 
 
 def mofa(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
