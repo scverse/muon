@@ -9,6 +9,24 @@ Release notes
 
    *
 
+v0.1.4
+------
+
+This release comes with improvements and fixes:
+
+* :func:`muon.pp.intersect_obs` now works for modalities that have no ``.X``
+
+* :func:`muon.pl.embedding` now saves the colour palette in ``.uns``
+
+* :func:`muon.atac.pl.fragment_histogram` and :func:`muon.pl.histogram` now have save/show arguments
+
+* :func:`muon.atac.tl.count_fragments_features` now has a ``stranded`` argument
+
+* :func:`muon.atac.tl.nucleosome_signal` now works on more ``pysam`` setups
+
+* support for numpy 1.24 and newer scanpy versions
+
+   
 v0.1.3
 ------
 
