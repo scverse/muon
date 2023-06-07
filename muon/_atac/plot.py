@@ -166,13 +166,14 @@ def embedding(
         ad = AnnData(x, obs=adata.obs, obsm=adata.obsm)
         retval = sc.pl.embedding(ad, basis=basis, color=attr_names, **kwargs)
         for aname in attr_names:
-            adata.uns[f"{aname}_colors"] = ad.uns[f"{aname}_colors"]
+            try:
+                adata.uns[f"{aname}_colors"] = ad.uns[f"{aname}_colors"]
+            except KeyError:
+                pass
         return retval
 
     else:
         return sc.pl.embedding(adata, basis=basis, use_raw=use_raw, layer=layer, **kwargs)
-
-    return None
 
 
 def pca(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None]:
