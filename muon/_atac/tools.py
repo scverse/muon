@@ -1153,14 +1153,14 @@ def nucleosome_signal(
 
     for i in tqdm(range(n), desc="Reading Fragments"):
         try:
-            f = fr.next()
+            f = next(fr)
             length = f.end - f.start
             row_ind = d[f.name]
             if length < nucleosome_free_upper_bound:
                 mat[row_ind, 0] += 1
             elif length < mononuleosomal_upper_bound:
                 mat[row_ind, 1] += 1
-        except:
+        except KeyError:
             pass
         # if i % 1000000 == 0:
         #     print(f"Read {i/1000000} Mio. fragments.", end='\r')
