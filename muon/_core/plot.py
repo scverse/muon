@@ -87,7 +87,10 @@ def scatter(
     retval = sc.pl.scatter(ad, x=x, y=y, color=color, **kwargs)
     if color is not None:
         for col in color:
-            data.uns[f"{col}_colors"] = ad.uns[f"{col}_colors"]
+            try:
+                data.uns[f"{col}_colors"] = ad.uns[f"{col}_colors"]
+            except KeyError:
+                pass
     return retval
 
 
@@ -259,7 +262,10 @@ def embedding(
     ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp, uns=adata.uns)
     retval = sc.pl.embedding(ad, basis=basis_mod, color=color, **kwargs)
     for key, col in zip(keys, color):
-        adata.uns[f"{key}_colors"] = ad.uns[f"{col}_colors"]
+        try:
+            adata.uns[f"{key}_colors"] = ad.uns[f"{col}_colors"]
+        except KeyError:
+            pass
     return retval
 
 
