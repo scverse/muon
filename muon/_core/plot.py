@@ -207,7 +207,7 @@ def embedding(
                         k_clean = k.split(":", 1)[1]
                         mod_key_modifier[k] = k_clean
 
-                    keys_in_mod[m][i] = k_clean in data.mod[m].var_names
+                    keys_in_mod[m][i] = k_clean in data.mod[m].var_names or k_clean in data.mod[m].obs
                     if use_raw is None or use_raw:
                         if keys_in_mod[m][i] == False and data.mod[m].raw is not None:
                             keys_in_mod[m][i] = k_clean in data.mod[m].raw.var_names
