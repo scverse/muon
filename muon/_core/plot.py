@@ -183,7 +183,7 @@ def embedding(
         keys = color
     else:
         raise TypeError("Expected color to be a string or an iterable.")
-
+    
     # Fetch respective features
     if not all([key in obs for key in keys]):
         # {'rna': [True, False], 'prot': [False, True]}
@@ -205,9 +205,10 @@ def embedding(
                     k_clean = k
                     if k.startswith(f"{m}:"):
                         k_clean = k.split(":", 1)[1]
-                        mod_key_modifier[k] = k_clean
 
-                    keys_in_mod[m][i] = k_clean in data.mod[m].var_names or k_clean in data.mod[m].obs
+                    keys_in_mod[m][i] = k_clean in data.mod[m].var_names
+                    if keys_in_mod[m][i]:
+                        mod_key_modifier[k] = k_clean
                     if use_raw is None or use_raw:
                         if keys_in_mod[m][i] == False and data.mod[m].raw is not None:
                             keys_in_mod[m][i] = k_clean in data.mod[m].raw.var_names
