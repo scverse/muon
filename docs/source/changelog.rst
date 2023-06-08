@@ -9,6 +9,17 @@ Release notes
 
    *
 
+v0.1.5
+------
+
+This release comes with fixes:
+
+* for handling and saving colour palettes in MuData for categorical and continuous variables in :func:`muon.pl.embedding`,
+
+* for using sparse matrices in the MOFA interface to combine modalities with missing samples in :func:`muon.tl.mofa`,
+
+* for error messages and mixing metadata and features when plotting across modalities with :func:`muon.pl.embedding`.
+
 v0.1.4
 ------
 
