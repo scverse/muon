@@ -2,6 +2,7 @@ import pytest
 import unittest
 
 import numpy as np
+from scipy import sparse
 import pandas as pd
 from anndata import AnnData
 import muon as mu
@@ -65,6 +66,25 @@ class TestMOFASimple(unittest.TestCase):
         )
         self.assertTrue("X_mofa" in adata.obsm)
         self.assertTrue("LFs" in adata.varm)
+
+    def test_mofa_obs_union(self):
+        y1 = self.mdata["y1"]
+        y2 = self.mdata["y2"]
+        for sparsity in (0, 1, 2):
+            if sparsity == 0 or sparsity == 2:
+                y1.X = sparse.csr_matrix(y1.X)
+            if sparsity == 1 or sparsity == 2:
+                y2.X = sparse.csr_matrix(y2.X)
+            mdata = MuData({"y1": y1[:-10], "y2": y2[10:]})
+            mu.tl.mofa(
+                mdata,
+                n_factors=10,
+                quiet=True,
+                verbose=False,
+                use_obs="union",
+            )
+            self.assertTrue("X_mofa" in mdata.obsm)
+            self.assertTrue("LFs" in mdata.varm)
 
 
 @pytest.mark.usefixtures("filepath_hdf5")

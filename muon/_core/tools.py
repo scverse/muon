@@ -161,7 +161,10 @@ def _set_mofa_data_from_mudata(
             ix = expanded.join(orig, how="right").ix.values
 
             # set expanded data with part of the orig data
-            x[ix, :] = mdata[m].X
+            if issparse(mdata[m].X):
+                x[ix, :] = np.array(mdata[m].X.todense())
+            else:
+                x[ix, :] = mdata[m].X
             data[i] = x
 
     # Subset features if required
