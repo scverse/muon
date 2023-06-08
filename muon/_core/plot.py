@@ -183,7 +183,7 @@ def embedding(
         keys = color
     else:
         raise TypeError("Expected color to be a string or an iterable.")
-    
+
     # Fetch respective features
     if not all([key in obs for key in keys]):
         # {'rna': [True, False], 'prot': [False, True]}
