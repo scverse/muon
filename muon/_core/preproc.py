@@ -4,7 +4,7 @@ import warnings
 from itertools import repeat
 
 import numpy as np
-from scipy.sparse import csr_matrix, issparse, SparseEfficiencyWarning
+from scipy.sparse import csr_matrix, issparse, SparseEfficiencyWarning, linalg
 from scipy.spatial.distance import cdist
 from scipy.special import softmax
 from sklearn.utils import check_random_state
@@ -155,7 +155,11 @@ def _l2norm(
     adata: AnnData, rep: Optional[Union[Iterable[str], str]] = None, n_pcs: Optional[int] = 0
 ):
     X = _choose_representation(adata, rep, n_pcs)
-    norm = X / np.linalg.norm(X, ord=2, axis=1, keepdims=True)
+    if issparse(X):
+        X_norm = linalg.norm(X, ord=2, axis=1) 
+        norm = X / np.expand_dims(X_norm, axis=1)
+    else:
+        norm = X / np.linalg.norm(X, ord=2, axis=1, keepdims=True)
     norm[~np.isfinite(norm)] = 0
     X.astype(norm.dtype, copy=False)
     X[:] = norm
