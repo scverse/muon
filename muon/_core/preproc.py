@@ -5,7 +5,6 @@ from itertools import repeat
 
 import numpy as np
 from scipy.sparse import (
-    coo_matrix,
     csr_matrix,
     issparse,
     SparseEfficiencyWarning,
