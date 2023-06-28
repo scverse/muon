@@ -4,7 +4,7 @@ import warnings
 from itertools import repeat
 
 import numpy as np
-from scipy.sparse import coo_matrix, csr_matrix, issparse, SparseEfficiencyWarning, linalg, find
+from scipy.sparse import coo_matrix, csr_matrix, issparse, SparseEfficiencyWarning, linalg, isspmatrix_csc, isspmatrix_csr, isspmatrix_coo
 from scipy.spatial.distance import cdist
 from scipy.special import softmax
 from sklearn.utils import check_random_state
@@ -159,12 +159,17 @@ def _l2norm(
     if sparse_X:
         X_norm = linalg.norm(X, ord=2, axis=1)
         norm = X / np.expand_dims(X_norm, axis=1)
+        if not issparse(norm):
+            norm = csr_matrix(norm)
         norm.data[~np.isfinite(norm.data)] = 0
     else:
         norm = X / np.linalg.norm(X, ord=2, axis=1, keepdims=True)
         norm[~np.isfinite(norm)] = 0
     X.astype(norm.dtype, copy=False)
-    X[:] = norm
+    if sparse_X and (isspmatrix_csc(X) or isspmatrix_csr(X) or isspmatrix_coo(X)):
+        X.data[:] = norm.data[:]       
+    else:
+        X[:] = norm
 
 
 def l2norm(
