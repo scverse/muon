@@ -4,7 +4,16 @@ import warnings
 from itertools import repeat
 
 import numpy as np
-from scipy.sparse import coo_matrix, csr_matrix, issparse, SparseEfficiencyWarning, linalg, isspmatrix_csc, isspmatrix_csr, isspmatrix_coo
+from scipy.sparse import (
+    coo_matrix,
+    csr_matrix,
+    issparse,
+    SparseEfficiencyWarning,
+    linalg,
+    isspmatrix_csc,
+    isspmatrix_csr,
+    isspmatrix_coo,
+)
 from scipy.spatial.distance import cdist
 from scipy.special import softmax
 from sklearn.utils import check_random_state
@@ -167,7 +176,7 @@ def _l2norm(
         norm[~np.isfinite(norm)] = 0
     X.astype(norm.dtype, copy=False)
     if sparse_X and (isspmatrix_csc(X) or isspmatrix_csr(X) or isspmatrix_coo(X)):
-        X.data[:] = norm.data[:]       
+        X.data[:] = norm.data[:]
     else:
         X[:] = norm
 
