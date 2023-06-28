@@ -159,32 +159,11 @@ def _l2norm(
     if sparse_X:
         X_norm = linalg.norm(X, ord=2, axis=1)
         norm = X / np.expand_dims(X_norm, axis=1)
-        if issparse(norm):
-            if isinstance(norm, csr_matrix):
-                # find nan and infinite values and construct matrix without
-                isfin = np.isfinite(norm.data)
-                i = norm.indices[isfin]
-                j = norm.indptr[isfin]
-                val = norm.data[isfin]
-                norm = csr_matrix((val, i, j), shape=X.shape)
-            elif isinstance(norm, coo_matrix):
-                i, j, val = find(norm)
-                isfin = np.isfinite(val)
-                i = i[isfin]
-                j = j[isfin]
-                val = val[isfin]
-                norm = csr_matrix((val, (i, j)), shape=X.shape)
-            else:
-                raise ValueError(
-                    "The normalized sparse matrix is neither `csr_matrix` nor `coo_matrix`."
-                )
+        norm.data[~np.isfinite(norm.data)] = 0
     else:
         norm = X / np.linalg.norm(X, ord=2, axis=1, keepdims=True)
         norm[~np.isfinite(norm)] = 0
     X.astype(norm.dtype, copy=False)
-    if sparse_X and not issparse(norm):
-        norm[~np.isfinite(norm)] = 0
-        X = X.toarray()
     X[:] = norm
 
 
