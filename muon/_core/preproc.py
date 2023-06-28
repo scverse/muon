@@ -165,6 +165,7 @@ def _l2norm(
             isfin = np.isfinite(val)
             i = i[isfin]
             j = j[isfin]
+            val = val[isfin]
             norm = csr_matrix((val, (i, j)), shape=X.shape)
     else:
         norm = X / np.linalg.norm(X, ord=2, axis=1, keepdims=True)
