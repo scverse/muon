@@ -6,7 +6,7 @@
 
 [![Documentation Status](https://readthedocs.org/projects/muon/badge/?version=latest)](http://muon.readthedocs.io/?badge=latest)
 [![PyPi version](https://img.shields.io/pypi/v/muon)](https://pypi.org/project/muon)
-[![Powered by NumFOCUS][https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A]][https://numfocus.org]
+[![Powered by NumFOCUS](https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A)](https://numfocus.org)
 
 ## Data structure
 
