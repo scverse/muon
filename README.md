@@ -6,29 +6,13 @@
 
 [![Documentation Status](https://readthedocs.org/projects/muon/badge/?version=latest)](http://muon.readthedocs.io/?badge=latest)
 [![PyPi version](https://img.shields.io/pypi/v/muon)](https://pypi.org/project/muon)
-[![Powered by NumFOCUS][badge-numfocus]][link-numfocus]
+[![Powered by NumFOCUS][https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A]][https://numfocus.org]
 
 ## Data structure
 
 `muon` is designed around `MuData` (multimodal data) objects — in the same vein as [scanpy](https://github.com/theislab/scanpy) and [AnnData](https://github.com/theislab/anndata) are designed to work primarily with scRNA-seq data in Python. Individual modalities in `MuData` are naturally represented with `AnnData` objects.
 
 `MuData` class and `.h5mu` files I/O operations are part of [the standalone mudata library](https://github.com/scverse/mudata).
-
-[//]: # "numfocus-fiscal-sponsor-attribution"
-
-MuData is part of the scverse project ([website](https://scverse.org), [governance](https://scverse.org/about/roles)) and is fiscally sponsored by [NumFOCUS](https://numfocus.org/).
-Please consider making a tax-deductible [donation](https://numfocus.org/donate-to-scverse) to help the project pay for developer time, professional services, travel, workshops, and a variety of other needs.
-
-<a href="https://numfocus.org/project/scverse">
-  <img
-    src="https://raw.githubusercontent.com/numfocus/templates/master/images/numfocus-logo.png"
-    width="200"
-  >
-</a>
-
-[badge-numfocus]: https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A
-[link-numfocus]: http://numfocus.org
-
 
 ### Input
 
@@ -137,3 +121,17 @@ You can cite the scverse publication as follows:
 > Isaac Virshup, Danila Bredikhin, Lukas Heumos, Giovanni Palla, Gregor Sturm, Adam Gayoso, Ilia Kats, Mikaela Koutrouli, Scverse Community, Bonnie Berger, Dana Pe’er, Aviv Regev, Sarah A. Teichmann, Francesca Finotello, F. Alexander Wolf, Nir Yosef, Oliver Stegle & Fabian J. Theis
 >
 > _Nat Biotechnol._ 2023 Apr 10. doi: [10.1038/s41587-023-01733-8](https://doi.org/10.1038/s41587-023-01733-8).
+
+
+[//]: # "numfocus-fiscal-sponsor-attribution"
+
+`muon` is part of the scverse project ([website](https://scverse.org), [governance](https://scverse.org/about/roles)) and is fiscally sponsored by [NumFOCUS](https://numfocus.org/).
+Please consider making a tax-deductible [donation](https://numfocus.org/donate-to-scverse) to help the project pay for developer time, professional services, travel, workshops, and a variety of other needs.
+
+<a href="https://numfocus.org/project/scverse">
+  <img
+    src="https://raw.githubusercontent.com/numfocus/templates/master/images/numfocus-logo.png"
+    width="200"
+  >
+</a>
+
