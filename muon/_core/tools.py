@@ -639,7 +639,7 @@ def mofa(
     if use_var:
         # Set the weights of features that were not used to zero
         data.varm["LFs"] = np.zeros(shape=(data.n_vars, w.shape[1]))
-        data.varm["LFs"][data.var[use_var]] = w
+        data.varm["LFs"][data.var[use_var].astype(bool)] = w
     else:
         data.varm["LFs"] = w
 
