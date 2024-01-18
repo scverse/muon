@@ -20,7 +20,7 @@ from sklearn.utils import check_random_state
 from anndata import AnnData
 from scanpy import logging
 from scanpy.tools._utils import _choose_representation
-from scanpy.neighbors import _compute_connectivities_umap
+from scanpy.neighbors._connectivity import umap
 from umap.distances import euclidean
 from umap.sparse import sparse_euclidean, sparse_jaccard
 from umap.umap_ import nearest_neighbors
@@ -585,7 +585,7 @@ def neighbors(
     neighbordistances = _sparse_csr_fast_knn(neighbordistances, n_neighbors + 1)
 
     logging.info("Calculating connectivities...")
-    _, connectivities = _compute_connectivities_umap(
+    connectivities = umap(
         knn_indices=neighbordistances.indices.reshape(
             (neighbordistances.shape[0], n_neighbors + 1)
         ),
