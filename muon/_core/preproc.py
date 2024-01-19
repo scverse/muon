@@ -162,7 +162,7 @@ def _make_slice_intervals(idx, maxsize=10000):
 def _l2norm(
     adata: AnnData, rep: Optional[Union[Iterable[str], str]] = None, n_pcs: Optional[int] = 0
 ):
-    X = _choose_representation(adata, rep, n_pcs)
+    X = _choose_representation(adata=adata, use_rep=rep, n_pcs=n_pcs)
     sparse_X = issparse(X)
     if sparse_X:
         X_norm = linalg.norm(X, ord=2, axis=1)
@@ -211,7 +211,7 @@ def l2norm(
             rep = next(it)
             try:
                 next(it)
-            except StopIteration as e:
+            except StopIteration:
                 pass
             else:
                 raise RuntimeError("If 'rep' is an Iterable, it must have length 1")
@@ -220,7 +220,7 @@ def l2norm(
             n_pcs = next(it)
             try:
                 next(it)
-            except StopIteration as e:
+            except StopIteration:
                 pass
             else:
                 raise RuntimeError("If 'n_pcs' is an Iterable, it must have length 1")
@@ -358,7 +358,7 @@ def neighbors(
         mod_neighbors[i] = nparams["params"].get("n_neighbors", 0)
 
         neighbors_params[mod] = nparams
-        reps[mod] = _choose_representation(mdata.mod[mod], use_rep, n_pcs)
+        reps[mod] = _choose_representation(adata=mdata.mod[mod], use_rep=use_rep, n_pcs=n_pcs)
         mod_reps[mod] = (
             use_rep if use_rep is not None else -1
         )  # otherwise this is not saved to h5mu
@@ -599,8 +599,8 @@ def neighbors(
         conns_key = "connectivities"
         dists_key = "distances"
     else:
-        conns_key = key_added + "_connectivities"
-        dists_key = key_added + "_distances"
+        conns_key = f"{key_added}_connectivities"
+        dists_key = f"{key_added}_distances"
     neighbors_dict = {"connectivities_key": conns_key, "distances_key": dists_key}
     neighbors_dict["params"] = {
         "n_neighbors": n_neighbors,
@@ -711,7 +711,7 @@ def filter_obs(
             else:
                 obs_subset = data.obs_names.isin(var)
         else:
-            raise ValueError(f"When providing obs_names directly, func has to be None.")
+            raise ValueError("When providing obs_names directly, func has to be None.")
 
     # Subset .obs
     data._obs = data.obs[obs_subset]
@@ -819,12 +819,9 @@ def filter_var(
             )
     else:
         if func is None:
-            if np.array(var).dtype == bool:
-                var_subset = var
-            else:
-                var_subset = data.var_names.isin(var)
+            var_subset = var if np.array(var).dtype == bool else data.var_names.isin(var)
         else:
-            raise ValueError(f"When providing var_names directly, func has to be None.")
+            raise ValueError("When providing var_names directly, func has to be None.")
 
     # Subset .var
     data._var = data.var[var_subset]

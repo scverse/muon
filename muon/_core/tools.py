@@ -17,6 +17,7 @@ from mudata import MuData
 
 from scanpy import logging
 from scanpy.tools._utils import _choose_representation
+
 # from scanpy.neighbors import _compute_connectivities_umap
 
 from typing import Union, Optional, List, Iterable, Mapping, Sequence, Type, Any, Dict, Literal
@@ -435,11 +436,9 @@ def mofa(
     if outfile is None:
         outfile = os.path.join("/tmp", "mofa_{}.hdf5".format(strftime("%Y%m%d-%H%M%S")))
 
-    if use_var:
-        if use_var not in data.var.columns:
-            warn(f"There is no column {use_var} in the provided object")
-            use_var = None
-
+    if use_var and use_var not in data.var.columns:
+        warn(f"There is no column {use_var} in the provided object")
+        use_var = None
     if isinstance(data, MuData):
         common_obs = reduce(np.intersect1d, [v.obs_names.values for k, v in mdata.mod.items()])
         if len(common_obs) != mdata.n_obs:
@@ -457,9 +456,8 @@ def mofa(
     ent = entry_point()
 
     lik = likelihoods
-    if lik is not None:
-        if isinstance(lik, str) and isinstance(lik, Iterable):
-            lik = [lik for _ in range(len(mdata.mod))]
+    if lik is not None and (isinstance(lik, str) and isinstance(lik, Iterable)):
+        lik = [lik for _ in range(len(mdata.mod))]
 
     ent.set_data_options(
         scale_views=scale_views,
@@ -787,7 +785,7 @@ def snf(
         mod_neighbors[i] = nparams["params"].get("n_neighbors", 0)
 
         neighbors_params[mod] = nparams
-        reps[mod] = _choose_representation(mdata.mod[mod], use_rep, n_pcs)
+        reps[mod] = _choose_representation(adata=mdata.mod[mod], use_rep=use_rep, n_pcs=n_pcs)
         mod_reps[mod] = (
             use_rep if use_rep is not None else -1
         )  # otherwise this is not saved to h5mu
@@ -855,7 +853,7 @@ def snf(
     def _dominateset(x, k=20):
         def _zero(arr):
             if k >= len(arr):
-                raise ValueError(f"'n_neighbors' seems to be too high.")
+                raise ValueError("'n_neighbors' seems to be too high.")
             arr = arr.copy()
             arr[np.argsort(arr)[: (len(arr) - k)]] = 0
             return arr
@@ -1319,7 +1317,7 @@ def umap(
     n_pcs = {k: (v if v != -1 else None) for k, v in nparams["n_pcs"].items()}
     observations = mdata.obs.index
     for mod, rep in use_rep.items():
-        rep = _choose_representation(mdata.mod[mod], rep, n_pcs[mod])
+        rep = _choose_representation(adata=mdata.mod[mod], use_rep=rep, n_pcs=n_pcs[mod])
         nfeatures += rep.shape[1]
         reps[mod] = rep
     rep = np.empty((len(observations), nfeatures), np.float32)
