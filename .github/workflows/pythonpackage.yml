@@ -1,6 +1,12 @@
 name: Python package
 
-on: [push]
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    - cron: "0 5 1,15 * *"
 
 jobs:
   build:
