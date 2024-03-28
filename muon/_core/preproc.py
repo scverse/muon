@@ -21,7 +21,6 @@ from anndata import AnnData
 import scanpy
 from scanpy import logging
 from scanpy.tools._utils import _choose_representation
-from scanpy.neighbors._connectivity import umap
 from umap.distances import euclidean
 from umap.sparse import sparse_euclidean, sparse_jaccard
 from umap.umap_ import nearest_neighbors
