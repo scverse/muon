@@ -18,6 +18,7 @@ from scipy.special import softmax
 from sklearn.utils import check_random_state
 
 from anndata import AnnData
+import scanpy
 from scanpy import logging
 from scanpy.tools._utils import _choose_representation
 from scanpy.neighbors._connectivity import umap
@@ -25,6 +26,13 @@ from umap.distances import euclidean
 from umap.sparse import sparse_euclidean, sparse_jaccard
 from umap.umap_ import nearest_neighbors
 from numba import njit, prange
+
+from packaging.version import Version
+
+if Version(scanpy.__version__) < Version("1.10"):
+    from scanpy.neighbors import _compute_connectivities_umap
+else:
+    from scanpy.neighbors._connectivity import umap as _compute_connectivities_umap
 
 from mudata import MuData
 
@@ -585,7 +593,7 @@ def neighbors(
     neighbordistances = _sparse_csr_fast_knn(neighbordistances, n_neighbors + 1)
 
     logging.info("Calculating connectivities...")
-    connectivities = umap(
+    connectivities = _compute_connectivities_umap(
         knn_indices=neighbordistances.indices.reshape(
             (neighbordistances.shape[0], n_neighbors + 1)
         ),
