@@ -1,12 +1,15 @@
 version: 2
 
+build:
+  os: ubuntu-22.04
+
 # Build from the docs/ directory with Sphinx
 sphinx:
   configuration: docs/source/conf.py
 
 # Explicitly set the version of Python and its requirements
 python:
-  version: 3.8
+  version: 3.12
   install:
     - method: pip
       path: .
