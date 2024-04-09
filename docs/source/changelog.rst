@@ -9,6 +9,12 @@ Release notes
 
    *
 
+
+v0.1.6
+------
+
+* Compatibility with scanpy 1.10
+
 v0.1.5
 ------
 
