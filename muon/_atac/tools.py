@@ -853,7 +853,7 @@ def count_fragments_features(
                 f_from = f[start_col] - extend_upstream
                 f_to = f[end_col] + extend_downstream
 
-            for fr in fragments.fetch(f.Chromosome, f_from, f_to):
+            for fr in fragments.fetch(f[chr_col], f_from, f_to):
                 try:
                     ind = adata.obs.index.get_loc(fr.name)  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
                     mx.rows[i].append(ind)
