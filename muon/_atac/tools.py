@@ -834,7 +834,7 @@ def count_fragments_features(
             raise ValueError("No column with strand for features could be found")
         strand_col = features.columns.values[np.where(f_cols == chrom_col)[0][0]]
 
-    fragments = pysam.TabixFile(adata.uns["files"]["fragments"], parser=pysam.asBed())
+    fragments = pysam.TabixFile(adata.uns["files"]["fragments"])
     try:
         # List of lists matrix is quick and convenient to fill by row
         mx = lil_matrix((n_features, n), dtype=int)
@@ -853,14 +853,15 @@ def count_fragments_features(
                 f_from = f[start_col] - extend_upstream
                 f_to = f[end_col] + extend_downstream
 
-            for fr in fragments.fetch(f.Chromosome, f_from, f_to):
+            for fr in fragments.fetch(f[chr_col], f_from, f_to, parser=pysam.asBed()):
                 try:
                     ind = adata.obs.index.get_loc(fr.name)  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
                     mx.rows[i].append(ind)
                     mx.data[i].append(int(fr.score))  # number of cuts per fragment (e.g. 2)
                 except:
                     pass
-
+        # The connection has to be closed
+        fragments.close()
         # Faster to convert to csr first and then transpose
         mx = mx.tocsr().transpose()
 
