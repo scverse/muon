@@ -96,14 +96,14 @@ def tfidf(
         tf = np.dot(n_peaks, counts)
     else:
         n_peaks = np.asarray(counts.sum(axis=1)).reshape(-1, 1)
-        tf = adata.X / n_peaks
+        tf = counts / n_peaks
 
     if scale_factor is not None and scale_factor != 0 and scale_factor != 1:
         tf = tf * scale_factor
     if log_tf:
         tf = np.log1p(tf)
 
-    idf = np.asarray(adata.shape[0] / adata.X.sum(axis=0)).reshape(-1)
+    idf = np.asarray(adata.shape[0] / counts.sum(axis=0)).reshape(-1)
     if log_idf:
         idf = np.log1p(idf)
 
