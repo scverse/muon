@@ -760,7 +760,7 @@ def filter_obs(
         for m in data.mod.keys():
             obsmap = data.obsmap[m][obs_subset]
             obsidx = obsmap > 0
-            data.mod[m] = data.mod[m][data.mod[m].obs_names[obsmap[obsidx] - 1]]
+            data.mod[m]._obs = data.mod[m].obs.loc[data.mod[m].obs_names[obsmap[obsidx] - 1]]
             maporder = np.argsort(obsmap[obsidx])
             nobsmap = np.empty(maporder.size)
             nobsmap[maporder] = np.arange(1, maporder.size + 1)
