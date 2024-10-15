@@ -757,15 +757,16 @@ def filter_obs(
 
     else:
         # filter_obs() for each modality
-        for m in data.mod.keys():
-            obsmap = data.obsmap[m][obs_subset]
+        for modality_key in data.mod.keys():
+            obsmap = data.obsmap[modality_key][obs_subset]
             obsidx = obsmap > 0
-            data.mod[m]._obs = data.mod[m].obs.loc[data.mod[m].obs_names[obsmap[obsidx] - 1]]
+            modality = data.mod[modality_key]
+            data.mod[modality_key]._obs = modality.loc[modality.obs_names[obsmap[obsidx] - 1]]
             maporder = np.argsort(obsmap[obsidx])
             nobsmap = np.empty(maporder.size)
             nobsmap[maporder] = np.arange(1, maporder.size + 1)
             obsmap[obsidx] = nobsmap
-            data.obsmap[m] = obsmap
+            data.obsmap[modality_key] = obsmap
 
     return
 
