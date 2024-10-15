@@ -144,7 +144,7 @@ class TestMOFA2D:
 
         for sample, value in (("sample9_groupA", 1.719391), ("sample17_groupB", -2.057848)):
             si = np.where(mdata.obs.index == sample)[0]
-            assert mdata.obsm["X_mofa"][si, 0] == pytest.approx(value, 1e-4)
+            assert mdata.obsm["X_mofa"][si, 0].item() == pytest.approx(value)
 
 
 if __name__ == "__main__":
