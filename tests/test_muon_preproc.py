@@ -83,6 +83,16 @@ class TestInPlaceFiltering:
             sub = np.random.binomial(1, 0.5, view.n_obs).astype(bool)
             mu.pp.filter_obs(view, sub)
 
+    def test_filter_obs_with_obsm_obsp(self, pbmc3k_processed):
+        A = pbmc3k_processed[:500,].copy()
+        B = pbmc3k_processed[500:,].copy()
+        mdata = mu.MuData({"A": A, "B": B})
+        mu.pp.filter_obs(mdata, "A:louvain", lambda x: x == "B cells")
+        assert mdata["B"].n_obs == 0
+        assert mdata["A"].obs["louvain"].unique() == "B cells"
+        assert B.n_obs == 0
+        assert A.obs["louvain"].unique() == "B cells"
+
     # Variables
 
     def test_filter_var_adata(self, mdata, filepath_h5mu):
@@ -131,6 +141,16 @@ class TestInPlaceFiltering:
         with pytest.raises(ValueError):
             sub = np.random.binomial(1, 0.5, view.n_vars).astype(bool)
             mu.pp.filter_var(view, sub)
+
+    def test_filter_var_with_varm_varp(self, pbmc3k_processed):
+        A = pbmc3k_processed[:500,].copy()
+        B = pbmc3k_processed[500:,].copy()
+        mdata = mu.MuData({"A": A, "B": B})
+        np.random.seed(42)
+        var_sel = np.random.choice(np.array([0, 1]), size=mdata.n_vars, replace=True)
+        mdata.var["sel"] = var_sel
+        mu.pp.filter_var(mdata, "sel", lambda y: y == 1)
+        assert mdata.shape[1] == int(np.sum(var_sel))
 
 
 @pytest.mark.usefixtures("filepath_h5mu")
