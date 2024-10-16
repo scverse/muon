@@ -116,7 +116,7 @@ def tfidf(
     if log_tfidf:
         tf_idf = np.log1p(tf_idf)
 
-    res = np.nan_to_num(tf_idf, 0)
+    res = np.nan_to_num(tf_idf, nan=0.0)
     if not inplace:
         return res
 
