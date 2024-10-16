@@ -18,13 +18,20 @@ from scipy.special import softmax
 from sklearn.utils import check_random_state
 
 from anndata import AnnData
+import scanpy
 from scanpy import logging
 from scanpy.tools._utils import _choose_representation
-from scanpy.neighbors import _compute_connectivities_umap
 from umap.distances import euclidean
 from umap.sparse import sparse_euclidean, sparse_jaccard
 from umap.umap_ import nearest_neighbors
 from numba import njit, prange
+
+from packaging.version import Version
+
+if Version(scanpy.__version__) < Version("1.10"):
+    from scanpy.neighbors import _compute_connectivities_umap
+else:
+    from scanpy.neighbors._connectivity import umap as _compute_connectivities_umap
 
 from mudata import MuData
 
@@ -162,7 +169,7 @@ def _make_slice_intervals(idx, maxsize=10000):
 def _l2norm(
     adata: AnnData, rep: Optional[Union[Iterable[str], str]] = None, n_pcs: Optional[int] = 0
 ):
-    X = _choose_representation(adata, rep, n_pcs)
+    X = _choose_representation(adata=adata, use_rep=rep, n_pcs=n_pcs)
     sparse_X = issparse(X)
     if sparse_X:
         X_norm = linalg.norm(X, ord=2, axis=1)
@@ -211,7 +218,7 @@ def l2norm(
             rep = next(it)
             try:
                 next(it)
-            except StopIteration as e:
+            except StopIteration:
                 pass
             else:
                 raise RuntimeError("If 'rep' is an Iterable, it must have length 1")
@@ -220,7 +227,7 @@ def l2norm(
             n_pcs = next(it)
             try:
                 next(it)
-            except StopIteration as e:
+            except StopIteration:
                 pass
             else:
                 raise RuntimeError("If 'n_pcs' is an Iterable, it must have length 1")
@@ -358,7 +365,7 @@ def neighbors(
         mod_neighbors[i] = nparams["params"].get("n_neighbors", 0)
 
         neighbors_params[mod] = nparams
-        reps[mod] = _choose_representation(mdata.mod[mod], use_rep, n_pcs)
+        reps[mod] = _choose_representation(adata=mdata.mod[mod], use_rep=use_rep, n_pcs=n_pcs)
         mod_reps[mod] = (
             use_rep if use_rep is not None else -1
         )  # otherwise this is not saved to h5mu
@@ -585,7 +592,7 @@ def neighbors(
     neighbordistances = _sparse_csr_fast_knn(neighbordistances, n_neighbors + 1)
 
     logging.info("Calculating connectivities...")
-    _, connectivities = _compute_connectivities_umap(
+    connectivities = _compute_connectivities_umap(
         knn_indices=neighbordistances.indices.reshape(
             (neighbordistances.shape[0], n_neighbors + 1)
         ),
@@ -599,8 +606,8 @@ def neighbors(
         conns_key = "connectivities"
         dists_key = "distances"
     else:
-        conns_key = key_added + "_connectivities"
-        dists_key = key_added + "_distances"
+        conns_key = f"{key_added}_connectivities"
+        dists_key = f"{key_added}_distances"
     neighbors_dict = {"connectivities_key": conns_key, "distances_key": dists_key}
     neighbors_dict["params"] = {
         "n_neighbors": n_neighbors,
@@ -650,7 +657,163 @@ def intersect_obs(mdata: MuData):
     return
 
 
-# Utility functions: filtering observations
+# Utility functions: filtering observations or variables
+
+
+def _filter_attr(
+    data: Union[AnnData, MuData],
+    attr: Literal["obs", "var"],
+    key: Union[str, Sequence[str]],
+    func: Optional[Callable] = None,
+) -> None:
+    """
+    Filter observations or variables in-place.
+
+    Parameters
+    ----------
+    data: AnnData or MuData
+            AnnData or MuData object
+    key: str or Sequence[str]
+            Names or key to filter
+    func
+            Function to apply to the variable used for filtering.
+            If the variable is of type boolean and func is an identity function,
+            the func argument can be omitted.
+    """
+
+    if data.is_view:
+        raise ValueError(
+            "The provided adata is a view. In-place filtering does not operate on views."
+        )
+    if data.isbacked:
+        if isinstance(data, AnnData):
+            warnings.warn(
+                "AnnData object is backed. The requested subset of the matrix .X will be read into memory, and the object will not be backed anymore."
+            )
+        else:
+            warnings.warn(
+                "MuData object is backed. The requested subset of the .X matrices of its modalities will be read into memory, and the object will not be backed anymore."
+            )
+
+    assert attr in ("obs", "var"), "Attribute has to be either 'obs' or 'var'."
+
+    df = getattr(data, attr)
+    names = getattr(data, f"{attr}_names")
+    other = "obs" if attr == "var" else "var"
+    other_names = getattr(data, f"{other}_names")
+    attrm = getattr(data, f"{attr}m")
+    attrp = getattr(data, f"{attr}p")
+
+    if isinstance(key, str):
+        if key in df.columns:
+            if func is None:
+                if df[key].dtypes.name == "bool":
+
+                    def func(x):
+                        return x
+
+                else:
+                    raise ValueError(f"Function has to be provided since {key} is not boolean")
+            subset = func(df[key].values)
+        elif key in other_names:
+            if attr == "obs":
+                subset = func(data.X[:, np.where(other_names == key)[0]].reshape(-1))
+            else:
+                subset = func(data.X[np.where(other_names == key)[0], :].reshape(-1))
+        else:
+            raise ValueError(
+                f"Column name from .{attr} or one of the {other}_names was expected but got {key}."
+            )
+    else:
+        if func is None:
+            if np.array(key).dtype == bool:
+                subset = np.array(key)
+            else:
+                subset = names.isin(key)
+        else:
+            raise ValueError(f"When providing {attr}_names directly, func has to be None.")
+
+    if isinstance(data, AnnData):
+        # Collect elements to subset
+        # NOTE: accessing them after subsetting .obs/.var
+        # will fail due to _validate_value()
+        attrm = dict(attrm)
+        attrp = dict(attrp)
+
+        # Subset .obs/.var
+        setattr(data, f"_{attr}", df[subset])
+
+        # Subset .obsm/.varm
+        for k, v in attrm.items():
+            attrm[k] = v[subset]
+        setattr(data, f"{attr}m", attrm)
+
+        # Subset .obsp/.obsp
+        for k, v in attrp.items():
+            attrp[k] = v[subset][:, subset]
+        setattr(data, f"{attr}p", attrp)
+
+        # Subset .X
+        if data._X is not None:
+            try:
+                if attr == "obs":
+                    data._X = data.X[subset, :]
+                else:
+                    data._X = data.X[:, subset]
+            except TypeError:
+                if attr == "obs":
+                    data._X = data.X[np.where(subset)[0], :]
+                else:
+                    data._X = data.X[:, np.where(subset)[0]]
+                # For some h5py versions, indexing arrays must have integer dtypes
+                # https://github.com/h5py/h5py/issues/1847
+
+        if data.isbacked:
+            data.file.close()
+            data.filename = None
+
+        # Subset layers
+        for layer in data.layers:
+            if attr == "obs":
+                data.layers[layer] = data.layers[layer][subset, :]
+            else:
+                data.layers[layer] = data.layers[layer][:, subset]
+
+        # Subset raw - only when subsetting obs
+        if attr == "obs" and data.raw is not None:
+            data.raw._X = data.raw.X[subset, :]
+
+    else:
+        attrmap = getattr(data, f"{attr}map")
+
+        # Subset .obs/.var
+        setattr(data, f"_{attr}", df[subset])
+
+        # Subset .obsm/.varm
+        for k, v in attrm.items():
+            attrm[k] = v[subset]
+        setattr(data, f"{attr}m", attrm)
+
+        # Subset .obsp/.varp
+        for k, v in attrp.items():
+            attrp[k] = v[subset][:, subset]
+        setattr(data, f"{attr}p", attrp)
+
+        # _filter_attr() for each modality
+        for m, mod in data.mod.items():
+            map_subset = attrmap[m][subset]
+            attridx = map_subset > 0
+            orig_attr = getattr(mod, attr).copy()
+            mod_names = getattr(mod, f"{attr}_names")
+            _filter_attr(mod, attr, mod_names[map_subset[attridx] - 1])
+            data.mod[m]._remove_unused_categories(orig_attr, getattr(mod, attr), mod.uns)
+            maporder = np.argsort(map_subset[attridx])
+            nobsmap = np.empty(maporder.size)
+            nobsmap[maporder] = np.arange(1, maporder.size + 1)
+            map_subset[attridx] = nobsmap
+            getattr(data, f"{attr}map")[m] = map_subset
+
+    return
 
 
 def filter_obs(
@@ -673,97 +836,9 @@ def filter_obs(
             the func argument can be omitted.
     """
 
-    if data.is_view:
-        raise ValueError(
-            "The provided adata is a view. In-place filtering does not operate on views."
-        )
-    if data.isbacked:
-        if isinstance(data, AnnData):
-            warnings.warn(
-                "AnnData object is backed. The requested subset of the matrix .X will be read into memory, and the object will not be backed anymore."
-            )
-        else:
-            warnings.warn(
-                "MuData object is backed. The requested subset of the .X matrices of its modalities will be read into memory, and the object will not be backed anymore."
-            )
-
-    if isinstance(var, str):
-        if var in data.obs.columns:
-            if func is None:
-                if data.obs[var].dtypes.name == "bool":
-
-                    def func(x):
-                        return x
-
-                else:
-                    raise ValueError(f"Function has to be provided since {var} is not boolean")
-            obs_subset = func(data.obs[var].values)
-        elif var in data.var_names:
-            obs_subset = func(data.X[:, np.where(data.var_names == var)[0]].reshape(-1))
-        else:
-            raise ValueError(
-                f"Column name from .obs or one of the var_names was expected but got {var}."
-            )
-    else:
-        if func is None:
-            if np.array(var).dtype == bool:
-                obs_subset = np.array(var)
-            else:
-                obs_subset = data.obs_names.isin(var)
-        else:
-            raise ValueError(f"When providing obs_names directly, func has to be None.")
-
-    # Subset .obs
-    data._obs = data.obs[obs_subset]
-    data._n_obs = data.obs.shape[0]
-
-    # Subset .obsm
-    for k, v in data.obsm.items():
-        data.obsm[k] = v[obs_subset]
-
-    # Subset .obsp
-    for k, v in data.obsp.items():
-        data.obsp[k] = v[obs_subset][:, obs_subset]
-
-    if isinstance(data, AnnData):
-        # Subset .X
-        if data._X is not None:
-            try:
-                data._X = data.X[obs_subset, :]
-            except TypeError:
-                data._X = data.X[np.where(obs_subset)[0], :]
-                # For some h5py versions, indexing arrays must have integer dtypes
-                # https://github.com/h5py/h5py/issues/1847
-
-        if data.isbacked:
-            data.file.close()
-            data.filename = None
-
-        # Subset layers
-        for layer in data.layers:
-            data.layers[layer] = data.layers[layer][obs_subset, :]
-
-        # Subset raw
-        if data.raw is not None:
-            data.raw._X = data.raw.X[obs_subset, :]
-            data.raw._n_obs = data.raw.X.shape[0]
-
-    else:
-        # filter_obs() for each modality
-        for m, mod in data.mod.items():
-            obsmap = data.obsmap[m][obs_subset]
-            obsidx = obsmap > 0
-            filter_obs(mod, mod.obs_names[obsmap[obsidx] - 1])
-            maporder = np.argsort(obsmap[obsidx])
-            nobsmap = np.empty(maporder.size)
-            nobsmap[maporder] = np.arange(1, maporder.size + 1)
-            obsmap[obsidx] = nobsmap
-            data.obsmap[m] = obsmap
+    _filter_attr(data, "obs", var, func)
 
     return
-
-
-# Utility functions: filtering variables
 
 
 def filter_var(
@@ -786,87 +861,7 @@ def filter_var(
             the func argument can be omitted.
     """
 
-    if data.is_view:
-        raise ValueError(
-            "The provided adata is a view. In-place filtering does not operate on views."
-        )
-    if data.isbacked:
-        if isinstance(data, AnnData):
-            warnings.warn(
-                "AnnData object is backed. The requested subset of the matrix .X will be read into memory, and the object will not be backed anymore."
-            )
-        else:
-            warnings.warn(
-                "MuData object is backed. The requested subset of the .X matrices of its modalities will be read into memory, and the object will not be backed anymore."
-            )
-
-    if isinstance(var, str):
-        if var in data.var.columns:
-            if func is None:
-                if data.var[var].dtypes.name == "bool":
-
-                    def func(x):
-                        return x
-
-                else:
-                    raise ValueError(f"Function has to be provided since {var} is not boolean")
-            var_subset = func(data.var[var].values)
-        elif var in data.obs_names:
-            var_subset = func(data.X[:, np.where(data.obs_names == var)[0]].reshape(-1))
-        else:
-            raise ValueError(
-                f"Column name from .var or one of the obs_names was expected but got {var}."
-            )
-    else:
-        if func is None:
-            if np.array(var).dtype == bool:
-                var_subset = var
-            else:
-                var_subset = data.var_names.isin(var)
-        else:
-            raise ValueError(f"When providing var_names directly, func has to be None.")
-
-    # Subset .var
-    data._var = data.var[var_subset]
-    data._n_vars = data.var.shape[0]
-
-    # Subset .varm
-    for k, v in data.varm.items():
-        data.varm[k] = v[var_subset]
-
-    # Subset .varp
-    for k, v in data.varp.items():
-        data.varp[k] = v[var_subset][:, var_subset]
-
-    if isinstance(data, AnnData):
-        # Subset .X
-        try:
-            data._X = data.X[:, var_subset]
-        except TypeError:
-            data._X = data.X[:, np.where(var_subset)[0]]
-            # For some h5py versions, indexing arrays must have integer dtypes
-            # https://github.com/h5py/h5py/issues/1847
-        if data.isbacked:
-            data.file.close()
-            data.filename = None
-
-        # Subset layers
-        for layer in data.layers:
-            data.layers[layer] = data.layers[layer][:, var_subset]
-
-        # NOTE: .raw is not subsetted
-
-    else:
-        # filter_var() for each modality
-        for m, mod in data.mod.items():
-            varmap = data.varmap[m][var_subset]
-            varidx = varmap > 0
-            filter_var(mod, mod.var_names[varmap[varidx] - 1])
-            maporder = np.argsort(varmap[varidx])
-            nvarmap = np.empty(maporder.size)
-            nvarmap[maporder] = np.arange(1, maporder.size + 1)
-            varmap[varidx] = nvarmap
-            data.varmap[m] = varmap
+    _filter_attr(data, "var", var, func)
 
     return
 

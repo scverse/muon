@@ -1,0 +1,10 @@
+sphinx==7.2.6
+sphinx-rtd-theme==2.0.0
+commonmark==0.9.1
+recommonmark==0.7.1
+sphinx_automodapi==0.17.0
+nbsphinx==0.9.3
+readthedocs-sphinx-search==0.3.2
+sphinx-book-theme==1.1.2
+pydata-sphinx-theme==0.15.2
+muon
