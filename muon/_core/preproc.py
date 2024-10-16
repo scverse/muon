@@ -720,19 +720,27 @@ def filter_obs(
         else:
             raise ValueError("When providing obs_names directly, func has to be None.")
 
-    # Subset .obs
-    data._obs = data.obs[obs_subset]
-    data._n_obs = data.obs.shape[0]
-
-    # Subset .obsm
-    for k, v in data.obsm.items():
-        data.obsm[k] = v[obs_subset]
-
-    # Subset .obsp
-    for k, v in data.obsp.items():
-        data.obsp[k] = v[obs_subset][:, obs_subset]
-
     if isinstance(data, AnnData):
+        # Collect elements to subset
+        # NOTE: accessing them after subsetting .obs
+        # will fail due to _validate_value()
+        obsm = dict(data.obsm)
+        obsp = dict(data.obsp)
+
+        # Subset .obs
+        data._obs = data.obs[obs_subset]
+        data._n_obs = data.obs.shape[0]
+
+        # Subset .obsm
+        for k, v in obsm.items():
+            obsm[k] = v[obs_subset]
+        data.obsm = obsm
+
+        # Subset .obsp
+        for k, v in obsp.items():
+            obsp[k] = v[obs_subset][:, obs_subset]
+        data.obsp = obsp
+
         # Subset .X
         if data._X is not None:
             try:
@@ -756,17 +764,28 @@ def filter_obs(
             data.raw._n_obs = data.raw.X.shape[0]
 
     else:
+        # Subset .obs
+        data._obs = data.obs[obs_subset]
+        data._n_obs = data.obs.shape[0]
+
+        # Subset .obsm
+        for k, v in data.obsm.items():
+            data.obsm[k] = v[obs_subset]
+
+        # Subset .obsp
+        for k, v in data.obsp.items():
+            data.obsp[k] = v[obs_subset][:, obs_subset]
+
         # filter_obs() for each modality
-        for modality_key in data.mod.keys():
-            obsmap = data.obsmap[modality_key][obs_subset]
+        for m, mod in data.mod.items():
+            obsmap = data.obsmap[m][obs_subset]
             obsidx = obsmap > 0
-            modality = data.mod[modality_key]
-            data.mod[modality_key]._obs = modality.loc[modality.obs_names[obsmap[obsidx] - 1]]
+            filter_obs(mod, mod.obs_names[obsmap[obsidx] - 1])
             maporder = np.argsort(obsmap[obsidx])
             nobsmap = np.empty(maporder.size)
             nobsmap[maporder] = np.arange(1, maporder.size + 1)
             obsmap[obsidx] = nobsmap
-            data.obsmap[modality_key] = obsmap
+            data.obsmap[m] = obsmap
 
     return
 
@@ -831,19 +850,27 @@ def filter_var(
         else:
             raise ValueError("When providing var_names directly, func has to be None.")
 
-    # Subset .var
-    data._var = data.var[var_subset]
-    data._n_vars = data.var.shape[0]
-
-    # Subset .varm
-    for k, v in data.varm.items():
-        data.varm[k] = v[var_subset]
-
-    # Subset .varp
-    for k, v in data.varp.items():
-        data.varp[k] = v[var_subset][:, var_subset]
-
     if isinstance(data, AnnData):
+        # Collect elements to subset
+        # NOTE: accessing them after subsetting .var
+        # will fail due to _validate_value()
+        varm = dict(data.varm)
+        varp = dict(data.varp)
+
+        # Subset .obs
+        data._var = data.var[var_subset]
+        data._n_vars = data.var.shape[0]
+
+        # Subset .obsm
+        for k, v in varm.items():
+            varm[k] = v[var_subset]
+        data.varm = varm
+
+        # Subset .obsp
+        for k, v in varp.items():
+            varp[k] = v[var_subset][:, var_subset]
+        data.varp = varp
+
         # Subset .X
         try:
             data._X = data.X[:, var_subset]
@@ -862,6 +889,18 @@ def filter_var(
         # NOTE: .raw is not subsetted
 
     else:
+        # Subset .var
+        data._var = data.var[var_subset]
+        data._n_vars = data.var.shape[0]
+
+        # Subset .varm
+        for k, v in data.varm.items():
+            data.varm[k] = v[var_subset]
+
+        # Subset .varp
+        for k, v in data.varp.items():
+            data.varp[k] = v[var_subset][:, var_subset]
+
         # filter_var() for each modality
         for m, mod in data.mod.items():
             varmap = data.varmap[m][var_subset]
