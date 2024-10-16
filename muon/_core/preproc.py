@@ -841,6 +841,31 @@ def filter_obs(
     return
 
 
+def filter_var(
+    data: Union[AnnData, MuData], var: Union[str, Sequence[str]], func: Optional[Callable] = None
+):
+    """
+    Filter variables (features, e.g. genes) in-place
+    using any column in .var or row in .X.
+
+    Parameters
+    ----------
+    data: AnnData or MuData
+            AnnData or MuData object
+    var: str or Sequence[str]
+            Column name in .var or row name in .X to be used for filtering.
+            Alternatively, var_names can be provided directly.
+    func
+            Function to apply to the variable used for filtering.
+            If the variable is of type boolean and func is an identity function,
+            the func argument can be omitted.
+    """
+
+    _filter_attr(data, "var", var, func)
+
+    return
+
+
 # Subsampling observations
 
 
