@@ -83,12 +83,13 @@ class TestInPlaceFiltering:
             mu.pp.filter_obs(view, sub)
 
     def test_filter_obs_with_obsm_obsp(self, pbmc3k_processed):
-        A = pbmc3k_processed[:, :500].copy()
-        B = pbmc3k_processed[:, 500:].copy()
+        A = pbmc3k_processed[:500,].copy()
+        B = pbmc3k_processed[500:,].copy()
         A_subset = A[A.obs["louvain"] == "B cells"].copy()
         B_subset = B[B.obs["louvain"] == "B cells"].copy()
-        mdata = mu.MuData({"A": A, "B": B})
-        mu.pp.filter_obs(mdata, "A:louvain", lambda x: x == "B cells")
+        mdata = mu.MuData({"A": A, "B": B}, axis=1)
+        mdata.pull_obs("louvain")
+        mu.pp.filter_obs(mdata, "louvain", lambda x: x == "B cells")
         assert mdata["B"].n_obs == B_subset.n_obs
         assert mdata["A"].obs["louvain"].unique() == "B cells"
         assert B.n_obs == B_subset.n_obs
