@@ -53,9 +53,7 @@ def scatter(
         No layer is used by default. A single layer value will be expanded to [layer, layer, layer].
     """
     if isinstance(data, AnnData):
-        return sc.pl.embedding(
-            data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs
-        )
+        return sc.pl.scatter(data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs)
 
     if isinstance(layers, str) or layers is None:
         layers = [layers, layers, layers]
@@ -74,7 +72,6 @@ def scatter(
             color_obs = pd.DataFrame({color: color_obs})
         else:
             raise TypeError("Expected color to be a string.")
-            
 
         color_obs.index = data.obs_names
         obs = pd.concat([obs, color_obs], axis=1, ignore_index=False)
@@ -91,7 +88,6 @@ def scatter(
         except KeyError:
             pass
     return retval
-
 
 
 #
