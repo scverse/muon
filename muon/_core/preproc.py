@@ -780,7 +780,9 @@ def filter_obs(
         for m, mod in data.mod.items():
             obsmap = data.obsmap[m][obs_subset]
             obsidx = obsmap > 0
+            orig_obs = mod.obs.copy()
             filter_obs(mod, mod.obs_names[obsmap[obsidx] - 1])
+            data.mod[m]._remove_unused_categories(orig_obs, mod.obs, mod.uns)
             maporder = np.argsort(obsmap[obsidx])
             nobsmap = np.empty(maporder.size)
             nobsmap[maporder] = np.arange(1, maporder.size + 1)
@@ -905,7 +907,9 @@ def filter_var(
         for m, mod in data.mod.items():
             varmap = data.varmap[m][var_subset]
             varidx = varmap > 0
+            orig_var = mod.var.copy()
             filter_var(mod, mod.var_names[varmap[varidx] - 1])
+            data.mod[m]._remove_unused_categories(orig_var, mod.var, mod.uns)
             maporder = np.argsort(varmap[varidx])
             nvarmap = np.empty(maporder.size)
             nvarmap[maporder] = np.arange(1, maporder.size + 1)
