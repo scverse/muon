@@ -850,7 +850,6 @@ def filter_var(
         else:
             raise ValueError("When providing var_names directly, func has to be None.")
 
-
     if isinstance(data, AnnData):
         # Collect elements to subset
         # NOTE: accessing them after subsetting .var
@@ -901,7 +900,7 @@ def filter_var(
         # Subset .varp
         for k, v in data.varp.items():
             data.varp[k] = v[var_subset][:, var_subset]
-            
+
         # filter_var() for each modality
         for m, mod in data.mod.items():
             varmap = data.varmap[m][var_subset]
