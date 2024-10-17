@@ -1,12 +1,11 @@
 import unittest
 import pytest
 
-import os
 from functools import reduce
 
 import numpy as np
-from scipy.sparse import csr_matrix
 from anndata import AnnData
+from anndata.tests.helpers import assert_equal
 from mudata import MuData
 import muon as mu
 
@@ -83,6 +82,21 @@ class TestInPlaceFiltering:
             sub = np.random.binomial(1, 0.5, view.n_obs).astype(bool)
             mu.pp.filter_obs(view, sub)
 
+    def test_filter_obs_with_obsm_obsp(self, pbmc3k_processed):
+        A = pbmc3k_processed[:500,].copy()
+        B = pbmc3k_processed[500:,].copy()
+        A_subset = A[A.obs["louvain"] == "B cells"].copy()
+        B_subset = B[B.obs["louvain"] == "B cells"].copy()
+        mdata = mu.MuData({"A": A, "B": B}, axis=1)
+        mdata.pull_obs("louvain")
+        mu.pp.filter_obs(mdata, "louvain", lambda x: x == "B cells")
+        assert mdata["B"].n_obs == B_subset.n_obs
+        assert mdata["A"].obs["louvain"].unique() == "B cells"
+        assert B.n_obs == B_subset.n_obs
+        assert A.obs["louvain"].unique() == "B cells"
+        assert_equal(mdata["A"], A_subset)
+        assert_equal(mdata["B"], B_subset)
+
     # Variables
 
     def test_filter_var_adata(self, mdata, filepath_h5mu):
@@ -131,6 +145,23 @@ class TestInPlaceFiltering:
         with pytest.raises(ValueError):
             sub = np.random.binomial(1, 0.5, view.n_vars).astype(bool)
             mu.pp.filter_var(view, sub)
+
+    def test_filter_var_with_varm_varp(self, pbmc3k_processed):
+        A = pbmc3k_processed[:, :500].copy()
+        B = pbmc3k_processed[:, 500:].copy()
+        np.random.seed(42)
+        A_var_sel = np.random.choice(np.array([0, 1]), size=A.n_vars, replace=True)
+        B_var_sel = np.random.choice(np.array([0, 1]), size=B.n_vars, replace=True)
+        A.var["sel"] = A_var_sel
+        B.var["sel"] = B_var_sel
+        A_subset = A[:, A_var_sel == 1].copy()
+        B_subset = B[:, B_var_sel == 1].copy()
+        mdata = mu.MuData({"A": A, "B": B})
+        mdata.pull_var("sel")
+        mu.pp.filter_var(mdata, "sel", lambda y: y == 1)
+        assert mdata.shape[1] == int(np.sum(A_var_sel) + np.sum(B_var_sel))
+        assert_equal(mdata["A"], A_subset)
+        assert_equal(mdata["B"], B_subset)
 
 
 @pytest.mark.usefixtures("filepath_h5mu")

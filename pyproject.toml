@@ -16,7 +16,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Intended Audience :: Science/Research"
 ]
-requires-python = ">= 3.8"
+requires-python = ">= 3.10"
 requires = [
     "numpy",
     "pandas",
@@ -49,6 +49,7 @@ atac = [
 test = [
     "pytest",
     "flake8",
+    "pytest",
 ]
 
 [tool.flit.metadata.urls]

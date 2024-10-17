@@ -1,4 +1,4 @@
-from typing import Union, List, Optional, Iterable, Sequence, Dict
+from typing import Dict, Iterable, List, Optional, Sequence, Union
 import warnings
 
 from matplotlib.axes import Axes
@@ -43,7 +43,7 @@ def scatter(
     y : Optional[str]
         y coordinate
     color : Optional[Union[str, Sequence[str]]], optional (default: None)
-        Keys for variables or annotations of observations (.obs columns),
+        Keys or a single key for variables or annotations of observations (.obs columns),
         or a hex colour specification.
     use_raw : Optional[bool], optional (default: None)
         Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
@@ -53,9 +53,7 @@ def scatter(
         No layer is used by default. A single layer value will be expanded to [layer, layer, layer].
     """
     if isinstance(data, AnnData):
-        return sc.pl.embedding(
-            data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs
-        )
+        return sc.pl.scatter(data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs)
 
     if isinstance(layers, str) or layers is None:
         layers = [layers, layers, layers]
@@ -72,10 +70,9 @@ def scatter(
         if isinstance(color, str):
             color_obs = _get_values(data, color, use_raw=use_raw, layer=layers[2])
             color_obs = pd.DataFrame({color: color_obs})
-            color = [color]
         else:
-            # scanpy#311 / scanpy#1497 has to be fixed for this to work
             color_obs = _get_values(data, color, use_raw=use_raw, layer=layers[2])
+
         color_obs.index = data.obs_names
         obs = pd.concat([obs, color_obs], axis=1, ignore_index=False)
 
@@ -86,11 +83,10 @@ def scatter(
     # and are now stored in .obs
     retval = sc.pl.scatter(ad, x=x, y=y, color=color, **kwargs)
     if color is not None:
-        for col in color:
-            try:
-                data.uns[f"{col}_colors"] = ad.uns[f"{col}_colors"]
-            except KeyError:
-                pass
+        try:
+            data.uns[f"{color}_colors"] = ad.uns[f"{color}_colors"]
+        except KeyError:
+            pass
     return retval
 
 
