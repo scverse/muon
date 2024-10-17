@@ -751,6 +751,7 @@ def count_fragments_features(
     stranded: bool = False,
     extend_upstream: int = 2e3,
     extend_downstream: int = 0,
+    count_reads: bool = False,
 ) -> AnnData:
     """
     Count fragments overlapping given Features. Returns cells x features matrix.
@@ -772,6 +773,11 @@ def count_fragments_features(
                 Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
         extend_downstream
                 Number of nucleotides to extend every gene downstream (0 by default)
+        count_reads: bool (False by default)
+                If to count reads instead of fragments. 
+                If True, the number of reads (read support) per fragment will be used.
+                This will also include duplicate read pairs.
+                Default is False: `1` will be added for each fragment.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -857,7 +863,10 @@ def count_fragments_features(
                 try:
                     ind = adata.obs.index.get_loc(fr.name)  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
                     mx.rows[i].append(ind)
-                    mx.data[i].append(int(fr.score))  # number of cuts per fragment (e.g. 2)
+                    if count_reads:
+                        mx.data[i].append(int(fr.score))  # number of read pairs associated with the fragment
+                    else:
+                        mx.data[i].append(1)
                 except:
                     pass
 
