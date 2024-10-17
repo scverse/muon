@@ -751,7 +751,7 @@ def count_fragments_features(
     stranded: bool = False,
     extend_upstream: int = 2e3,
     extend_downstream: int = 0,
-    count_reads: bool = False,
+    count_reads: bool = True,
 ) -> AnnData:
     """
     Count fragments overlapping given Features. Returns cells x features matrix.
@@ -773,11 +773,12 @@ def count_fragments_features(
                 Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
         extend_downstream
                 Number of nucleotides to extend every gene downstream (0 by default)
-        count_reads: bool (False by default)
-                If to count reads instead of fragments. 
+        count_reads: bool (True by default)
+                NOTE: default will be changed to False from v0.2.
+                If to count reads instead of fragments.
                 If True, the number of reads (read support) per fragment will be used.
                 This will also include duplicate read pairs.
-                Default is False: `1` will be added for each fragment.
+                If False, `1` will be added for each fragment.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -811,11 +812,18 @@ def count_fragments_features(
             "pysam is not available. It is required to work with the fragments file. Install pysam from PyPI (`pip install pysam`) or from GitHub (`pip install git+https://github.com/pysam-developers/pysam`)"
         )
 
+    if count_reads:
+        warn(
+            f"From v0.2, by default, unique fragments will be counted instead of reads. See muon#110 for details.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
     n = adata.n_obs
     n_features = features.shape[0]
 
     # TODO: refactor and reuse this code
-    # TODO: write tests (see #59, #68)
+    # TODO: write tests (see #59, #68, #110)
 
     f_cols = np.array([col.lower() for col in features.columns.values])
     for col in ("start", "end"):
@@ -864,7 +872,8 @@ def count_fragments_features(
                     ind = adata.obs.index.get_loc(fr.name)  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
                     mx.rows[i].append(ind)
                     if count_reads:
-                        mx.data[i].append(int(fr.score))  # number of read pairs associated with the fragment
+                        # number of read pairs associated with the fragment
+                        mx.data[i].append(int(fr.score))
                     else:
                         mx.data[i].append(1)
                 except:
