@@ -49,7 +49,7 @@ atac = [
 test = [
     "pytest",
     "flake8",
-    "pytest",
+    "mofapy2",
 ]
 
 [tool.flit.metadata.urls]
