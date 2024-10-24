@@ -739,6 +739,7 @@ def _filter_attr(
         # will fail due to _validate_value()
         attrm = dict(attrm)
         attrp = dict(attrp)
+        layers = dict(data.layers)
 
         # Subset .obs/.var
         setattr(data, f"_{attr}", df[subset])
@@ -773,11 +774,12 @@ def _filter_attr(
             data.filename = None
 
         # Subset layers
-        for layer in data.layers:
+        for layer in layers:
             if attr == "obs":
-                data.layers[layer] = data.layers[layer][subset, :]
+                layers[layer] = layers[layer][subset, :]
             else:
-                data.layers[layer] = data.layers[layer][:, subset]
+                layers[layer] = layers[layer][:, subset]
+        data.layers = layers
 
         # Subset raw - only when subsetting obs
         if attr == "obs" and data.raw is not None:
