@@ -13,4 +13,4 @@ from ._core.config import set_options
 from . import atac
 from . import prot
 
-__version__ = "0.1.6"
+__version__ = "0.1.7"
