@@ -10,10 +10,25 @@ Release notes
    *
 
 
+v0.1.7
+------
+
+* Enable compatibility of in-place filtering with the latest anndata releases
+
+* :func:`muon.pp.tfidf` when using data from a layer
+
+* Fix custom chromosome names in :func:`muon.atac.tl.count_fragments_features`
+
+* Prepare to count unique fragments in :func:`muon.atac.tl.count_fragments_features` from the next version
+
+* Improve :func:`muon.pl.scatter`
+
 v0.1.6
 ------
 
 * Compatibility with scanpy 1.10
+
+* Extend ``_l2norm`` to sparse inputs.
 
 v0.1.5
 ------

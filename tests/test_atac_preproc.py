@@ -44,6 +44,13 @@ class TestTFIDF(unittest.TestCase):
         self.assertEqual(adata.X[0, 0], orig_value)
         self.assertEqual(str("%.3f" % adata.layers["new"][0, 0]), "4.659")
 
+    def test_tfidf_from_layer(self):
+        adata = self.adata.copy()
+        adata.layers["counts"] = adata.X.copy() + 1
+        adata.X = None
+        ac.pp.tfidf(adata, from_layer="counts")
+        self.assertEqual(str("%.3f" % adata.X[0, 0]), "2.856")
+
 
 class TestTFIDFSparse(unittest.TestCase):
     def setUp(self):
