@@ -1,28 +1,24 @@
-from typing import Union, Optional
 from warnings import warn
 
 import numpy as np
-from scipy.sparse import csr_matrix, dia_matrix, issparse
-
 from anndata import AnnData
 from mudata import MuData
-
 from scanpy._utils import view_to_actual
-
+from scipy.sparse import csr_matrix, dia_matrix, issparse
 
 # Computational methods for preprocessing
 
 
 def tfidf(
-    data: Union[AnnData, MuData],
+    data: AnnData | MuData,
     log_tf: bool = True,
     log_idf: bool = True,
     log_tfidf: bool = False,
-    scale_factor: Union[int, float] = 1e4,
+    scale_factor: int | float = 1e4,
     inplace: bool = True,
     copy: bool = False,
-    from_layer: Optional[str] = None,
-    to_layer: Optional[str] = None,
+    from_layer: str | None = None,
+    to_layer: str | None = None,
 ):
     """
     Transform peak counts with TF-IDF (Term Frequency - Inverse Document Frequency).
@@ -129,7 +125,7 @@ def tfidf(
         return adata
 
 
-def binarize(data: Union[AnnData, MuData]):
+def binarize(data: AnnData | MuData):
     """
     Transform peak counts to the binary matrix (all the non-zero values become 1).
 
@@ -153,7 +149,7 @@ def binarize(data: Union[AnnData, MuData]):
 
 
 def scopen(
-    data: Union[AnnData, MuData],
+    data: AnnData | MuData,
     n_components: int = 30,
     max_iter: int = 500,
     min_rho: float = 0.0,
@@ -182,6 +178,7 @@ def scopen(
 
     try:
         import time
+
         from scopen.MF import non_negative_factorization
     except ImportError:
         raise ImportError(

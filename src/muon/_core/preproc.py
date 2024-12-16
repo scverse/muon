@@ -1,30 +1,29 @@
-from typing import Union, Callable, Optional, Sequence, Dict, Iterable, Literal
-from functools import reduce
 import warnings
+from collections.abc import Callable, Iterable, Sequence
+from functools import reduce
 from itertools import repeat
+from typing import Literal
 
 import numpy as np
+from anndata import AnnData
+from numba import njit, prange
+from scanpy import logging
+from scanpy.tools._utils import _choose_representation
 from scipy.sparse import (
+    SparseEfficiencyWarning,
     csr_matrix,
     issparse,
-    SparseEfficiencyWarning,
-    linalg,
+    isspmatrix_coo,
     isspmatrix_csc,
     isspmatrix_csr,
-    isspmatrix_coo,
+    linalg,
 )
 from scipy.spatial.distance import cdist
 from scipy.special import softmax
 from sklearn.utils import check_random_state
-
-from anndata import AnnData
-import scanpy
-from scanpy import logging
-from scanpy.tools._utils import _choose_representation
 from umap.distances import euclidean
 from umap.sparse import sparse_euclidean, sparse_jaccard
 from umap.umap_ import nearest_neighbors
-from numba import njit, prange
 
 try:
     from scanpy.neighbors._connectivity import umap as _compute_connectivities_umap
@@ -167,7 +166,7 @@ def _make_slice_intervals(idx, maxsize=10000):
 
 
 def _l2norm(
-    adata: AnnData, rep: Optional[Union[Iterable[str], str]] = None, n_pcs: Optional[int] = 0
+    adata: AnnData, rep: Iterable[str] | str | None = None, n_pcs: int | None = 0
 ):
     X = _choose_representation(adata=adata, use_rep=rep, n_pcs=n_pcs)
     sparse_X = issparse(X)
@@ -188,12 +187,12 @@ def _l2norm(
 
 
 def l2norm(
-    mdata: Union[MuData, AnnData],
-    mod: Optional[Union[Iterable[str], str]] = None,
-    rep: Optional[Union[Iterable[str], str]] = None,
-    n_pcs: Optional[Union[Iterable[int], int]] = 0,
+    mdata: MuData | AnnData,
+    mod: Iterable[str] | str | None = None,
+    rep: Iterable[str] | str | None = None,
+    n_pcs: Iterable[int] | int | None = 0,
     copy: bool = False,
-) -> Optional[Union[MuData, AnnData]]:
+) -> MuData | AnnData | None:
     """
     Normalize observations to unit L2 norm.
 
@@ -253,10 +252,10 @@ def l2norm(
 
 def neighbors(
     mdata: MuData,
-    n_neighbors: Optional[int] = None,
+    n_neighbors: int | None = None,
     n_bandwidth_neighbors: int = 20,
     n_multineighbors: int = 200,
-    neighbor_keys: Optional[Dict[str, Optional[str]]] = None,
+    neighbor_keys: dict[str, str | None] | None = None,
     metric: Literal[
         "euclidean",
         "braycurtis",
@@ -282,14 +281,14 @@ def neighbors(
         "wminkowski",
         "yule",
     ] = "euclidean",
-    low_memory: Optional[bool] = None,
-    key_added: Optional[str] = None,
-    weight_key: Optional[str] = "mod_weight",
+    low_memory: bool | None = None,
+    key_added: str | None = None,
+    weight_key: str | None = "mod_weight",
     add_weights_to_modalities: bool = False,
     eps: float = 1e-4,
     copy: bool = False,
-    random_state: Optional[Union[int, np.random.RandomState]] = 42,
-) -> Optional[MuData]:
+    random_state: int | np.random.RandomState | None = 42,
+) -> MuData | None:
     """
     Multimodal nearest neighbor search.
 
@@ -661,10 +660,10 @@ def intersect_obs(mdata: MuData):
 
 
 def _filter_attr(
-    data: Union[AnnData, MuData],
+    data: AnnData | MuData,
     attr: Literal["obs", "var"],
-    key: Union[str, Sequence[str]],
-    func: Optional[Callable] = None,
+    key: str | Sequence[str],
+    func: Callable | None = None,
 ) -> None:
     """
     Filter observations or variables in-place.
@@ -819,7 +818,7 @@ def _filter_attr(
 
 
 def filter_obs(
-    data: Union[AnnData, MuData], var: Union[str, Sequence[str]], func: Optional[Callable] = None
+    data: AnnData | MuData, var: str | Sequence[str], func: Callable | None = None
 ) -> None:
     """
     Filter observations (samples or cells) in-place
@@ -844,7 +843,7 @@ def filter_obs(
 
 
 def filter_var(
-    data: Union[AnnData, MuData], var: Union[str, Sequence[str]], func: Optional[Callable] = None
+    data: AnnData | MuData, var: str | Sequence[str], func: Callable | None = None
 ):
     """
     Filter variables (features, e.g. genes) in-place
@@ -872,10 +871,10 @@ def filter_var(
 
 
 def sample_obs(
-    data: Union[AnnData, MuData],
+    data: AnnData | MuData,
     frac: float = 0.1,
-    groupby: Optional[str] = None,
-    min_n: Optional[int] = None,
+    groupby: str | None = None,
+    min_n: int | None = None,
 ):
     """
     Return an object with some of the observations (subsampling).

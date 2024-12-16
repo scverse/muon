@@ -12,19 +12,31 @@ except (ImportError, LookupError):
 
 
 from mudata import MuData
-from mudata._core.io import *
+from mudata._core.io import (
+    read,
+    read_anndata,
+    read_h5ad,
+    read_h5mu,
+    read_zarr,
+    write_anndata,
+    write_h5ad,
+    write_h5mu,
+    write_zarr,
+)
 
+from . import _atac as atac
+from . import _prot as prot
+from . import _rna as rna
+from ._core import plot as pl
 from ._core import preproc as pp
 from ._core import tools as tl
-from ._core import plot as pl
 from ._core import utils
-from ._core.io import *
 from ._core.config import set_options
-
-from . import atac
-from . import prot
+from ._core.io import read_10x_h5, read_10x_mtx
 
 __all__ = [
+    "__version__",
+
     "MuData",
     "pp",
     "tl",
@@ -49,4 +61,5 @@ __all__ = [
     "set_options",
     "atac",
     "prot",
+    "rna",
 ]

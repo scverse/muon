@@ -1,17 +1,9 @@
-from typing import Union
 from os import PathLike
-import os
-from warnings import warn
 
-import numpy as np
 import h5py
-import anndata as ad
-from anndata import AnnData
-from pathlib import Path
+import numpy as np
 import scanpy as sc
-
 from mudata import MuData
-from mudata._core.file_backing import MuDataFileManager, AnnDataFileManager
 
 from .._atac.tools import initialise_default_files
 

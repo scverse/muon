@@ -1,5 +1,4 @@
 from os import PathLike
-from typing import Optional
 from warnings import warn
 
 import numpy as np
@@ -22,7 +21,7 @@ def read_10x_mtx(filename: PathLike, atac_only: bool = True, *args, **kwargs) ->
     return adata
 
 
-def read_snap(filename: PathLike, matrix: str, bin_size: Optional[int] = None):
+def read_snap(filename: PathLike, matrix: str, bin_size: int | None = None):
     """
     Read a matrix from a .snap file.
 
@@ -47,8 +46,8 @@ def read_snap(filename: PathLike, matrix: str, bin_size: Optional[int] = None):
             "SnapTools library is not available. Install SnapTools from PyPI (`pip install snaptools`) or from GitHub (`pip install git+https://github.com/r3fang/SnapTools`)"
         )
 
-    from scipy.sparse import csr_matrix
     import h5py
+    from scipy.sparse import csr_matrix
 
     # Allow both PM and pm
     matrix = matrix.lower()

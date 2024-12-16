@@ -1,32 +1,35 @@
 import sys
-import os
-from functools import reduce
-
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
+from functools import reduce
+from pathlib import Path
 from time import strftime
-from warnings import warn
-
-import numpy as np
-import pandas as pd
-from scipy.sparse import issparse, csr_matrix
-import scanpy as sc
-import h5py
-from natsort import natsorted
-from anndata import AnnData
-from mudata import MuData
-
-from scanpy import logging
-from scanpy.tools._utils import _choose_representation
+from types import MappingProxyType
 
 # from scanpy.neighbors import _compute_connectivities_umap
+from typing import (
+    Any,
+    Literal,
+)
+from warnings import warn
 
-from typing import Union, Optional, List, Iterable, Mapping, Sequence, Type, Any, Dict, Literal
-from types import MappingProxyType
+import h5py
+import numpy as np
+import pandas as pd
+import scanpy as sc
+from anndata import AnnData
+from mudata import MuData
+from natsort import natsorted
+from scanpy import logging
+from scanpy.tools._utils import _choose_representation
+from scipy.sparse import csr_matrix, issparse
 
 from .preproc import _sparse_csr_fast_knn
 
 try:
-    from louvain.VertexPartition import MutableVertexPartition as LouvainMutableVertexPartition
+    from louvain.VertexPartition import (
+        MutableVertexPartition as LouvainMutableVertexPartition,
+    )
 except ImportError:
 
     class LouvainMutableVertexPartition:
@@ -35,7 +38,9 @@ except ImportError:
     LouvainMutableVertexPartition.__module__ = "louvain.VertexPartition"
 
 try:
-    from leidenalg.VertexPartition import MutableVertexPartition as LeidenMutableVertexPartition
+    from leidenalg.VertexPartition import (
+        MutableVertexPartition as LeidenMutableVertexPartition,
+    )
 except ImportError:
 
     class LeidenMutableVertexPartition:
@@ -77,8 +82,7 @@ def _set_mofa_data_from_mudata(
     """
 
     try:
-        from mofapy2.build_model.utils import process_data
-        from mofapy2.build_model.utils import guess_likelihoods
+        from mofapy2.build_model.utils import guess_likelihoods, process_data
     except ImportError:
         raise ImportError(
             "MOFA+ is not available. Install MOFA+ from PyPI (`pip install mofapy2`) or from GitHub (`pip install git+https://github.com/bioFAM/MOFA2`)"
@@ -108,7 +112,7 @@ def _set_mofa_data_from_mudata(
             sys.stdout.flush()
             sys.exit()
         if groups_label not in mdata.obs.columns:
-            print("Error: {} is not in observations names".format(groups_label))
+            print(f"Error: {groups_label} is not in observations names")
             sys.stdout.flush()
             sys.exit()
         n_groups = mdata.obs[groups_label].unique().shape[0]
@@ -124,7 +128,7 @@ def _set_mofa_data_from_mudata(
                 else:
                     data.append(adata.layers[use_layer].copy())
             else:
-                print("Error: Layer {} does not exist".format(use_layer))
+                print(f"Error: Layer {use_layer} does not exist")
                 sys.stdout.flush()
                 sys.exit()
     elif use_raw:
@@ -288,13 +292,13 @@ def _set_mofa_data_from_mudata(
 
 
 def mofa(
-    data: Union[AnnData, MuData],
+    data: AnnData | MuData,
     groups_label: bool = None,
     use_raw: bool = False,
     use_layer: str = None,
-    use_var: Optional[str] = "highly_variable",
-    use_obs: Optional[str] = None,
-    likelihoods: Optional[Union[str, List[str]]] = None,
+    use_var: str | None = "highly_variable",
+    use_obs: str | None = None,
+    likelihoods: str | list[str] | None = None,
     n_factors: int = 10,
     scale_views: bool = False,
     scale_groups: bool = False,
@@ -307,21 +311,21 @@ def mofa(
     convergence_mode: str = "fast",
     use_float32: bool = False,
     gpu_mode: bool = False,
-    gpu_device: Optional[bool] = None,
+    gpu_device: bool | None = None,
     svi_mode: bool = False,
     svi_batch_size: float = 0.5,
     svi_learning_rate: float = 1.0,
     svi_forgetting_rate: float = 0.5,
     svi_start_stochastic: int = 1,
-    smooth_covariate: Optional[str] = None,
+    smooth_covariate: str | None = None,
     smooth_warping: bool = False,
-    smooth_kwargs: Optional[Mapping[str, Any]] = None,
+    smooth_kwargs: Mapping[str, Any] | None = None,
     save_parameters: bool = False,
     save_data: bool = True,
     save_metadata: bool = True,
     seed: int = 1,
-    outfile: Optional[str] = None,
-    expectations: Optional[List[str]] = None,
+    outfile: str | None = None,
+    expectations: list[str] | None = None,
     save_interrupted: bool = True,
     verbose: bool = False,
     quiet: bool = True,
@@ -434,7 +438,7 @@ def mofa(
         raise TypeError("Expected an MuData object")
 
     if outfile is None:
-        outfile = os.path.join("/tmp", "mofa_{}.hdf5".format(strftime("%Y%m%d-%H%M%S")))
+        outfile = str(Path("/tmp") / "mofa_{}.hdf5".format(strftime("%Y%m%d-%H%M%S")))
 
     if use_var and use_var not in data.var.columns:
         warn(f"There is no column {use_var} in the provided object")
@@ -696,7 +700,7 @@ def mofa(
             for i, view in enumerate(views):
                 variance[view] = variance_per_group[groups[0]][i, :]
         data.uns["mofa"]["variance"] = variance
-    except:
+    except Exception:
         warn("Cannot save variance estimates")
 
     f.close()
@@ -717,13 +721,13 @@ def mofa(
 def snf(
     mdata: MuData,
     n_neighbors: int = 20,
-    neighbor_keys: Optional[Union[str, Dict[str, Optional[str]]]] = None,
-    key_added: Optional[str] = None,
+    neighbor_keys: str | dict[str, str | None] | None = None,
+    key_added: str | None = None,
     n_iterations: int = 20,
     sigma: float = 0.5,
     eps: float = np.finfo(np.float64).eps,
     copy: bool = False,
-) -> Optional[MuData]:
+) -> MuData | None:
     """
     Similarity network fusion (SNF)
 
@@ -927,16 +931,14 @@ def snf(
 
 
 def _cluster(
-    data: Union[MuData, AnnData],
-    resolution: Optional[Union[float, Sequence[float], Mapping[str, float]]] = None,
-    mod_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
+    data: MuData | AnnData,
+    resolution: float | Sequence[float] | Mapping[str, float] | None = None,
+    mod_weights: Sequence[float] | Mapping[str, float] | None = None,
     random_state: int = 0,
     key_added: str = "louvain",
     neighbors_key: str = None,
     directed: bool = True,
-    partition_type: Optional[
-        Union[Type[LeidenMutableVertexPartition], Type[LouvainMutableVertexPartition]]
-    ] = None,
+    partition_type: type[LeidenMutableVertexPartition] | type[LouvainMutableVertexPartition] | None = None,
     partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
     algorithm: str = "leiden",  # Literal["leiden", "louvain"]
     **kwargs,
@@ -947,8 +949,8 @@ def _cluster(
     See :func:`scanpy.tl.leiden` and :func:`scanpy.tl.louvain` for details.
     """
 
-    from scanpy.tools._utils import _choose_graph
     from scanpy._utils import get_igraph_from_adjacency
+    from scanpy.tools._utils import _choose_graph
 
     if algorithm == "louvain":
         import louvain
@@ -1056,14 +1058,14 @@ def _cluster(
 
 
 def leiden(
-    data: Union[MuData, AnnData],
-    resolution: Optional[Union[float, Sequence[float], Mapping[str, float]]] = None,
-    mod_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
+    data: MuData | AnnData,
+    resolution: float | Sequence[float] | Mapping[str, float] | None = None,
+    mod_weights: Sequence[float] | Mapping[str, float] | None = None,
     random_state: int = 0,
     key_added: str = "leiden",
     neighbors_key: str = None,
     directed: bool = True,
-    partition_type: Optional[Type[LeidenMutableVertexPartition]] = None,
+    partition_type: type[LeidenMutableVertexPartition] | None = None,
     partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
     **kwargs,
 ):
@@ -1132,14 +1134,14 @@ def leiden(
 
 
 def louvain(
-    data: Union[MuData, AnnData],
-    resolution: Optional[Union[float, Sequence[float], Mapping[str, float]]] = None,
-    mod_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
+    data: MuData | AnnData,
+    resolution: float | Sequence[float] | Mapping[str, float] | None = None,
+    mod_weights: Sequence[float] | Mapping[str, float] | None = None,
     random_state: int = 0,
     key_added: str = "louvain",
     neighbors_key: str = None,
     directed: bool = True,
-    partition_type: Optional[Type[LouvainMutableVertexPartition]] = None,
+    partition_type: type[LouvainMutableVertexPartition] | None = None,
     partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
     **kwargs,
 ):
@@ -1212,18 +1214,18 @@ def umap(
     min_dist: float = 0.5,
     spread: float = 1.0,
     n_components: int = 2,
-    maxiter: Optional[int] = None,
+    maxiter: int | None = None,
     alpha: float = 1.0,
     gamma: float = 1.0,
     negative_sample_rate: int = 5,
-    init_pos: Optional[Union[Literal["spectral", "random"], np.ndarray]] = "spectral",
-    random_state: Optional[Union[int, np.random.RandomState]] = 42,
-    a: Optional[float] = None,
-    b: Optional[float] = None,
+    init_pos: Literal["spectral", "random"] | np.ndarray | None = "spectral",
+    random_state: int | np.random.RandomState | None = 42,
+    a: float | None = None,
+    b: float | None = None,
     copy: bool = False,
     method: Literal["umap", "rapids"] = "umap",
-    neighbors_key: Optional[str] = None,
-) -> Optional[MuData]:
+    neighbors_key: str | None = None,
+) -> MuData | None:
     """
     Embed the multimodal neighborhood graph using UMAP (McInnes et al, 2018).
 
@@ -1304,8 +1306,9 @@ def umap(
     except KeyError:
         raise ValueError(f'Did not find .uns["{neighbors_key}"]. Run `muon.pp.neighbors` first.')
 
-    from scanpy.tools._utils import _choose_representation
     from copy import deepcopy
+
+    from scanpy.tools._utils import _choose_representation
     from scipy.sparse import issparse
 
     # we need a data matrix. This is used only for initialization and only if init_pos=="spectral"
@@ -1364,7 +1367,7 @@ def umap(
 
 
 def ica(
-    data: Union[AnnData, MuData],
+    data: AnnData | MuData,
     basis="X_pca",
     n_components=None,
     *,
