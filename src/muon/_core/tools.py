@@ -938,7 +938,9 @@ def _cluster(
     key_added: str = "louvain",
     neighbors_key: str = None,
     directed: bool = True,
-    partition_type: type[LeidenMutableVertexPartition] | type[LouvainMutableVertexPartition] | None = None,
+    partition_type: (
+        type[LeidenMutableVertexPartition] | type[LouvainMutableVertexPartition] | None
+    ) = None,
     partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
     algorithm: str = "leiden",  # Literal["leiden", "louvain"]
     **kwargs,

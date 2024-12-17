@@ -36,13 +36,11 @@ from ._core.io import read_10x_h5, read_10x_mtx
 
 __all__ = [
     "__version__",
-
     "MuData",
     "pp",
     "tl",
     "pl",
     "utils",
-
     # mudata I/O
     "read_h5mu",
     "read_h5ad",
@@ -53,11 +51,9 @@ __all__ = [
     "write_anndata",
     "write_zarr",
     "read",
-
     # muon I/O
     "read_10x_h5",
     "read_10x_mtx",
-
     "set_options",
     "atac",
     "prot",

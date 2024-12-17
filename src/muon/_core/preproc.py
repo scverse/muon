@@ -165,9 +165,7 @@ def _make_slice_intervals(idx, maxsize=10000):
     return np.concatenate(allstarts), np.concatenate(allstops)
 
 
-def _l2norm(
-    adata: AnnData, rep: Iterable[str] | str | None = None, n_pcs: int | None = 0
-):
+def _l2norm(adata: AnnData, rep: Iterable[str] | str | None = None, n_pcs: int | None = 0):
     X = _choose_representation(adata=adata, use_rep=rep, n_pcs=n_pcs)
     sparse_X = issparse(X)
     if sparse_X:
@@ -842,9 +840,7 @@ def filter_obs(
     return
 
 
-def filter_var(
-    data: AnnData | MuData, var: str | Sequence[str], func: Callable | None = None
-):
+def filter_var(data: AnnData | MuData, var: str | Sequence[str], func: Callable | None = None):
     """
     Filter variables (features, e.g. genes) in-place
     using any column in .var or row in .X.
