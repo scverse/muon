@@ -1,10 +1,10 @@
 import pandas as pd
 from anndata import AnnData
+
 from .. import MuData
-from typing import Union
 
 
-def get_gene_annotation_from_rna(data: Union[AnnData, MuData]) -> pd.DataFrame:
+def get_gene_annotation_from_rna(data: AnnData | MuData) -> pd.DataFrame:
     """
     Get data frame with start and end positions from interval
     column of the 'rna' layers .var.

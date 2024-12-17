@@ -1,16 +1,15 @@
-from typing import Dict, Iterable, List, Optional, Sequence, Union
 import warnings
+from collections.abc import Iterable, Sequence
 
-from matplotlib.axes import Axes
 import numpy as np
 import pandas as pd
-from scipy.sparse import issparse
-import matplotlib.pyplot as plt
-import seaborn as sns
 import scanpy as sc
+import seaborn as sns
 from anndata import AnnData
-
+from matplotlib.axes import Axes
 from mudata import MuData
+from scipy.sparse import issparse
+
 from .utils import _get_values
 
 #
@@ -19,12 +18,12 @@ from .utils import _get_values
 
 
 def scatter(
-    data: Union[AnnData, MuData],
-    x: Optional[str] = None,
-    y: Optional[str] = None,
-    color: Optional[Union[str, Sequence[str]]] = None,
-    use_raw: Optional[bool] = None,
-    layers: Optional[Union[str, Sequence[str]]] = None,
+    data: AnnData | MuData,
+    x: str | None = None,
+    y: str | None = None,
+    color: str | Sequence[str] | None = None,
+    use_raw: bool | None = None,
+    layers: str | Sequence[str] | None = None,
     **kwargs,
 ):
     """
@@ -96,11 +95,11 @@ def scatter(
 
 
 def embedding(
-    data: Union[AnnData, MuData],
+    data: AnnData | MuData,
     basis: str,
-    color: Optional[Union[str, Sequence[str]]] = None,
-    use_raw: Optional[bool] = None,
-    layer: Optional[str] = None,
+    color: str | Sequence[str] | None = None,
+    use_raw: bool | None = None,
+    layer: str | None = None,
     **kwargs,
 ):
     """
@@ -189,7 +188,7 @@ def embedding(
         if use_raw is None or use_raw:
             for i, k in enumerate(keys):
                 for m in data.mod:
-                    if keys_in_mod[m][i] == False and data.mod[m].raw is not None:
+                    if not keys_in_mod[m][i] and data.mod[m].raw is not None:
                         keys_in_mod[m][i] = k in data.mod[m].raw.var_names
 
         # e.g. color="rna:CD8A" - especially relevant for mdata.axis == -1
@@ -206,7 +205,7 @@ def embedding(
                     if keys_in_mod[m][i]:
                         mod_key_modifier[k] = k_clean
                     if use_raw is None or use_raw:
-                        if keys_in_mod[m][i] == False and data.mod[m].raw is not None:
+                        if not keys_in_mod[m][i] and data.mod[m].raw is not None:
                             keys_in_mod[m][i] = k_clean in data.mod[m].raw.var_names
 
         for m in data.mod:
@@ -232,7 +231,7 @@ def embedding(
                     fmod_adata = data.mod[m][:, mod_keys]
 
                 if layer is not None:
-                    if isinstance(layer, Dict):
+                    if isinstance(layer, dict):
                         m_layer = layer.get(m, None)
                         if m_layer is not None:
                             x = data.mod[m][:, mod_keys].layers[m_layer]
@@ -266,7 +265,7 @@ def embedding(
     return retval
 
 
-def mofa(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
+def mofa(mdata: MuData, **kwargs) -> Axes | list[Axes] | None:
     """
     Scatter plot in MOFA factors coordinates
 
@@ -275,7 +274,7 @@ def mofa(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
     return embedding(mdata, basis="mofa", **kwargs)
 
 
-def umap(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
+def umap(mdata: MuData, **kwargs) -> Axes | list[Axes] | None:
     """
     UMAP Scatter plot
 
@@ -290,11 +289,11 @@ def umap(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
 
 
 def histogram(
-    data: Union[AnnData, MuData],
-    keys: Union[str, Sequence[str]],
-    groupby: Optional[Union[str]] = None,
-    show: Optional[bool] = None,
-    save: Union[str, bool, None] = None,
+    data: AnnData | MuData,
+    keys: str | Sequence[str],
+    groupby: str | None = None,
+    show: bool | None = None,
+    save: str | bool | None = None,
     **kwags,
 ):
     """
@@ -406,11 +405,11 @@ def histogram(
 
 def mofa_loadings(
     mdata: MuData,
-    factors: Union[str, Sequence[int], None] = None,
+    factors: str | Sequence[int] | None = None,
     include_lowest: bool = True,
-    n_points: Union[int, None] = None,
-    show: Optional[bool] = None,
-    save: Union[str, bool, None] = None,
+    n_points: int | None = None,
+    show: bool | None = None,
+    save: str | bool | None = None,
 ):
     """\
     Rank genes according to contributions to MOFA factors.

@@ -1,28 +1,27 @@
-from collections import defaultdict
-from typing import Union, Optional, List, Iterable, Mapping, Sequence
 import warnings
-
-import numpy as np
-import pandas as pd
-from scipy.sparse import issparse
-import scanpy as sc
-from anndata import AnnData
+from collections import defaultdict
+from collections.abc import Iterable, Mapping, Sequence
 
 import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
+import numpy as np
+import pandas as pd
+import scanpy as sc
 import seaborn as sns
-
+from anndata import AnnData
+from matplotlib.axes import Axes
 from mudata import MuData
+from scipy.sparse import issparse
+
 from . import tools
 
 
 def _average_peaks(
     adata: AnnData,
-    keys: List[str],
-    average: Optional[str],
+    keys: list[str],
+    average: str | None,
     func: str,
     use_raw: bool,
-    layer: Optional[str],
+    layer: str | None,
 ):
     # Define the function to be used for aggregation
     if average:
@@ -131,13 +130,13 @@ def _average_peaks(
 
 
 def embedding(
-    data: Union[AnnData, MuData],
+    data: AnnData | MuData,
     basis: str,
-    color: Optional[Union[str, List[str]]] = None,
-    average: Optional[str] = "total",
-    func: Optional[str] = "mean",
+    color: str | list[str] | None = None,
+    average: str | None = "total",
+    func: str | None = "mean",
     use_raw: bool = True,
-    layer: Optional[str] = None,
+    layer: str | None = None,
     **kwargs,
 ):
     """
@@ -176,7 +175,7 @@ def embedding(
         return sc.pl.embedding(adata, basis=basis, use_raw=use_raw, layer=layer, **kwargs)
 
 
-def pca(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None]:
+def pca(data: AnnData | MuData, **kwargs) -> Axes | list[Axes] | None:
     """
     Scatter plot for principle components
 
@@ -185,7 +184,7 @@ def pca(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None]
     return embedding(data, basis="pca", **kwargs)
 
 
-def lsi(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None]:
+def lsi(data: AnnData | MuData, **kwargs) -> Axes | list[Axes] | None:
     """
     Scatter plot for latent semantic indexing components
 
@@ -194,7 +193,7 @@ def lsi(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None]
     return embedding(data, basis="lsi", **kwargs)
 
 
-def umap(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None]:
+def umap(data: AnnData | MuData, **kwargs) -> Axes | list[Axes] | None:
     """
     Scatter plot in UMAP space
 
@@ -203,7 +202,7 @@ def umap(data: Union[AnnData, MuData], **kwargs) -> Union[Axes, List[Axes], None
     return embedding(data, basis="umap", **kwargs)
 
 
-def mofa(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
+def mofa(mdata: MuData, **kwargs) -> Axes | list[Axes] | None:
     """
     Scatter plot in MOFA factors coordinates
 
@@ -213,13 +212,13 @@ def mofa(mdata: MuData, **kwargs) -> Union[Axes, List[Axes], None]:
 
 
 def dotplot(
-    data: Union[AnnData, MuData],
-    var_names: Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]],
-    groupby: Optional[Union[str]] = None,
-    average: Optional[str] = "total",
-    func: Optional[str] = "mean",
-    use_raw: Optional[Union[bool]] = None,
-    layer: Optional[str] = None,
+    data: AnnData | MuData,
+    var_names: str | Sequence[str] | Mapping[str, str | Sequence[str]],
+    groupby: str | None = None,
+    average: str | None = "total",
+    func: str | None = "mean",
+    use_raw: bool | None = None,
+    layer: str | None = None,
     **kwargs,
 ):
     """
@@ -257,9 +256,9 @@ def dotplot(
 
 def tss_enrichment(
     data: AnnData,
-    color: Optional[Union[str]] = None,
+    color: str | None = None,
     title: str = "TSS Enrichment",
-    ax: Optional[Axes] = None,
+    ax: Axes | None = None,
 ):
     """
     Plot relative enrichment scores around a TSS.
@@ -314,12 +313,12 @@ def _tss_enrichment_single(data: AnnData, ax: Axes, sd: bool = False, *args, **k
 
 
 def fragment_histogram(
-    data: Union[AnnData, MuData],
+    data: AnnData | MuData,
     region: str = "chr1-1-2000000",
-    groupby: Optional[Union[str]] = None,
-    barcodes: Optional[str] = None,
-    show: Optional[bool] = None,
-    save: Union[str, bool, None] = None,
+    groupby: str | None = None,
+    barcodes: str | None = None,
+    show: bool | None = None,
+    save: str | bool | None = None,
 ):
     """
     Plot Histogram of Fragment lengths within specified region.

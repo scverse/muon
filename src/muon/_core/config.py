@@ -1,5 +1,6 @@
-from mudata._core import config as mudata_config
 import logging as log
+
+from mudata._core import config as mudata_config
 
 OPTIONS = {}
 
