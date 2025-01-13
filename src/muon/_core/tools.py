@@ -259,13 +259,7 @@ def _set_mofa_data_from_mudata(
     for m in range(M):
         for g in range(G):
             print(
-                "Loaded view='%s' group='%s' with N=%d samples and D=%d features..."
-                % (
-                    model.data_opts["views_names"][m],
-                    model.data_opts["groups_names"][g],
-                    n_grouped[g],
-                    D[m],
-                )
+                f"Loaded view='{model.data_opts["views_names"][m]}' group='{model.data_opts["groups_names"][g]}' with N={str(n_grouped[g])} samples and D={str(D[m])} features..."
             )
     print("\n")
 

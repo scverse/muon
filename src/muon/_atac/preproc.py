@@ -230,4 +230,4 @@ def scopen(
     secs = time.time() - start
     m, s = divmod(secs, 60)
     h, m = divmod(m, 60)
-    print("[total time: ", "%dh %dm %ds" % (h, m, s), "]")
+    print("[total time: ", f"{str(h)}h {str(m)}m {str(s)}s]")
