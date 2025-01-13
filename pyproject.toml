@@ -32,7 +32,7 @@ dependencies = [
     "scanpy",
     "scikit-learn",
     "umap-learn",
-    "numba",
+    "numba >= 0.57",
     "protobuf",
     "tqdm",
     "mudata",
