@@ -60,7 +60,7 @@ docs = [
 test = [
     "pytest",
     "mofapy2",
-    "zarr",
+    "zarr < 3",  # anndata compat
 ]
 # TODO: replace by a single depencency - chame
 atac = [
