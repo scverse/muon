@@ -3,6 +3,21 @@ Get to know muon
 
 `GitHub Repository <https://github.com/scverse/muon>`_ | `Publication <https://genomebiology.biomedcentral.com/articles/10.1186/s13059-021-02577-8>`_ | `Tutorials <https://muon-tutorials.readthedocs.io/>`_
 
+.. _website: https://scverse.org/
+.. _governance: https://scverse.org/about/roles/
+.. _NumFOCUS: https://numfocus.org/
+.. _donation: https://numfocus.org/donate-to-scverse/
+
+muon is part of the scverse® project (`website`_, `governance`_) and is fiscally sponsored by `NumFOCUS`_.
+Please consider making a tax-deductible `donation`_ to help the project pay for developer time, professional services, travel, workshops, and a variety of other needs.
+
+.. raw:: html
+
+   <p align="center">
+       <a href="https://numfocus.org/project/scverse">
+           <img src="https://raw.githubusercontent.com/numfocus/templates/master/images/numfocus-logo.png" width="200">
+       </a>
+   </p>
 ``muon`` is a Python framework for multimodal omics analysis. While there are many features that ``muon`` brings to the table, there are three key areas that its functionality is focused on.
 
 Multimodal data containers
