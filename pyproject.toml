@@ -1,13 +1,19 @@
 [build-system]
-requires = ["flit_core >=2,<4"]
-build-backend = "flit_core.buildapi"
+build-backend = "hatchling.build"
+requires = ["hatchling", "hatch-vcs"]
 
-[tool.flit.metadata]
-module = "muon"
-author = "Danila Bredikhin"
-author-email = "danila.bredikhin@embl.de"
-description-file = "README.md"
-home-page = "https://github.com/scverse/muon"
+[project]
+name = "muon"
+description = "Multimodal omics analysis framework"
+requires-python = ">= 3.10"
+license = "BSD-3-Clause"
+authors = [
+    { name = "Danila Bredikhin" },
+]
+maintainers = [
+    { name = "Danila Bredikhin", email = "danila@stanford.edu" },
+]
+readme = "README.md"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: BSD License",
@@ -16,49 +22,100 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Intended Audience :: Science/Research"
 ]
-requires-python = ">= 3.10"
-requires = [
+dependencies = [
     "numpy",
     "pandas",
     "matplotlib",
     "seaborn",
     "h5py",
-    "anndata",
+    "anndata >= 0.10.8",
     "scanpy",
     "scikit-learn",
     "umap-learn",
-    "numba",
+    "numba >= 0.57",
     "protobuf",
     "tqdm",
     "mudata",
 ]
+dynamic = ["version"]
 
-[tool.flit.metadata.requires-extra]
+[project.urls]
+Documentation = "https://muon.readthedocs.io/en/latest/"
+Source = "https://github.com/scverse/muon"
+Home-page = "https://muon.scverse.org/"
+
+[project.optional-dependencies]
+dev = [
+    "setuptools_scm",
+]
 docs = [
-    "sphinx >= 4.0",
-    "pydata-sphinx-theme==0.8.1",
-    "sphinx-book-theme==0.3.3",
+    "sphinx",
+    "sphinx-book-theme",
+    "pydata-sphinx-theme",
     "readthedocs-sphinx-search",
     "nbsphinx",
-    "sphinx_automodapi"
-]
-atac = [
-    "pybedtools",
-    "pysam"
+    "sphinx_automodapi",
+    "recommonmark"
 ]
 test = [
     "pytest",
-    "flake8",
     "mofapy2",
+    "zarr < 3",  # anndata compat
+]
+# TODO: replace by a single depencency - chame
+atac = [
+    "pybedtools",
+    "pysam",
 ]
 
-[tool.flit.metadata.urls]
-Documentation = "https://muon.readthedocs.io/en/latest/"
-
-[tool.flit.sdist]
-exclude = [".github", "docs/build"]
-
+[tool.pytest.ini_options]
+python_files = "test_*.py"
+testpaths = [
+    "./tests", # unit tests
+]
 
 [tool.black]
 line-length = 100
-target-version = ['py37']
+target-version = ['py39']
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/muon/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/muon"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/.github",
+  "/docs",
+]
+
+[tool.ruff]
+src = ["src"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "E",   # Error detected by Pycodestyle
+    "F",   # Errors detected by Pyflakes
+    "W",   # Warning detected by Pycodestyle
+    "UP",  # pyupgrade
+    "I",   # isort
+    "TCH", # manage type checking blocks
+    "ICN", # Follow import conventions
+    "PTH", # Pathlib instead of os.path
+    "PT",  # Pytest conventions
+]
+ignore = [
+    # line too long -> we accept long comment lines; formatter gets rid of long code lines
+    "E501",
+    # Do not assign a lambda expression, use a def -> AnnData allows lambda expression assignments,
+    "E731",
+    # allow I, O, l as variable names -> I is the identity matrix, i, j, k, l is reasonable indexing notation
+    "E741",
+]

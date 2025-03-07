@@ -1,31 +1,30 @@
+import importlib
 import io
-import os
-from glob import glob
 import pkgutil
-from typing import List, Union, Optional, Callable, Iterable
-from pathlib import Path
+from collections.abc import Iterable
 from datetime import datetime
+from pathlib import Path
 from warnings import warn
 
 import numpy as np
 import pandas as pd
 import scanpy as sc
-from tqdm import tqdm
-from scipy.sparse.linalg import svds
-from scipy.sparse import csr_matrix
-from scipy.sparse import lil_matrix
-from scanpy import logging
 from anndata import AnnData
-from . import utils
 from mudata import MuData
+from scanpy import logging
+from scipy.sparse import lil_matrix
+from scipy.sparse.linalg import svds
+from tqdm import tqdm
+
 from .._rna.utils import get_gene_annotation_from_rna
+from . import utils
 
 #
 # Computational methods for transforming and analysing count data
 #
 
 
-def lsi(data: Union[AnnData, MuData], scale_embeddings=True, n_comps=50):
+def lsi(data: AnnData | MuData, scale_embeddings=True, n_comps=50):
     """
     Run Latent Semantic Indexing
 
@@ -80,8 +79,8 @@ def lsi(data: Union[AnnData, MuData], scale_embeddings=True, n_comps=50):
 
 
 def add_peak_annotation(
-    data: Union[AnnData, MuData],
-    annotation: Union[str, pd.DataFrame],
+    data: AnnData | MuData,
+    annotation: str | pd.DataFrame,
     sep: str = "\t",
     return_annotation: bool = False,
 ):
@@ -131,7 +130,7 @@ def add_peak_annotation(
             )
         else:
             raise AttributeError(
-                f"Peak annotation does not in contain neighter peak column nor chrom, start, and end columns."
+                "Peak annotation does not in contain neighter peak column nor chrom, start, and end columns."
             )
 
     # Split genes, distances, and peaks into individual records
@@ -168,8 +167,8 @@ def add_peak_annotation(
 
 
 def add_peak_annotation_gene_names(
-    data: Union[AnnData, MuData],
-    gene_names: Optional[pd.DataFrame] = None,
+    data: AnnData | MuData,
+    gene_names: pd.DataFrame | None = None,
     join_on: str = None,
     return_annotation: bool = False,
 ):
@@ -251,7 +250,7 @@ def add_peak_annotation_gene_names(
 
 # Gene names for peaks
 def add_genes_peaks_groups(
-    data: Union[AnnData, MuData],
+    data: AnnData | MuData,
     add_peak_type: bool = False,
     add_distance: bool = False,
 ):
@@ -337,7 +336,7 @@ def add_genes_peaks_groups(
 
 
 def rank_peaks_groups(
-    data: Union[AnnData, MuData],
+    data: AnnData | MuData,
     groupby: str,
     add_peak_type: bool = False,
     add_distance: bool = False,
@@ -380,7 +379,7 @@ def rank_peaks_groups(
 #
 
 
-def _parse_motif_ids(filename: Optional[str] = None):
+def _parse_motif_ids(filename: str | None = None):
     if filename is None:
         # Use a file from the embedded JASPAR database
         filename = io.BytesIO(pkgutil.get_data(__name__, "_ref/jaspar/motif_to_gene.txt"))
@@ -392,13 +391,13 @@ def _parse_motif_ids(filename: Optional[str] = None):
 
 
 def _parse_motif_matrices(
-    files: Optional[str] = None,
-    background: Union[int, List] = 4,
+    files: str | None = None,
+    background: int | list = 4,
     pseudocount: float = 0.0001,
 ):
     try:
-        import MOODS.tools
         import MOODS.parsers
+        import MOODS.tools
     except ImportError:
         raise ImportError(
             "MOODS is not available. Install MOODS from PyPI (`pip install MOODS-python`) \
@@ -407,7 +406,7 @@ def _parse_motif_matrices(
 
     if files is None:
         # Use pfm files from the embedded JASPAR database
-        files = glob(os.path.join(os.path.dirname(__file__), "_ref/jaspar/*.pfm"))
+        files = (Path(__file__).parent / "_ref" / "jaspar" / "*.pfm").glob()
 
     if not isinstance(background, Iterable):
         bg = MOODS.tools.flat_bg(background)
@@ -415,15 +414,15 @@ def _parse_motif_matrices(
         bg = background
     matrices = [MOODS.parsers.pfm_to_log_odds(pfm_file, bg, pseudocount) for pfm_file in files]
 
-    return {"motifs": [os.path.basename(f).rstrip(".pfm") for f in files], "matrices": matrices}
+    return {"motifs": [Path(f).name.rstrip(".pfm") for f in files], "matrices": matrices}
 
 
 def _prepare_motif_scanner(
-    matrices=None, background: Union[int, Iterable] = 4, pvalue: float = 0.0001, max_hits: int = 10
+    matrices=None, background: int | Iterable = 4, pvalue: float = 0.0001, max_hits: int = 10
 ):
     try:
-        import MOODS.tools
         import MOODS.scan
+        import MOODS.tools
     except ImportError:
         raise ImportError(
             "MOODS is not available. Install MOODS from PyPI (`pip install MOODS-python`) or from GitHub (`pip install git+https://github.com/jhkorhonen/MOODS`)"
@@ -469,13 +468,14 @@ def scan_sequences(
     matches
         Pandas dataframe with matched motifs and respective sequence IDs.
     """
+    moods_import_msg = "MOODS is not available. Install MOODS from PyPI (`pip install MOODS-python`) or from GitHub (`pip install git+https://github.com/jhkorhonen/MOODS`)"
     try:
-        import MOODS.tools
-        import MOODS.scan
-    except ImportError:
-        raise ImportError(
-            "MOODS is not available. Install MOODS from PyPI (`pip install MOODS-python`) or from GitHub (`pip install git+https://github.com/jhkorhonen/MOODS`)"
-        )
+        _moods_tools_spec = importlib.util.find_spec("MOODS.tools")
+        _moods_scan_spec = importlib.util.find_spec("MOODS.scan")
+        if _moods_tools_spec is None or _moods_scan_spec is None:
+            raise ImportError(moods_import_msg)
+    except (ImportError, ValueError):
+        raise ImportError(moods_import_msg)
 
     if motifs is None:
         assert (
@@ -519,7 +519,7 @@ def scan_sequences(
     return matches
 
 
-def get_sequences(data: Union[AnnData, MuData], bed: str, fasta_file: str, bed_file: str = None):
+def get_sequences(data: AnnData | MuData, bed: str, fasta_file: str, bed_file: str = None):
     try:
         import pybedtools
     except ImportError:
@@ -548,7 +548,7 @@ def get_sequences(data: Union[AnnData, MuData], bed: str, fasta_file: str, bed_f
 
     if bed_file is not None:
         assert bed is None
-        bed = open(bed_file).read()
+        bed = Path(bed_file).open().read()
     else:
         if bed is None:
             # Use all the ATAC features,
@@ -560,7 +560,7 @@ def get_sequences(data: Union[AnnData, MuData], bed: str, fasta_file: str, bed_f
     scanner = pybedtools.BedTool(bed, from_string=True)
     scanner = scanner.sequence(fi=fasta_file)
     sequences = []
-    with open(scanner.seqfn, "rb") as f:
+    with Path(scanner.seqfn).open("rb") as f:
         for line in f:
             if not line.startswith(str.encode(">")):
                 sequences.append(line.decode().strip())
@@ -568,7 +568,7 @@ def get_sequences(data: Union[AnnData, MuData], bed: str, fasta_file: str, bed_f
     return sequences
 
 
-def locate_file(data: Union[AnnData, MuData], key: str, file: str):
+def locate_file(data: AnnData | MuData, key: str, file: str):
     """
     Add path to the file to .uns["files"][key]
 
@@ -590,7 +590,7 @@ def locate_file(data: Union[AnnData, MuData], key: str, file: str):
     else:
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
-    if not os.path.exists(file):
+    if not Path(file).exists():
         raise FileNotFoundError(f"File {file} does not exist")
 
     if "files" not in adata.uns:
@@ -598,7 +598,7 @@ def locate_file(data: Union[AnnData, MuData], key: str, file: str):
     adata.uns["files"][key] = file
 
 
-def locate_genome(data: Union[AnnData, MuData], fasta_file: str):
+def locate_genome(data: AnnData | MuData, fasta_file: str):
     """
     Add path to the FASTA file with genome to .uns["files"]["genome"]
 
@@ -639,7 +639,7 @@ def locate_genome(data: Union[AnnData, MuData], fasta_file: str):
 #
 
 
-def locate_fragments(data: Union[AnnData, MuData], fragments: str, return_fragments: bool = False):
+def locate_fragments(data: AnnData | MuData, fragments: str, return_fragments: bool = False):
     """
     Parse fragments file and add a variable to access it to the .uns["files"]["fragments"]
 
@@ -692,7 +692,7 @@ def locate_fragments(data: Union[AnnData, MuData], fragments: str, return_fragme
             frag.close()
 
 
-def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path]):
+def initialise_default_files(data: AnnData | MuData, path: str | Path):
     """
     Locate default files for ATAC-seq
 
@@ -710,8 +710,8 @@ def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path
 
     # 2) Add peak annotation
 
-    default_annotation = os.path.join(os.path.dirname(path), "atac_peak_annotation.tsv")
-    if os.path.exists(default_annotation):
+    default_annotation = Path(path).parent / "atac_peak_annotation.tsv"
+    if Path(default_annotation).exists():
         try:
             add_peak_annotation(adata, default_annotation)
             print(
@@ -731,8 +731,8 @@ def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path
 
     # 3) Locate fragments file
 
-    default_fragments = os.path.join(os.path.dirname(path), "atac_fragments.tsv.gz")
-    if os.path.exists(default_fragments):
+    default_fragments = Path(path).parent / "atac_fragments.tsv.gz"
+    if Path(default_fragments).exists():
         print(f"Located fragments file: {default_fragments}")
         try:
             locate_fragments(adata, default_fragments)
@@ -746,8 +746,8 @@ def initialise_default_files(data: Union[AnnData, MuData], path: Union[str, Path
 
 
 def count_fragments_features(
-    data: Union[AnnData, MuData],
-    features: Optional[pd.DataFrame] = None,
+    data: AnnData | MuData,
+    features: pd.DataFrame | None = None,
     stranded: bool = False,
     extend_upstream: int = 2e3,
     extend_downstream: int = 0,
@@ -814,7 +814,7 @@ def count_fragments_features(
 
     if count_reads:
         warn(
-            f"From v0.2, by default, unique fragments will be counted instead of reads. See muon#110 for details.",
+            "From v0.2, by default, unique fragments will be counted instead of reads. See muon#110 for details.",
             FutureWarning,
             stacklevel=2,
         )
@@ -830,7 +830,7 @@ def count_fragments_features(
         if col not in f_cols:
             raise ValueError(f"No column with feature {col}s could be found")
 
-    chrom_col: Optional[str] = None
+    chrom_col: str | None = None
     for col in ("chromosome", "chrom", "chr"):
         if col in f_cols:
             chrom_col = col
@@ -842,7 +842,7 @@ def count_fragments_features(
     end_col = features.columns.values[np.where(f_cols == "end")[0][0]]
     chr_col = features.columns.values[np.where(f_cols == chrom_col)[0][0]]
 
-    strand_col: Optional[str] = None
+    strand_col: str | None = None
     if stranded:
         if "strand" not in f_cols:
             raise ValueError("No column with strand for features could be found")
@@ -876,7 +876,8 @@ def count_fragments_features(
                         mx.data[i].append(int(fr.score))
                     else:
                         mx.data[i].append(1)
-                except:
+                except Exception:
+                    warn(f"Fragment for {fr.name} not found in the AnnData object")
                     pass
 
         # Faster to convert to csr first and then transpose
@@ -894,14 +895,14 @@ def count_fragments_features(
 
 
 def tss_enrichment(
-    data: Union[AnnData, MuData],
-    features: Optional[pd.DataFrame] = None,
+    data: AnnData | MuData,
+    features: pd.DataFrame | None = None,
     extend_upstream: int = 1000,
     extend_downstream: int = 1000,
     n_tss: int = 2000,
     return_tss: bool = True,
     random_state=None,
-    barcodes: Optional[str] = None,
+    barcodes: str | None = None,
 ):
     """
     Calculate TSS enrichment according to ENCODE guidelines. Adds a column `tss_score` to the `.obs` DataFrame and
@@ -991,7 +992,7 @@ def _tss_pileup(
     features: pd.DataFrame,
     extend_upstream: int = 1000,
     extend_downstream: int = 1000,
-    barcodes: Optional[str] = None,
+    barcodes: str | None = None,
 ) -> AnnData:
     """
     Pile up reads in TSS regions. Returns a cell x position matrix that can be used for QC.
@@ -1057,7 +1058,8 @@ def _tss_pileup(
                 colind_start = max(fr.start - tss_start, 0)
                 colind_end = min(fr.end - tss_start, n_features)  # ends are non-inclusive in bed
                 mx[rowind, colind_start:colind_end] += score
-            except:
+            except Exception:
+                warn(f"Could not add fragment for {fr.name} to the pileup.")
                 pass
 
     fragments.close()
@@ -1109,11 +1111,11 @@ def _calculate_tss_score(data: AnnData, flank_size: int = 100, center_size: int 
 
 
 def nucleosome_signal(
-    data: Union[AnnData, MuData],
-    n: Union[int, float] = None,
+    data: AnnData | MuData,
+    n: int | float = None,
     nucleosome_free_upper_bound: int = 147,
     mononuleosomal_upper_bound: int = 294,
-    barcodes: Optional[str] = None,
+    barcodes: str | None = None,
 ):
     """
     Computes the ratio of nucleosomal cut fragments to nucleosome-free fragments per cell.
@@ -1205,7 +1207,7 @@ def nucleosome_signal(
 
 def fetch_regions_to_df(
     fragment_path: str,
-    features: Union[pd.DataFrame, str],
+    features: pd.DataFrame | str,
     extend_upstream: int = 0,
     extend_downstream: int = 0,
     relative_coordinates=False,

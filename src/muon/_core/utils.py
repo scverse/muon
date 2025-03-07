@@ -1,24 +1,22 @@
-from typing import Union, Optional, Iterable
 import warnings
+from collections.abc import Iterable
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import issparse
 from anndata import AnnData
-import scanpy as sc
-
 from mudata import MuData
+from scipy.sparse import issparse
 
 # Utility functions
 
 
 def _get_values(
-    data: Union[AnnData, MuData],
-    key: Optional[str] = None,
-    use_raw: Optional[bool] = None,
-    layer: Optional[str] = None,
-    obsmap: Optional[np.ndarray] = None,
-) -> Optional[Iterable]:
+    data: AnnData | MuData,
+    key: str | None = None,
+    use_raw: bool | None = None,
+    layer: str | None = None,
+    obsmap: np.ndarray | None = None,
+) -> Iterable | None:
     """
     A helper function to get values
     for variables or annotations of observations (.obs columns).
@@ -99,13 +97,13 @@ def _get_values(
                 pass
             if maybe_index == 0:
                 raise ValueError(
-                    f"Enumeration for the components in .obsm starts at 1, by convention."
+                    "Enumeration for the components in .obsm starts at 1, by convention."
                 )
             obsm_key, obsm_index = maybe_obsm_key, maybe_index
 
     # .obsm
     if obsm_key:
-        values = data.obsm[obsm_key][:, maybe_index - 1]
+        values = data.obsm[obsm_key][:, obsm_index - 1]
         if issparse(values):
             values = np.array(values.todense()).squeeze()
         return _maybe_apply_obsmap(values, obsmap)
@@ -136,7 +134,7 @@ def _get_values(
         # .raw slots might have exclusive var_names
         if (use_raw is None or use_raw) and layer is None:
             for m in data.mod:
-                if key_in_mod[m] == False and data.mod[m].raw is not None:
+                if not key_in_mod[m] and data.mod[m].raw is not None:
                     key_in_mod[m] = key in data.mod[m].raw.var_names
                     if key_in_mod[m] and data.mod[m].raw is None and layer is None:
                         warnings.warn(

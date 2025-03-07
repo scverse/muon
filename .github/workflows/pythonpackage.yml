@@ -23,23 +23,24 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install tools
-      run: python -m pip install --upgrade pip
     - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install uv
+        uv venv
+        source .venv/bin/activate
+        uv pip install ruff pytest
+        uv pip install .[dev,test,atac]
+    - name: Install dev dependencies
       run: >
-        pip install
-        ".[test]"
+        uv pip install
         git+https://github.com/bioFAM/mofapy2
         git+https://github.com/scverse/mudata
-    - name: List dependencies
+    - name: Ruff check
       run: |
-        pip list
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        source .venv/bin/activate
+        ruff check src/muon
     - name: Test with pytest
       run: |
-        pytest
+        source .venv/bin/activate
+        python -m pytest

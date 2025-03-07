@@ -1,29 +1,28 @@
-from typing import Optional, Iterable, Tuple, Union
+from collections.abc import Iterable
 from numbers import Integral, Real
 from warnings import warn
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import issparse, csc_matrix, csr_matrix
-from sklearn.mixture import GaussianMixture
+from anndata import AnnData
+from mudata import MuData
+from scipy.sparse import csc_matrix, csr_matrix, issparse
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
-from anndata import AnnData
-
-from mudata import MuData
+from sklearn.mixture import GaussianMixture
 
 
 def dsb(
-    data: Union[AnnData, MuData],
-    data_raw: Optional[Union[AnnData, MuData]] = None,
+    data: AnnData | MuData,
+    data_raw: AnnData | MuData | None = None,
     pseudocount: Integral = 10,
     denoise_counts: bool = True,
-    isotype_controls: Optional[Iterable[str]] = None,
-    empty_counts_range: Optional[Tuple[Real, Real]] = None,
-    cell_counts_range: Optional[Tuple[Real, Real]] = None,
+    isotype_controls: Iterable[str] | None = None,
+    empty_counts_range: tuple[Real, Real] | None = None,
+    cell_counts_range: tuple[Real, Real] | None = None,
     add_layer: bool = False,
-    random_state: Optional[Union[int, np.random.RandomState, None]] = None,
-) -> Union[None, MuData]:
+    random_state: int | np.random.RandomState | None | None = None,
+) -> None | MuData:
     """
     Normalize protein expression with DSB (Denoised and Scaled by Background)
 
@@ -112,7 +111,7 @@ def dsb(
         empty = empty[~empty.obs_names.isin(cells.obs_names)]
     else:
         warn(
-            f"empty_counts_range will be deprecated in the future versions",
+            "empty_counts_range will be deprecated in the future versions",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -198,7 +197,7 @@ def dsb(
     return toreturn
 
 
-def clr(adata: AnnData, inplace: bool = True, axis: int = 0) -> Union[None, AnnData]:
+def clr(adata: AnnData, inplace: bool = True, axis: int = 0) -> None | AnnData:
     """
     Apply the centered log ratio (CLR) transformation
     to normalize counts in adata.X.
