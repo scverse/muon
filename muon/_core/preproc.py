@@ -29,7 +29,11 @@ from numba import njit, prange
 from packaging.version import Version
 
 if Version(scanpy.__version__) < Version("1.10"):
-    from scanpy.neighbors import _compute_connectivities_umap
+    from scanpy.neighbors import _compute_connectivities_umap as __compute_connectivities_umap
+
+    _compute_connectivities_umap = lambda *args, **kwargs: __compute_connectivities_umap(
+        *args, **kwargs
+    )[1]
 else:
     from scanpy.neighbors._connectivity import umap as _compute_connectivities_umap
 
