@@ -1377,7 +1377,7 @@ def ica(
     from sklearn.decomposition import FastICA
 
     ica = FastICA(random_state=random_state, n_components=n_components, **kwargs)
-    x_ica = ica.fit_transcrotm(data.obsm[basis])
+    x_ica = ica.fit_transform(data.obsm[basis])
 
     if scale:
         x_ica /= x_ica.std(axis=0)
