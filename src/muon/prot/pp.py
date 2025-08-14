@@ -25,7 +25,7 @@ def dsb(
     quantile_clipping: bool = False,
     quantile_clip: tuple[float, float] = (0.001, 0.9995),
     add_layer: bool = False,
-    random_state: int | np.random.RandomState | None | None = None,
+    random_state: int | np.random.RandomState | None | None = 0,
 ) -> None | MuData:
     """Normalize protein expression with DSB (Denoised and Scaled by Background) :cite:p:`pmid35440536`.
 
