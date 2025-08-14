@@ -1,4 +1,4 @@
-from typing import Optional, Iterable, Tuple, Union
+from typing import Optional, Iterable, Tuple, Union, Literal
 from numbers import Integral, Real
 from warnings import warn
 
@@ -21,6 +21,9 @@ def dsb(
     isotype_controls: Optional[Iterable[str]] = None,
     empty_counts_range: Optional[Tuple[Real, Real]] = None,
     cell_counts_range: Optional[Tuple[Real, Real]] = None,
+    scale_factor: Literal["standardize", "mean_subtract"] = "standardize",
+    quantile_clipping: bool = False,
+    quantile_clip: Tuple[float, float] = (0.001, 0.9995),
     add_layer: bool = False,
     random_state: Optional[Union[int, np.random.RandomState, None]] = None,
 ) -> Union[None, MuData]:
@@ -47,6 +50,11 @@ def dsb(
             this specifies the minimum and maximum log10-counts for a droplet to be considered empty.
         cell_counts_range: If ``data_raw`` is ``None``, i.e. ``data`` contains the unfiltered data,
             this specifies the minimum and maximum log10-counts for a droplet to be considered not empty.
+        scale_factor: How to perform protein level denoising. `standardize` corresponds to the method
+            described as Step I in the paper, i.e. subtracting the mean and dividing by the standard
+            deviation. `mean_subtract` subtracts the mean without dividing by the standard deviation.
+        quantile_clipping: Whether to clip the final result. Useful if outliers are observied.
+        quantile_clip: The quantiles to clip outlier values to. Only used if `quantile_clipping=True`.
         add_layer: Whether to add a ``'dsb'`` layer instead of assigning to the X matrix.
         random_state: Random seed.
 
@@ -102,6 +110,13 @@ def dsb(
     if pseudocount < 0:
         raise ValueError("pseudocount cannot be negative")
 
+    if quantile_clipping:
+        if len(quantile_clip) != 2:
+            raise ValueError("quantile_clip must have exactly 2 values")
+        quantile_clip = np.asarray(quantile_clip)
+        if np.any((quantile_clip < 0) | (quantile_clip > 1)):
+            raise ValueError("quantile_clip must be between 0 and 1")
+
     if cells.shape[1] != empty.shape[1]:  # this should only be possible if mudata_raw != None
         raise ValueError("data and data_raw have different numbers of proteins")
 
@@ -153,12 +168,12 @@ def dsb(
         else np.log(cells.X.toarray() + pseudocount)
     )
 
-    need_castback = cells_scaled.dtype.kind == "f"
-    cells_scaled = (cells_scaled - empty_scaled.mean(axis=0, dtype=np.float64)) / empty_scaled.std(
-        axis=0, ddof=1, dtype=np.float64
-    )
-    if need_castback:
-        cells_scaled = cells_scaled.astype(cells_scaled.dtype, copy=False)
+    cells_scaled_dtype = cells_scaled.dtype
+    cells_scaled = cells_scaled - empty_scaled.mean(axis=0, dtype=np.float64)
+    if scale_factor == "standardize":
+        cells_scaled /= empty_scaled.std(axis=0, ddof=1, dtype=np.float64)
+    if cells_scaled_dtype.kind == "f":
+        cells_scaled = cells_scaled.astype(cells_scaled_dtype, copy=False)
 
     if denoise_counts:
         bgmeans = np.empty(cells_scaled.shape[0], cells_scaled.dtype)
@@ -196,6 +211,11 @@ def dsb(
         reg.fit(covar, cells_scaled)
 
         cells_scaled -= reg.predict(covar) - reg.intercept_
+
+    if quantile_clipping:
+        quantiles = np.quantile(cells_scaled, quantile_clip)
+        np.clip(cells_scaled, a_min=quantiles.min(), a_max=quantiles.max(), out=cells_scaled)
+
     if add_layer:
         cells.layers["dsb"] = cells_scaled
     else:
