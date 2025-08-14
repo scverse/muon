@@ -153,10 +153,15 @@ def dsb(
         else np.log(cells.X.toarray() + pseudocount)
     )
 
-    cells_scaled = (cells_scaled - empty_scaled.mean(axis=0)) / empty_scaled.std(axis=0)
+    need_castback = cells_scaled.dtype.kind == "f"
+    cells_scaled = (cells_scaled - empty_scaled.mean(axis=0, dtype=np.float64)) / empty_scaled.std(
+        axis=0, dtype=np.float64
+    )
+    if need_castback:
+        cells_scaled = cells_scaled.astype(cells_scaled.dtype, copy=False)
 
     if denoise_counts:
-        bgmeans = np.empty(cells_scaled.shape[0], np.float32)
+        bgmeans = np.empty(cells_scaled.shape[0], cells_scaled.dtype)
         # init_params needs to be random, otherwise fitted variance for one of the n_components
         # sometimes goes to 0
         sharedvar = GaussianMixture(
