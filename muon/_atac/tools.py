@@ -900,7 +900,7 @@ def tss_enrichment(
     extend_downstream: int = 1000,
     n_tss: int = 2000,
     return_tss: bool = True,
-    random_state=None,
+    random_state: int | None = 0,
     barcodes: Optional[str] = None,
 ):
     """

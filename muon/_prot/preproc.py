@@ -22,7 +22,7 @@ def dsb(
     empty_counts_range: Optional[Tuple[Real, Real]] = None,
     cell_counts_range: Optional[Tuple[Real, Real]] = None,
     add_layer: bool = False,
-    random_state: Optional[Union[int, np.random.RandomState, None]] = None,
+    random_state: Optional[Union[int, np.random.RandomState, None]] = 0,
 ) -> Union[None, MuData]:
     """
     Normalize protein expression with DSB (Denoised and Scaled by Background)
