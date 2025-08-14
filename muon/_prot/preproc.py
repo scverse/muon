@@ -155,7 +155,7 @@ def dsb(
 
     need_castback = cells_scaled.dtype.kind == "f"
     cells_scaled = (cells_scaled - empty_scaled.mean(axis=0, dtype=np.float64)) / empty_scaled.std(
-        axis=0, dtype=np.float64
+        axis=0, ddof=1, dtype=np.float64
     )
     if need_castback:
         cells_scaled = cells_scaled.astype(cells_scaled.dtype, copy=False)
