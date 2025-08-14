@@ -524,7 +524,7 @@ def neighbors(
             (
                 distances[:, 1:].reshape(-1),
                 nn_indices[:, 1:].reshape(-1),
-                np.concatenate((nn_indices[:, 0] * n_multineighbors, (nn_indices[:, 1:].size,))),
+                np.arange((nn_indices.shape[0] + 1) * n_multineighbors, step=n_multineighbors),
             ),
             shape=(rep.shape[0], rep.shape[0]),
         )
