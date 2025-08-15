@@ -1,4 +1,5 @@
-from typing import Dict, Iterable, List, Optional, Sequence, Union
+from collections import defaultdict
+from typing import Dict, Iterable, List, Optional, Sequence, Union, Mapping
 import warnings
 
 from matplotlib.axes import Axes
@@ -96,12 +97,12 @@ def scatter(
 
 
 def embedding(
-    data: Union[AnnData, MuData],
+    data: AnnData | MuData,
     basis: str,
-    color: Optional[Union[str, Sequence[str]]] = None,
-    use_raw: bool = False,
-    layer: Optional[str] = None,
-    gene_symbols: Optional[str] = None,
+    color: str | Sequence[str] | None = None,
+    use_raw: bool | Mapping[str, bool] = False,
+    layer: str | Mapping[str, str | None] | None = None,
+    gene_symbols: str | Mapping[str, str | None] | None = None,
     **kwargs,
 ):
     """
@@ -124,11 +125,13 @@ def embedding(
         Can be from any modality.
     use_raw
         Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
+        If a dictionary is given, it must have one entry for each modality.
     layer
         Name of the layer in the modality where a feature (from `color`) is derived from.
-        No layer is used by default.
+        If a dictionary is given, it must have one entry for each modality.
     gene_symbols
         Column of `.var` to search for `color` in.
+        If a dictionary is given, it must have one entry for each modality.
     """
     if isinstance(data, AnnData):
         return sc.pl.embedding(
@@ -140,9 +143,6 @@ def embedding(
             gene_symbols=gene_symbols,
             **kwargs,
         )
-
-    if use_raw and layer is not None:
-        raise ValueError("use_raw cannot be True when a layer is specified.")
 
     # `data` is MuData
     if basis not in data.obsm and "X_" + basis in data.obsm:
@@ -178,6 +178,16 @@ def embedding(
 
     obs = data.obs.loc[adata.obs.index.values]
 
+    if not isinstance(use_raw, Mapping):
+        use_rawd = use_raw
+        use_raw = defaultdict(lambda: use_rawd)
+    if not isinstance(layer, Mapping):
+        layerd = layer
+        layer = defaultdict(lambda: layerd)
+    if not isinstance(gene_symbols, Mapping):
+        gene_symbolsd = gene_symbols
+        gene_symbols = defaultdict(lambda: gene_symbolsd)
+
     if color is None:
         ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp)
         return sc.pl.embedding(ad, basis=basis_mod, **kwargs)
@@ -191,9 +201,12 @@ def embedding(
         raise TypeError("Expected color to be a string or an iterable.")
 
     varidx = {}
-    for modname, mod in data.mod.items():
-        var = mod.var if not use_raw else mod.raw.var
-        varidx[modname] = var.index if gene_symbols is None else pd.Index(var[gene_symbols])
+    for m, mod in data.mod.items():
+        if layer[m] is not None and use_raw[m]:
+            raise ValueError("use_raw cannot be True when a layer is specified.")
+
+        var = mod.var if not use_raw[m] else mod.raw.var
+        varidx[m] = var.index if gene_symbols[m] is None else pd.Index(var[gene_symbols[m]])
 
     # Fetch respective features
     if not all([key in obs for key in keys]):
@@ -219,7 +232,11 @@ def embedding(
                 mod_keys = [mod_key_modifier[k] for i, k in enumerate(keys) if keys_in_mod[m][i]]
                 obs = obs.join(
                     sc.get.obs_df(
-                        mod, keys=mod_keys, layer=layer, use_raw=use_raw, gene_symbols=gene_symbols
+                        mod,
+                        keys=mod_keys,
+                        layer=layer[m],
+                        use_raw=use_raw[m],
+                        gene_symbols=gene_symbols[m],
                     ),
                     how="left",
                 )
