@@ -1,4 +1,5 @@
-from typing import Union, Optional, Iterable
+from collections import defaultdict
+from typing import Union, Optional, Iterable, Mapping
 import warnings
 
 import numpy as np
@@ -13,12 +14,13 @@ from mudata import MuData
 
 
 def _get_values(
-    data: Union[AnnData, MuData],
-    key: Optional[str] = None,
-    use_raw: Optional[bool] = None,
-    layer: Optional[str] = None,
-    obsmap: Optional[np.ndarray] = None,
-) -> Optional[Iterable]:
+    data: AnnData | MuData,
+    key: str | None = None,
+    use_raw: bool | Mapping[str, bool] = False,
+    layer: str | Mapping[str, str | None] | None = None,
+    gene_symbols: str | Mapping[str, str | None] | None = None,
+    obsmap: np.ndarray | None = None,
+) -> Iterable | None:
     """
     A helper function to get values
     for variables or annotations of observations (.obs columns).
@@ -35,18 +37,20 @@ def _get_values(
 
     Parameters
     ----------
-    data : Union[AnnData, MuData]
+    data
         MuData or AnnData object
-    key : Optional[str]
+    key
         String to search for
-    use_raw : Optional[bool], optional (default: None)
+    use_raw
         Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
-        If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
-    layer : Optional[str], optional (default: None)
+        If a dictionary is given, it must have one entry for each modality.
+    layer
         Name of the layer in the modality where a feature (from `color`) is derived from.
-        No layer is used by default. If a valid `layer` is provided, this takes precedence
-        over `use_raw=True`.
-    obsmap : Optional[np.ndarray], optional (default: None)
+        If a dictionary is given, it must have one entry for each modality.
+    gene_symbols
+        Column of `.var` to search for `color` in.
+        If a dictionary is given, it must have one entry for each modality.
+    obsmap
         Provide a vector of the desired size were 0 are missing values and non-zero values
         correspond to the 1-based index of the value.
         This is used internally for when AnnData as a modality has less observations
@@ -65,7 +69,10 @@ def _get_values(
     # Handle multiple keys
     if isinstance(key, Iterable) and not isinstance(key, str):
         all_values = [
-            _get_values(data, k, use_raw=use_raw, layer=layer, obsmap=obsmap) for k in key
+            _get_values(
+                data, k, use_raw=use_raw, layer=layer, gene_symbols=gene_symbols, obsmap=obsmap
+            )
+            for k in key
         ]
         df = pd.DataFrame(all_values).T
         df.columns = [k for k in key if k is not None]
@@ -81,7 +88,16 @@ def _get_values(
 
     # Handle composite keys, e.g. rna:n_counts
     key_mod, mod_key = None, None
-    if isinstance(data, MuData) and key not in data.var_names and key not in data.obsm:
+    if (
+        isinstance(data, MuData)
+        and (
+            gene_symbols is None
+            and key not in data.var_names
+            or gene_symbols is not None
+            and key not in data.var[gene_symbols]
+        )
+        and key not in data.obsm
+    ):
         if ":" in key:
             maybe_mod, maybe_key = key.split(":", 1)
             if maybe_mod in data.mod:
@@ -116,33 +132,23 @@ def _get_values(
             if not data.obs_names.equals(data.mod[key_mod].obs_names) and obsmap is None:
                 obsmap = data.obsmap[key_mod]
             return _get_values(
-                data.mod[key_mod], key=mod_key, use_raw=use_raw, layer=layer, obsmap=obsmap
+                data.mod[key_mod],
+                key=mod_key,
+                use_raw=use_raw,
+                layer=layer,
+                gene_symbols=gene_symbols,
+                obsmap=obsmap,
             )
 
         # {'rna': True, 'prot': False}
-        key_in_mod = {m: key in data.mod[m].var_names for m in data.mod}
+        key_in_mod = {}
+        for m, mod in data.mod.items():
+            if layer is not None and use_raw:
+                raise ValueError("use_raw cannot be True when a layer is specified.")
 
-        # Check if the valid layer is requested
-        if layer is not None:
-            if sum(key_in_mod.values()) == 1:
-                use_mod = [m for m, v in key_in_mod.items() if v][0]
-                valid_layer = layer in data.mod[use_mod].layers
-                if not valid_layer:
-                    warnings.warn(
-                        f"Layer {layer} is not present when searching for the key {key}, using count matrix instead"
-                    )
-                    layer = None
-
-        # .raw slots might have exclusive var_names
-        if (use_raw is None or use_raw) and layer is None:
-            for m in data.mod:
-                if key_in_mod[m] == False and data.mod[m].raw is not None:
-                    key_in_mod[m] = key in data.mod[m].raw.var_names
-                    if key_in_mod[m] and data.mod[m].raw is None and layer is None:
-                        warnings.warn(
-                            f"Attibute .raw is None for the modality {m}, using .X instead"
-                        )
-                        use_raw = False
+            var = mod.var if not use_raw else mod.raw.var
+            varidx = var.index if gene_symbols is None else var[gene_symbols]
+            key_in_mod[m] = key in varidx
 
         if sum(key_in_mod.values()) == 0:
             pass  # not in var names
@@ -154,48 +160,61 @@ def _get_values(
             use_mod = [m for m, v in key_in_mod.items() if v][0]
             if not data.obs_names.equals(data.mod[use_mod].obs_names) and obsmap is None:
                 obsmap = data.obsmap[use_mod]
+            if isinstance(use_raw, Mapping):
+                use_raw = use_raw[use_mod]
+            if isinstance(layer, Mapping):
+                layer = layer[use_mod]
+            if isinstance(gene_symbols, Mapping):
+                gene_symbols = gene_symbols[use_mod]
             return _get_values(
-                data.mod[use_mod], key=key, use_raw=use_raw, layer=layer, obsmap=obsmap
+                data.mod[use_mod],
+                key=key,
+                use_raw=use_raw,
+                layer=layer,
+                gene_symbols=gene_symbols,
+                obsmap=obsmap,
             )
 
     elif isinstance(data, AnnData):
-        if (use_raw is None or use_raw) and data.raw is not None and layer is None:
-            keysidx = data.raw.var.index.get_indexer_for([key])
-            if keysidx == -1:
+        if use_raw and layer is not None:
+            raise ValueError("use_raw cannot be True when a layer is specified.")
+
+        if use_raw:
+            keysidx = (
+                data.raw.var.index.get_indexer_for([key])
+                if gene_symbols is None
+                else np.nonzero(data.raw.var[gene_symbols] == key)[0]
+            )
+            if len(keysidx) == 0 or keysidx == -1:
                 raise ValueError(f"Key {key} could not be found.")
             values = data.raw.X[:, keysidx[0]]
             if len(keysidx) > 1:
                 warnings.warn(f"Key {key} is not unique in the index, using the first value...")
-
-        elif layer is not None and layer in data.layers:
-            if layer in data.layers:
-                keysidx = data.var.index.get_indexer_for([key])
-                if keysidx == -1:
-                    raise ValueError(f"Key {key} could not be found.")
-                values = data.layers[layer][:, keysidx[0]]
-                if use_raw:
-                    warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}")
-                if len(keysidx) > 1:
-                    warnings.warn(f"Key {key} is not unique in the index, using the first value...")
-
+        elif layer is not None:
+            keysidx = (
+                data.var.index.get_indexer_for([key])
+                if gene_symbols is None
+                else np.nonzero(data.var[gene_symbols] == key)[0]
+            )
+            if len(keysidx) == 0 or keysidx == -1:
+                raise ValueError(f"Key {key} could not be found.")
+            values = data.layers[layer][:, keysidx[0]]
+            if len(keysidx) > 1:
+                warnings.warn(f"Key {key} is not unique in the index, using the first value...")
         else:
-            if (use_raw is None or use_raw) and data.raw is None:
-                warnings.warn(
-                    f"Attibute .raw is None when searching for the key {key}, using .X instead"
-                )
-            if layer is not None and layer not in data.layers:
-                warnings.warn(
-                    f"Layer {layer} is not present when searching for the key {key}, using count matrix instead"
-                )
-            keysidx = data.var.index.get_indexer_for([key])
-            if keysidx == -1:
+            keysidx = (
+                data.var.index.get_indexer_for([key])
+                if gene_symbols is None
+                else np.nonzero(data.var[gene_symbols] == key)[0]
+            )
+            if len(keysidx) == 0 or keysidx == -1:
                 raise ValueError(f"Key {key} could not be found.")
             values = data.X[:, keysidx[0]]
             if len(keysidx) > 1:
                 warnings.warn(f"Key {key} is not unique in the index, using the first value...")
 
         if issparse(values):
-            values = np.array(values.todense()).squeeze()
+            values = np.asarray(values.todense()).squeeze()
         values = _maybe_apply_obsmap(values, obsmap)
 
         return values
