@@ -1,6 +1,4 @@
 from collections import defaultdict
-from typing import Dict, Iterable, List, Optional, Sequence, Union, Mapping
-import warnings
 from collections.abc import Iterable, Mapping, Sequence
 
 import numpy as np
@@ -10,7 +8,6 @@ import seaborn as sns
 from anndata import AnnData
 from matplotlib.axes import Axes
 from mudata import MuData
-from scipy.sparse import sparray, spmatrix
 
 from .utils import _get_values
 
@@ -24,14 +21,18 @@ def scatter(
     x: str | None = None,
     y: str | None = None,
     color: str | Sequence[str] | None = None,
-    use_raw: bool | None = None,
-    layers: str | Sequence[str | None] | None = None,
+    use_raw: bool | Mapping[str, bool] = False,
+    layers: str
+    | tuple[str, str, str]
+    | Mapping[str, str]
+    | tuple[Mapping[str, str], Mapping[str, str], Mapping[str, str]]
+    | None = None,
+    gene_symbols: str | Mapping[str, str | None] | None = None,
     **kwargs,
 ) -> Axes | list[Axes] | None:
     """Scatter plot along observations or variables axes.
 
-    Variables in each modality can be referenced,
-    e.g. ``"rna:X_pca"``.
+    Variables in each modality can be referenced, e.g. ``"rna:X_pca"``.
 
     See :func:`scanpy.pl.scatter` for details.
 
@@ -42,21 +43,30 @@ def scatter(
         color: Keys or a single key for variables or annotations of observations (.obs columns),
             or a hex colour specification.
         use_raw: Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
-            If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
-        layers: Names of the layers where x, y, and color come from.
-            No layer is used by default. A single layer value will be expanded to [layer, layer, layer].
+            If a mapping is given, it must have one netry for each modality.
+        layers: Names of the layers where x, y, and color come from. No layer is used by default.
+            A single layer value will be expanded to [layer, layer, layer]. If a mapping is given, it must
+            have one entry for each modality.
+        gene_symbols: Column of `.var` to search for `color` in. If a mapping is given, it must have one
+            entry for each modality.
         **kwargs: Additional keyword arguments passed to :func:`scanpy.pl.scatter`.
     """
     if isinstance(data, AnnData):
+        localvars = locals()
+        for arg in ("use_raw", "layers", "gene_symbols"):
+            if isinstance(localvars[arg], Mapping):
+                raise ValueError(f"`{arg}` can only be a dictionary if `data` is a `MuData` object.")
         return sc.pl.scatter(data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs)
 
-    if isinstance(layers, str) or layers is None:
-        layers = [layers, layers, layers]
+    if isinstance(layers, str | Mapping) or layers is None:
+        clayers = (layers, layers, layers)
+    else:
+        clayers = layers
 
     obs = pd.DataFrame(
         {
-            x: _get_values(data, x, use_raw=use_raw, layer=layers[0]),
-            y: _get_values(data, y, use_raw=use_raw, layer=layers[1]),
+            x: _get_values(data, x, use_raw=use_raw, layer=clayers[0], gene_symbols=gene_symbols),
+            y: _get_values(data, y, use_raw=use_raw, layer=clayers[1], gene_symbols=gene_symbols),
         }
     )
     obs.index = data.obs_names
@@ -64,9 +74,11 @@ def scatter(
         # Workaround for scanpy#311, scanpy#1497
         color_obs: pd.DataFrame
         if isinstance(color, str):
-            color_obs = pd.DataFrame({color: _get_values(data, color, use_raw=use_raw, layer=layers[2])})
+            color_obs = pd.DataFrame(
+                {color: _get_values(data, color, use_raw=use_raw, layer=clayers[2], gene_symbols=gene_symbols)}
+            )
         else:
-            color_obs = _get_values(data, color, use_raw=use_raw, layer=layers[2])
+            color_obs = _get_values(data, color, use_raw=use_raw, layer=clayers[2], gene_symbols=gene_symbols)
 
         color_obs.index = data.obs_names
         obs = pd.concat([obs, color_obs], axis=1, ignore_index=False)
@@ -94,7 +106,7 @@ def embedding(
     data: AnnData | MuData,
     basis: str,
     color: str | Sequence[str] | None = None,
-    use_raw: Mapping[str, bool] = False,
+    use_raw: bool | Mapping[str, bool] = False,
     layer: str | Mapping[str, str | None] | None = None,
     gene_symbols: str | Mapping[str, str | None] | None = None,
     **kwargs,
@@ -123,7 +135,13 @@ def embedding(
         **kwargs: Additional keyword arguments passed to :func:`scanpy.pl.embedding`.
     """
     if isinstance(data, AnnData):
-        return sc.pl.embedding(data, basis=basis, color=color, use_raw=use_raw, layer=layer, gene_symbols=gene_symbols, **kwargs)
+        localvars = locals()
+        for arg in ("use_raw", "layer", "gene_symbols"):
+            if isinstance(localvars[arg], Mapping):
+                raise ValueError(f"`{arg}` can only be a dictionary if `data` is a `MuData` object.")
+        return sc.pl.embedding(
+            data, basis=basis, color=color, use_raw=use_raw, layer=layer, gene_symbols=gene_symbols, **kwargs
+        )
 
     # `data` is MuData
     if basis not in data.obsm and "X_" + basis in data.obsm:
@@ -195,7 +213,7 @@ def embedding(
         mod_key_modifier: dict[str, str] = {}
         for i, k in enumerate(keys):
             mod_key_modifier[k] = k
-            for m, mod in data.mod.items():
+            for m in data.mod.keys():
                 if not keys_in_mod[m][i]:
                     k_clean = k
                     if k.startswith(f"{m}:"):
@@ -209,13 +227,7 @@ def embedding(
             if np.sum(keys_in_mod[m]) > 0:
                 mod_keys = [mod_key_modifier[k] for i, k in enumerate(keys) if keys_in_mod[m][i]]
                 obs = obs.join(
-                    sc.get.obs_df(
-                        mod,
-                        keys=mod_keys,
-                        layer=layer[m],
-                        use_raw=use_raw[m],
-                        gene_symbols=gene_symbols[m],
-                    ),
+                    sc.get.obs_df(mod, keys=mod_keys, layer=layer[m], use_raw=use_raw[m], gene_symbols=gene_symbols[m]),
                     how="left",
                 )
 
