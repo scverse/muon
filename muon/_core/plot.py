@@ -25,11 +25,13 @@ def scatter(
     y: str | None = None,
     color: str | Sequence[str] | None = None,
     use_raw: bool | Mapping[str, bool] = False,
-    layers: str
-    | tuple[str, str, str]
-    | Mapping[str, str]
-    | tuple[Mapping[str, str], Mapping[str, str], Mapping[str, str]]
-    | None = None,
+    layers: (
+        str
+        | tuple[str, str, str]
+        | Mapping[str, str]
+        | tuple[Mapping[str, str], Mapping[str, str], Mapping[str, str]]
+        | None
+    ) = None,
     gene_symbols: str | Mapping[str, str | None] | None = None,
     **kwargs,
 ):
