@@ -99,8 +99,9 @@ def embedding(
     data: Union[AnnData, MuData],
     basis: str,
     color: Optional[Union[str, Sequence[str]]] = None,
-    use_raw: Optional[bool] = None,
+    use_raw: bool = False,
     layer: Optional[str] = None,
+    gene_symbols: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -114,24 +115,30 @@ def embedding(
 
     Parameters
     ----------
-    data : Union[AnnData, MuData]
+    data
         MuData or AnnData object
-    basis : str
+    basis
         Name of the `obsm` basis to use
-    color : Optional[Union[str, typing.Sequence[str]]], optional (default: None)
+    color
         Keys for variables or annotations of observations (.obs columns).
         Can be from any modality.
-    use_raw : Optional[bool], optional (default: None)
+    use_raw
         Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
-        If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
-    layer : Optional[str], optional (default: None)
+    layer
         Name of the layer in the modality where a feature (from `color`) is derived from.
-        No layer is used by default. If a valid `layer` is provided, this takes precedence
-        over `use_raw=True`.
+        No layer is used by default.
+    gene_symbols
+        Column of `.var` to search for `color` in.
     """
     if isinstance(data, AnnData):
         return sc.pl.embedding(
-            data, basis=basis, color=color, use_raw=use_raw, layer=layer, **kwargs
+            data,
+            basis=basis,
+            color=color,
+            use_raw=use_raw,
+            layer=layer,
+            gene_symbols=gene_symbols,
+            **kwargs,
         )
 
     if use_raw and layer is not None:
@@ -183,77 +190,37 @@ def embedding(
     else:
         raise TypeError("Expected color to be a string or an iterable.")
 
+    varidx = {}
+    for modname, mod in data.mod.items():
+        var = mod.var if not use_raw else mod.raw.var
+        varidx[modname] = var.index if gene_symbols is None else pd.Index(var[gene_symbols])
+
     # Fetch respective features
     if not all([key in obs for key in keys]):
         # {'rna': [True, False], 'prot': [False, True]}
-        keys_in_mod = {m: [key in data.mod[m].var_names for key in keys] for m in data.mod}
-
-        # .raw slots might have exclusive var_names
-        if use_raw is None or use_raw:
-            for i, k in enumerate(keys):
-                for m in data.mod:
-                    if keys_in_mod[m][i] == False and data.mod[m].raw is not None:
-                        keys_in_mod[m][i] = k in data.mod[m].raw.var_names
+        keys_in_mod = {m: [key in varidx[m] for key in keys] for m in data.mod}
 
         # e.g. color="rna:CD8A" - especially relevant for mdata.axis == -1
         mod_key_modifier: dict[str, str] = dict()
         for i, k in enumerate(keys):
             mod_key_modifier[k] = k
-            for m in data.mod:
+            for m, mod in data.mod.items():
                 if not keys_in_mod[m][i]:
                     k_clean = k
                     if k.startswith(f"{m}:"):
                         k_clean = k.split(":", 1)[1]
 
-                    keys_in_mod[m][i] = k_clean in data.mod[m].var_names
+                    keys_in_mod[m][i] = k_clean in varidx[m]
                     if keys_in_mod[m][i]:
                         mod_key_modifier[k] = k_clean
-                    if use_raw is None or use_raw:
-                        if keys_in_mod[m][i] == False and data.mod[m].raw is not None:
-                            keys_in_mod[m][i] = k_clean in data.mod[m].raw.var_names
 
-        for m in data.mod:
+        for m, mod in data.mod.items():
             if np.sum(keys_in_mod[m]) > 0:
-                mod_keys = np.array(keys)[keys_in_mod[m]]
-                mod_keys = np.array([mod_key_modifier[k] for k in mod_keys])
-
-                if use_raw is None or use_raw:
-                    if data.mod[m].raw is not None:
-                        subset = data.mod[m].raw[:, mod_keys]
-                        fmod_adata = AnnData(
-                            X=subset.X,
-                            var=subset.var,
-                            obs=data.mod[m].obs,
-                        )
-                    else:
-                        if use_raw:
-                            warnings.warn(
-                                f"Attibute .raw is None for the modality {m}, using .X instead"
-                            )
-                        fmod_adata = data.mod[m][:, mod_keys]
-                else:
-                    fmod_adata = data.mod[m][:, mod_keys]
-
-                if layer is not None:
-                    if isinstance(layer, Dict):
-                        m_layer = layer.get(m, None)
-                        if m_layer is not None:
-                            x = data.mod[m][:, mod_keys].layers[m_layer]
-                            fmod_adata.X = x.todense() if issparse(x) else x
-                            if use_raw:
-                                warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}")
-                    elif layer in data.mod[m].layers:
-                        x = data.mod[m][:, mod_keys].layers[layer]
-                        fmod_adata.X = x.todense() if issparse(x) else x
-                        if use_raw:
-                            warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}")
-                    else:
-                        warnings.warn(
-                            f"Layer {layer} is not present for the modality {m}, using count matrix instead"
-                        )
-                x = fmod_adata.X.toarray() if issparse(fmod_adata.X) else fmod_adata.X
+                mod_keys = [mod_key_modifier[k] for i, k in enumerate(keys) if keys_in_mod[m][i]]
                 obs = obs.join(
-                    pd.DataFrame(x, columns=mod_keys, index=fmod_adata.obs_names),
+                    sc.get.obs_df(
+                        mod, keys=mod_keys, layer=layer, use_raw=use_raw, gene_symbols=gene_symbols
+                    ),
                     how="left",
                 )
 
