@@ -121,6 +121,9 @@ def embedding(
     if isinstance(data, AnnData):
         return sc.pl.embedding(data, basis=basis, color=color, use_raw=use_raw, layer=layer, **kwargs)
 
+    if use_raw and layer is not None:
+        raise ValueError("use_raw cannot be True when a layer is specified.")
+
     # `data` is MuData
     if basis not in data.obsm and "X_" + basis in data.obsm:
         basis = "X_" + basis
@@ -200,10 +203,8 @@ def embedding(
 
                 if use_raw is None or use_raw:
                     if data.mod[m].raw is not None:
-                        keysidx = data.mod[m].raw.var.index.get_indexer_for(mod_keys)
-                        fmod_adata = AnnData(
-                            X=data.mod[m].raw.X[:, keysidx], var=pd.DataFrame(index=mod_keys), obs=data.mod[m].obs
-                        )
+                        subset = data.mod[m].raw[:, mod_keys]
+                        fmod_adata = AnnData(X=subset.X, var=subset.var, obs=data.mod[m].obs)
                     else:
                         if use_raw:
                             warnings.warn(f"Attibute .raw is None for the modality {m}, using .X instead", stacklevel=2)
