@@ -50,6 +50,7 @@ test = [
     "pytest",
     "flake8",
     "mofapy2",
+    "anndata[test]"
 ]
 
 [tool.flit.metadata.urls]
