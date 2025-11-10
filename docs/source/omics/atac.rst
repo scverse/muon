@@ -28,7 +28,7 @@ Fragment size distribution typically reflects nucleosome binding pattern showing
 Fragment size distribution can be estimated from a subset of data and plotted with :func:`muon.atac.pl.fragment_histogram`, and the *nucleosome signal* can visualised with a general function :func:`mu.pl.histogram`:
 ::
 	# Plot fragment size distribution
-	ac.pl.fragment_histogram(atac, regions="chr1:1-2000000")
+	ac.pl.fragment_histogram(atac, region="chr1:1-2000000")
 
 	# Plot nucleosome signal distribution across cells
 	ac.tl.nucleosome_signal(atac, n=1e6)
