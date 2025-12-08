@@ -6,6 +6,7 @@ from itertools import repeat
 import numpy as np
 from scipy.sparse import (
     csr_matrix,
+    csr_array,
     issparse,
     SparseEfficiencyWarning,
     linalg,
@@ -21,8 +22,8 @@ from anndata import AnnData
 import scanpy
 from scanpy import logging
 from scanpy.tools._utils import _choose_representation
-from umap.distances import euclidean
-from umap.sparse import sparse_euclidean, sparse_jaccard
+from pynndescent.distances import euclidean
+from pynndescent.sparse import sparse_euclidean, sparse_jaccard
 from umap.umap_ import nearest_neighbors
 from numba import njit, prange
 
@@ -41,9 +42,9 @@ from mudata import MuData
 
 # Computational methods for preprocessing
 
-_euclidean = njit(euclidean.py_func, inline="always", fastmath=True)
-_sparse_euclidean = njit(sparse_euclidean.py_func, inline="always")
-_sparse_jaccard = njit(sparse_jaccard.py_func, inline="always")
+_euclidean = njit(getattr(euclidean, "py_func", euclidean), inline="always", fastmath=True)
+_sparse_euclidean = njit(getattr(sparse_euclidean, "py_func", sparse_euclidean), inline="always")
+_sparse_jaccard = njit(getattr(sparse_jaccard, "py_func", sparse_jaccard), inline="always")
 
 
 @njit
@@ -92,13 +93,17 @@ def _jaccard_sparse_euclidean_metric(
     if x == y:
         return N + 1.0
 
-    from_inds = X_indices[X_indptr[x] : X_indptr[x + 1]]
-    from_data = X_data[X_indptr[x] : X_indptr[x + 1]]
-    to_inds = X_indices[X_indptr[y] : X_indptr[y + 1]]
-    to_data = X_data[X_indptr[y] : X_indptr[y + 1]]
+    from_inds = neighbors_indices[neighbors_indptr[x] : neighbors_indptr[x + 1]]
+    from_data = neighbors_data[neighbors_indptr[x] : neighbors_indptr[x + 1]]
+    to_inds = neighbors_indices[neighbors_indptr[y] : neighbors_indptr[y + 1]]
+    to_data = neighbors_data[neighbors_indptr[y] : neighbors_indptr[y + 1]]
     jac = _sparse_jaccard(from_inds, from_data, to_inds, to_data)
 
     if jac < 1.0:
+        from_inds = X_indices[X_indptr[x] : X_indptr[x + 1]]
+        from_data = X_data[X_indptr[x] : X_indptr[x + 1]]
+        to_inds = X_indices[X_indptr[y] : X_indptr[y + 1]]
+        to_data = X_data[X_indptr[y] : X_indptr[y + 1]]
         euclidean = _sparse_euclidean(from_inds, from_data, to_inds, to_data)
         return (N - jac * N) + (bbox_norm - euclidean) / bbox_norm
     else:
@@ -130,12 +135,12 @@ def _sparse_csr_fast_knn_(
 
 
 # numba doesn't know about SciPy
-def _sparse_csr_fast_knn(X: csr_matrix, n_neighbors: int):
+def _sparse_csr_fast_knn(X: csr_matrix | csr_array, n_neighbors: int):
     data, indices, indptr = _sparse_csr_fast_knn_(
         X.shape[0], X.indptr, X.indices, X.data, n_neighbors
     )
     indptr = np.concatenate((indptr, (indices.size,)))
-    return csr_matrix((data, indices, indptr), X.shape)
+    return csr_array((data, indices, indptr), X.shape)
 
 
 @njit(parallel=True)
@@ -149,7 +154,7 @@ def _sparse_csr_ptp_(N: int, indptr: np.ndarray, indices: np.ndarray, data: np.n
     return maxelems - minelems
 
 
-def _sparse_csr_ptp(X: csr_matrix):
+def _sparse_csr_ptp(X: csr_matrix | csr_array):
     return _sparse_csr_ptp_(X.shape[1], X.indptr, X.indices, X.data)
 
 
@@ -179,7 +184,7 @@ def _l2norm(
         X_norm = linalg.norm(X, ord=2, axis=1)
         norm = X / np.expand_dims(X_norm, axis=1)
         if not issparse(norm):
-            norm = csr_matrix(norm)
+            norm = csr_array(norm)
         norm.data[~np.isfinite(norm.data)] = 0
     else:
         norm = X / np.linalg.norm(X, ord=2, axis=1, keepdims=True)
@@ -498,7 +503,7 @@ def neighbors(
         sigmas[mod1] = csigmas
 
     weights = softmax(ratios, axis=1)
-    neighbordistances = csr_matrix((mdata.n_obs, mdata.n_obs), dtype=np.float64)
+    neighbordistances = csr_array((mdata.n_obs, mdata.n_obs), dtype=np.float64)
     largeidx = mdata.n_obs**2 > np.iinfo(np.int32).max
     if largeidx:  # work around scipy bug https://github.com/scipy/scipy/issues/13155
         neighbordistances.indptr = neighbordistances.indptr.astype(np.int64)
@@ -520,7 +525,7 @@ def neighbors(
             angular=False,
             low_memory=lmemory,
         )
-        graph = csr_matrix(
+        graph = csr_array(
             (
                 distances[:, 1:].reshape(-1),
                 nn_indices[:, 1:].reshape(-1),
@@ -578,12 +583,14 @@ def neighbors(
         if issparse(rep):
 
             def neighdist(cell, nz):
-                return -cdist(rep[cell, :].toarray(), rep[nz, :].toarray(), metric=metric)
+                return -cdist(
+                    rep[cell, :].toarray()[None, ...], rep[nz, :].toarray(), metric=metric
+                )
 
         else:
 
             def neighdist(cell, nz):
-                return -cdist(rep[np.newaxis, cell, :], rep[nz, :], metric=metric)
+                return -cdist(rep[None, cell, :], rep[nz, :], metric=metric)
 
         for cell, j in enumerate(fullidx):
             row = slice(neighbordistances.indptr[cell], neighbordistances.indptr[cell + 1])
