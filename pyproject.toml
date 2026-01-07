@@ -50,7 +50,8 @@ test = [
     "pytest",
     "flake8",
     "mofapy2",
-    "anndata[test]"
+    "anndata[lazy]",
+    "fast-array-utils>=1.2.3" # need to explicitly depend on that, see https://github.com/scverse/muon/issues/174
 ]
 
 [tool.flit.metadata.urls]
