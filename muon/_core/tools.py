@@ -370,7 +370,7 @@ def mofa(
             use reduced precision (float32)
     gpu_mode : optional
             if to use GPU mode
-    gpu_mode : optional
+    gpu_device : optional
             which GPU device to use
     svi_mode : optional
             if to use Stochastic Variational Inference (SVI)
@@ -404,8 +404,7 @@ def mofa(
             path to HDF5 file to store the model
     expectations : optional
             which nodes should be used to save expectations for (will save only W and Z by default);
-    possible expectations names
-            nclude Y, W, Z, Tau, AlphaZ, AlphaW, ThetaW, ThetaZ
+            possible expectation names include Y, W, Z, Tau, AlphaZ, AlphaW, ThetaW, ThetaZ
     save_interrupted : optional
             if to save partially trained model when the training is interrupted
     verbose : optional
