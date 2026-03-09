@@ -115,7 +115,9 @@ def add_peak_annotation(
 
     # Convert null values to empty strings
     pa.loc[pa.gene.isnull(), "gene"] = ""
-    pa.loc[pa.distance.isnull(), "distance"] = ""
+    # Convert distance to string via object dtype — pandas may infer a numeric
+    # or nullable StringDtype, both of which break on direct "" assignment
+    pa["distance"] = pa["distance"].astype(object).fillna("").astype(str)
     pa.loc[pa.peak_type.isnull(), "peak_type"] = ""
 
     # If peak name is not in the annotation table, reconstruct it:
@@ -149,15 +151,8 @@ def add_peak_annotation(
     # chrX_NNNNN_NNNNN -> chrX:NNNNN-NNNNN
     pa_long.peak = [peak.replace("_", ":", 1).replace("_", "-", 1) for peak in pa_long.peak]
 
-    # Make distance values integers with 0 for intergenic peaks
-    # DEPRECATED: Make distance values nullable integers
-    # See https://pandas.pydata.org/pandas-docs/stable/user_guide/integer_na.html
-    null_distance = pa_long.distance == ""
-    pa_long.loc[null_distance, "distance"] = 0
-    pa_long.distance = pa_long.distance.astype(float).astype(int)
-    # DEPRECATED: Int64 is not recognized when saving HDF5 files with scanpy.write
-    # pa_long.distance = pa_long.distance.astype(int).astype("Int64")
-    # pa_long.distance[null_distance] = np.nan
+    # Make distance values integers with 0 for intergenic peaks (empty/NaN → 0)
+    pa_long["distance"] = pd.to_numeric(pa_long["distance"], errors="coerce").fillna(0).astype(int)
 
     if "atac" not in adata.uns:
         adata.uns["atac"] = dict()
