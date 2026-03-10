@@ -6,6 +6,7 @@ from typing import List, Union, Optional, Callable, Iterable
 from pathlib import Path
 from datetime import datetime
 from warnings import warn
+from contextlib import suppress
 
 import numpy as np
 import pandas as pd
@@ -81,7 +82,7 @@ def lsi(data: Union[AnnData, MuData], scale_embeddings=True, n_comps=50):
 
 def add_peak_annotation(
     data: Union[AnnData, MuData],
-    annotation: Union[str, pd.DataFrame],
+    annotation: Union[str, Path, pd.DataFrame],
     sep: str = "\t",
     return_annotation: bool = False,
 ):
@@ -108,17 +109,12 @@ def add_peak_annotation(
     else:
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
-    if isinstance(annotation, str):
-        pa = pd.read_csv(annotation, sep=sep)
-    else:
+    if isinstance(annotation, pd.DataFrame):
         pa = annotation
+    else:
+        pa = pd.read_csv(annotation, sep=sep)
 
-    # Convert null values to empty strings
-    pa.loc[pa.gene.isnull(), "gene"] = ""
-    # Convert distance to string via object dtype — pandas may infer a numeric
-    # or nullable StringDtype, both of which break on direct "" assignment
-    pa["distance"] = pa["distance"].astype(object).fillna("").astype(str)
-    pa.loc[pa.peak_type.isnull(), "peak_type"] = ""
+    pa = pa.convert_dtypes()
 
     # If peak name is not in the annotation table, reconstruct it:
     # peak = chrom:start-end
@@ -135,31 +131,38 @@ def add_peak_annotation(
             raise AttributeError(
                 f"Peak annotation does not in contain neighter peak column nor chrom, start, and end columns."
             )
+    else:
+        # chrX_NNNNN_NNNNN -> chrX:NNNNN-NNNNN
+        pa["peak"] = pa["peak"].str.replace("_", ":", 1).str.replace("_", "-", 1)
 
     # Split genes, distances, and peaks into individual records
-    pa_g = pd.DataFrame(pa.gene.str.split(";").tolist(), index=pa.peak).stack()
-    pa_d = pd.DataFrame(pa.distance.astype(str).str.split(";").tolist(), index=pa.peak).stack()
-    pa_p = pd.DataFrame(pa.peak_type.str.split(";").tolist(), index=pa.peak).stack()
 
-    # Make a long dataframe indexed by gene
-    pa_long = pd.concat(
-        [pa_g.reset_index()[["peak", 0]], pa_d.reset_index()[[0]], pa_p.reset_index()[[0]]], axis=1
-    )
-    pa_long.columns = ["peak", "gene", "distance", "peak_type"]
-    pa_long = pa_long.set_index("gene")
+    if pd.api.types.is_string_dtype(pa.distance):
+        pa = pa.set_index("peak")
+        pa_g = pa.gene.str.split(";").explode()
+        pa_d = pa.distance.str.split(";").explode().astype(int)
+        pa_p = pa.peak_type.str.split(";").explode()
 
-    # chrX_NNNNN_NNNNN -> chrX:NNNNN-NNNNN
-    pa_long.peak = [peak.replace("_", ":", 1).replace("_", "-", 1) for peak in pa_long.peak]
+        # Make a long dataframe indexed by gene
+        pa = pd.concat((pa_g, pa_d, pa_p), axis=1).reset_index()
+    else:
+        pa = pa[["peak", "gene", "distance", "peak_type"]]
 
-    # Make distance values integers with 0 for intergenic peaks (empty/NaN → 0)
-    pa_long["distance"] = pd.to_numeric(pa_long["distance"], errors="coerce").fillna(0).astype(int)
+    with suppress(ValueError):  # missing values
+        pa["distance"] = pa["distance"].astype(int)
+
+    # TODO: nullable strings work with anndata >= 0.13
+    for col in ("peak", "gene", "peak_type"):
+        pa[col] = pa[col].fillna("").astype(object)
+
+    pa = pa.set_index("gene")
 
     if "atac" not in adata.uns:
         adata.uns["atac"] = dict()
-    adata.uns["atac"]["peak_annotation"] = pa_long
+    adata.uns["atac"]["peak_annotation"] = pa
 
     if return_annotation:
-        return pa_long
+        return pa
 
 
 def add_peak_annotation_gene_names(

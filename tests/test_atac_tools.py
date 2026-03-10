@@ -4,7 +4,7 @@ from io import StringIO
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from muon._atac.tools import add_peak_annotation
+import muon
 
 
 class TestAddPeakAnnotation(unittest.TestCase):
@@ -22,13 +22,12 @@ class TestAddPeakAnnotation(unittest.TestCase):
         adata = AnnData(np.zeros((2, 2)))
         adata.var_names = peaks
 
-        result = add_peak_annotation(adata, pa, return_annotation=True)
+        result = muon.atac.tl.add_peak_annotation(adata, pa, return_annotation=True)
 
-        self.assertEqual(result.distance.dtype, np.int64)
-        # Intergenic peak distance should be 0
-        self.assertIn(0, result.distance.values)
-        # Distal peak distance should be preserved
-        self.assertIn(-173268, result.distance.values)
+        assert result.distance.dtype == pd.Int64Dtype()
+        assert result.distance.iloc[0] is pd.NA
+        assert result.distance.iloc[1] == -173268
+        assert (result.peak == peaks).all()
 
     def test_semicolon_separated_distances(self):
         """Multi-gene peaks with semicolon-separated distances should work."""
@@ -40,11 +39,12 @@ class TestAddPeakAnnotation(unittest.TestCase):
         adata = AnnData(np.zeros((1, 1)))
         adata.var_names = ["chr1:100-200"]
 
-        result = add_peak_annotation(adata, pa, return_annotation=True)
+        result = muon.atac.tl.add_peak_annotation(adata, pa, return_annotation=True)
 
-        self.assertEqual(result.distance.dtype, np.int64)
-        self.assertIn(-100, result.distance.values)
-        self.assertIn(200, result.distance.values)
+        assert result.distance.dtype == np.int64
+        assert result.distance.iloc[0] == -100
+        assert result.distance.iloc[1] == 200
+        assert (result.peak.iloc[0] == result.peak.iloc[1] == adata.var_names).all()
 
 
 if __name__ == "__main__":
