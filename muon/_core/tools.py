@@ -929,7 +929,7 @@ def _cluster(
     data: Union[MuData, AnnData],
     resolution: Optional[Union[float, Sequence[float], Mapping[str, float]]] = None,
     mod_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
-    random_state: int = 0,
+    random_state: int | None = 0,
     key_added: str = "louvain",
     neighbors_key: str = None,
     directed: bool = True,
@@ -1002,7 +1002,7 @@ def _cluster(
         partition_type = alg.RBConfigurationVertexPartition
 
     optimiser = alg.Optimiser()
-    if random_state:
+    if random_state is not None:
         optimiser.set_rng_seed(random_state)
 
     # The same as leiden.find_partition_multiplex() (louvain.find_partition_multiplex())
@@ -1058,7 +1058,7 @@ def leiden(
     data: Union[MuData, AnnData],
     resolution: Optional[Union[float, Sequence[float], Mapping[str, float]]] = None,
     mod_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
-    random_state: int = 0,
+    random_state: int | None = 0,
     key_added: str = "leiden",
     neighbors_key: str = None,
     directed: bool = True,
@@ -1134,7 +1134,7 @@ def louvain(
     data: Union[MuData, AnnData],
     resolution: Optional[Union[float, Sequence[float], Mapping[str, float]]] = None,
     mod_weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
-    random_state: int = 0,
+    random_state: int | None = 0,
     key_added: str = "louvain",
     neighbors_key: str = None,
     directed: bool = True,
@@ -1367,7 +1367,7 @@ def ica(
     basis="X_pca",
     n_components=None,
     *,
-    random_state=None,
+    random_state: int | None = 0,
     scale=False,
     copy=False,
     **kwargs,
