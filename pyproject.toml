@@ -19,7 +19,7 @@ classifiers = [
 requires-python = ">= 3.10"
 requires = [
     "numpy",
-    "pandas",
+    "pandas>=1",
     "matplotlib",
     "seaborn",
     "h5py",
