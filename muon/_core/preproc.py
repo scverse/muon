@@ -765,32 +765,33 @@ def _filter_attr(
             attrp[k] = v[subset][:, subset]
         setattr(data, f"{attr}p", attrp)
 
+        # Subset layers
+        for layername, layer in layers.items():
+            if attr == "obs":
+                layers[layername] = layer[subset, :]
+            else:
+                layers[layername] = layer[:, subset]
+        data.layers = layers
+
         # Subset .X
-        if data._X is not None:
+        if None not in layers and (X := data.X) is not None:
+            Xattr = "_X" if hasattr(data, "_X") else "X"
             try:
                 if attr == "obs":
-                    data._X = data.X[subset, :]
+                    setattr(data, Xattr, X[subset, :])
                 else:
-                    data._X = data.X[:, subset]
+                    setattr(data, Xattr, X[:, subset])
             except TypeError:
                 if attr == "obs":
-                    data._X = data.X[np.where(subset)[0], :]
+                    setattr(data, Xattr, X[np.where(subset)[0], :])
                 else:
-                    data._X = data.X[:, np.where(subset)[0]]
+                    setattr(data, Xattr, X[:, np.where(subset)[0]])
                 # For some h5py versions, indexing arrays must have integer dtypes
                 # https://github.com/h5py/h5py/issues/1847
 
         if data.isbacked:
             data.file.close()
             data.filename = None
-
-        # Subset layers
-        for layer in layers:
-            if attr == "obs":
-                layers[layer] = layers[layer][subset, :]
-            else:
-                layers[layer] = layers[layer][:, subset]
-        data.layers = layers
 
         # Subset raw - only when subsetting obs
         if attr == "obs" and data.raw is not None:

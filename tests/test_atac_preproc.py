@@ -11,7 +11,7 @@ class TestTFIDF(unittest.TestCase):
     def setUp(self):
         np.random.seed(2020)
         x = np.abs(np.random.normal(size=(4, 5)))
-        self.adata = AnnData(x, dtype=x.dtype)
+        self.adata = AnnData(x)
 
     def test_tfidf(self):
         adata = self.adata.copy()
@@ -56,7 +56,7 @@ class TestTFIDFSparse(unittest.TestCase):
     def setUp(self):
         np.random.seed(2020)
         x = rand(100, 10, density=0.2, format="csr")
-        self.adata = AnnData(x, dtype=x.dtype)
+        self.adata = AnnData(x)
 
     def test_tfidf(self):
         ac.pp.tfidf(self.adata, log_tf=True, log_idf=True)
