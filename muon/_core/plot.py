@@ -51,6 +51,8 @@ def scatter(
     layers : Optional[Union[str, Sequence[str]]], optional (default: None)
         Names of the layers where x, y, and color come from.
         No layer is used by default. A single layer value will be expanded to [layer, layer, layer].
+    **kwargs
+        Additional keyword arguments passed to :func:`scanpy.pl.scatter`.
     """
     if isinstance(data, AnnData):
         return sc.pl.scatter(data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs)
@@ -128,6 +130,8 @@ def embedding(
         Name of the layer in the modality where a feature (from `color`) is derived from.
         No layer is used by default. If a valid `layer` is provided, this takes precedence
         over `use_raw=True`.
+    **kwargs
+        Additional keyword arguments passed to :func:`scanpy.pl.embedding`.
     """
     if isinstance(data, AnnData):
         return sc.pl.embedding(
