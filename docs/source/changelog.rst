@@ -9,6 +9,24 @@ Release notes
 
    *
 
+v0.1.8
+------
+
+* Enable compatibility of in-place filtering with anndata 0.13
+
+* :func:`muon.atac.tl.add_peak_annotation` no longer crashes when given empty distance values
+
+* :func:`muon.pp.neighbors` now works when given sparse matrices
+
+* :func:`muon.pp.neighbors` no longer crashes when multiple cells have identical coordinates
+
+* :func:`muon.prot.pp.dsb` implements `scale_factor` and `quantile_clipping` options, matching the R package
+
+* :func:`muon.prot.pp.dsb` uses `ddof=1` in standard deviation calculation to match the R behavior
+
+* :func:`muon.prot.pp.dsb` no longer overflows for large datasets
+
+* :func:`muon.prot.pp.clr` now supports multiple flavors, matching different implementations of CLR used in Seurat and publications.
 
 v0.1.7
 ------
