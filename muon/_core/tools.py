@@ -308,6 +308,7 @@ def mofa(
     use_float32: bool = False,
     gpu_mode: bool = False,
     gpu_device: Optional[bool] = None,
+    train_kwargs: Optional[Mapping[str, Any]] = None,
     svi_mode: bool = False,
     svi_batch_size: float = 0.5,
     svi_learning_rate: float = 1.0,
@@ -372,6 +373,9 @@ def mofa(
             if to use GPU mode
     gpu_device : optional
             which GPU device to use
+    train_kwargs: optional
+            additional parameters for MOFA (startELBO, freqELBO, startSparsity, tolerance, startDrop, freqDrop,
+            dropR2, nostop, schedule, weight_views)
     svi_mode : optional
             if to use Stochastic Variational Inference (SVI)
     svi_batch_size : optional
@@ -488,6 +492,8 @@ def mofa(
     )
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting training options...")
 
+    if train_kwargs is None:
+        train_kwargs = {}
     try:
         ent.set_train_options(
             iter=n_iterations,
@@ -499,6 +505,7 @@ def mofa(
             quiet=quiet,
             outfile=outfile,
             save_interrupted=save_interrupted,
+            **train_kwargs,
         )
     except TypeError:
         # mofapy2 <0.7 does not have a gpu_device argument
@@ -515,6 +522,7 @@ def mofa(
             quiet=quiet,
             outfile=outfile,
             save_interrupted=save_interrupted,
+            **train_kwargs,
         )
 
     if svi_mode:
