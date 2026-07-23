@@ -9,6 +9,11 @@ Release notes
 
    *
 
+v0.1.9
+------
+
+* Fix a regression in :func:`muon.prot.pp.clr` introduced in v0.1.8.
+
 v0.1.8
 ------
 
