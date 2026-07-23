@@ -19,7 +19,6 @@ from scipy.special import softmax
 from sklearn.utils import check_random_state
 
 from anndata import AnnData
-import scanpy
 from scanpy import logging
 from scanpy.tools._utils import _choose_representation
 from pynndescent.distances import euclidean
@@ -27,9 +26,11 @@ from pynndescent.sparse import sparse_euclidean, sparse_jaccard
 from umap.umap_ import nearest_neighbors
 from numba import njit, prange
 
+from importlib.metadata import version
+
 from packaging.version import Version
 
-if Version(scanpy.__version__) < Version("1.10"):
+if Version(version("scanpy")) < Version("1.10"):
     from scanpy.neighbors import _compute_connectivities_umap as __compute_connectivities_umap
 
     _compute_connectivities_umap = lambda *args, **kwargs: __compute_connectivities_umap(
