@@ -1,20 +1,18 @@
 import unittest
-import pytest
-
-import os
 
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
+import pytest
 from anndata import AnnData
-import muon as mu
-from muon import MuData
 
+from muon import MuData
 from muon._core.utils import _get_values
 
 
 @pytest.fixture(
     params=[
-        {"same_obs": True, "same_obs": False},
+        {"same_obs": True},
+        {"same_obs": False},
     ]
 )
 def mdata(request):
@@ -31,8 +29,8 @@ def mdata(request):
 
     # var
 
-    mdata["mod1"].var_names = [f"var1_{i+1}" for i in range(d1)]
-    mdata["mod2"].var_names = [f"var2_{i+1}" for i in range(d2)]
+    mdata["mod1"].var_names = [f"var1_{i + 1}" for i in range(d1)]
+    mdata["mod2"].var_names = [f"var2_{i + 1}" for i in range(d2)]
 
     # obs
 
@@ -54,9 +52,7 @@ def mdata(request):
     mdata.update()
 
     if not request.param["same_obs"]:
-        mdata.mod["mod1"] = mdata["mod1"][
-            np.random.choice(np.arange(n1), size=n1 // 2, replace=False)
-        ].copy()
+        mdata.mod["mod1"] = mdata["mod1"][np.random.choice(np.arange(n1), size=n1 // 2, replace=False)].copy()
         mdata.update()
 
     yield mdata

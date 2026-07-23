@@ -1,0 +1,44 @@
+{
+  "template": "https://github.com/scverse/cookiecutter-scverse",
+  "commit": "31733e798d89018e590c2586962c153d38057dad",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "project_name": "muon",
+      "package_name": "muon",
+      "project_description": "Multimodal omics analysis framework",
+      "author_full_name": "Danila Bredikhin",
+      "author_email": "danila.bredikhin@embl.de",
+      "github_user": "scverse",
+      "github_repo": "muon",
+      "license": "BSD 3-Clause License",
+      "ide_integration": true,
+      "issue_categorization": "labels",
+      "_copy_without_render": [
+        ".github/workflows/build.yaml",
+        ".github/workflows/test.yaml",
+        "docs/_templates/autosummary/**.rst"
+      ],
+      "_exclude_on_template_update": [
+        "CHANGELOG.md",
+        "LICENSE",
+        "README.md",
+        "docs/api.md",
+        "docs/index.md",
+        "docs/notebooks/example.ipynb",
+        "docs/references.bib",
+        "docs/references.md",
+        "src/**",
+        "tests/**"
+      ],
+      "_render_devdocs": false,
+      "_jinja2_env_vars": {
+        "lstrip_blocks": true,
+        "trim_blocks": true
+      },
+      "_template": "https://github.com/scverse/cookiecutter-scverse",
+      "_commit": "31733e798d89018e590c2586962c153d38057dad"
+    }
+  },
+  "directory": null
+}

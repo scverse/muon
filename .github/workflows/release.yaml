@@ -1,12 +1,12 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+**"
-  workflow_dispatch:
+  release:
+    types: [published]
 
 # Use "trusted publishing", see https://docs.pypi.org/trusted-publishers/
+permissions: {}
+
 jobs:
   release:
     name: Upload release to PyPI
@@ -15,6 +15,7 @@ jobs:
       name: pypi
       url: https://pypi.org/p/muon
     permissions:
+      contents: read
       id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

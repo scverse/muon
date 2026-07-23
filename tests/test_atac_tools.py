@@ -2,8 +2,9 @@ import unittest
 from io import StringIO
 
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
 from anndata import AnnData
+
 import muon
 
 
@@ -32,8 +33,7 @@ class TestAddPeakAnnotation(unittest.TestCase):
     def test_semicolon_separated_distances(self):
         """Multi-gene peaks with semicolon-separated distances should work."""
         tsv = StringIO(
-            "chrom\tstart\tend\tgene\tdistance\tpeak_type\n"
-            "chr1\t100\t200\tGeneA;GeneB\t-100;200\tpromoter;distal\n"
+            "chrom\tstart\tend\tgene\tdistance\tpeak_type\nchr1\t100\t200\tGeneA;GeneB\t-100;200\tpromoter;distal\n"
         )
         pa = pd.read_csv(tsv, sep="\t")
         adata = AnnData(np.zeros((1, 1)))

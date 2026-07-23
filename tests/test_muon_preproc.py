@@ -1,12 +1,12 @@
 import unittest
-import pytest
-
 from functools import reduce
 
 import numpy as np
+import pytest
 from anndata import AnnData
 from anndata.tests.helpers import assert_equal
-from mudata import MuData
+from mudata import MuData  # type: ignore[import-untyped]
+
 import muon as mu
 
 
@@ -108,12 +108,8 @@ class TestInPlaceFiltering:
         selection = mdata.obsm["X_normal"].sum(axis=1) > 0
 
         # obsp
-        mdata["mod1"].obsp["connectivities"] = np.random.normal(
-            size=(mdata["mod1"].n_obs, mdata["mod1"].n_obs)
-        )
-        mdata["mod2"].obsp["connectivities"] = np.random.normal(
-            size=(mdata["mod2"].n_obs, mdata["mod2"].n_obs)
-        )
+        mdata["mod1"].obsp["connectivities"] = np.random.normal(size=(mdata["mod1"].n_obs, mdata["mod1"].n_obs))
+        mdata["mod2"].obsp["connectivities"] = np.random.normal(size=(mdata["mod2"].n_obs, mdata["mod2"].n_obs))
         mdata.obsp["connectivities"] = np.random.normal(size=(mdata.n_obs, mdata.n_obs))
 
         mu.pp.filter_obs(mdata, selection)
@@ -209,10 +205,8 @@ class TestIntersectObs:
     def test_filter_intersect_obs(self, mdata, filepath_h5mu, empty_X):
         modalities = {}
         for mod, modality in mdata.mod.items():
-            mod_obs_names = [f"obs{i+1}" for i in range(modality.n_obs)]
-            for obs in np.random.choice(
-                range(modality.n_obs), size=modality.n_obs // 10, replace=False
-            ):
+            mod_obs_names = [f"obs{i + 1}" for i in range(modality.n_obs)]
+            for obs in np.random.choice(range(modality.n_obs), size=modality.n_obs // 10, replace=False):
                 mod_obs_names[obs] = f"{mod}_" + str(mod_obs_names[obs])
 
             modalities[mod] = modality.copy()

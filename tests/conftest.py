@@ -1,5 +1,5 @@
 import pytest
-import scanpy as sc
+import scanpy as sc  # type: ignore[import-untyped]
 
 
 @pytest.fixture(scope="module")

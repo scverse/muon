@@ -44,7 +44,7 @@ In order to enable users to perform analysis beyond prominent (sc)RNA-seq method
 # Import ATAC-seq module
 from muon import atac as ac
 
-# Use a variable `atac` to refer to the ATAC-seq 
+# Use a variable `atac` to refer to the ATAC-seq
 # modality inside the MuData object `mdata`
 atac = mdata.mod["atac"]
 
@@ -68,9 +68,9 @@ from muon import protein as pt
 
 While sticking to the same API on their surface, the functions from these modules can be different in their implementation:
 
-- Some provide new methods, e.g. `ac.tl.lsi()` for Latent Semantic Indexing. 
+- Some provide new methods, e.g. `ac.tl.lsi()` for Latent Semantic Indexing.
 
-- Others mimic scanpy's API essentially using them under the hood but provide additional functionality, e.g. `ac.pl.umap()` allows to use gene names for plotting aggregated peak counts. 
+- Others mimic scanpy's API essentially using them under the hood but provide additional functionality, e.g. `ac.pl.umap()` allows to use gene names for plotting aggregated peak counts.
 
 - There's also a mix of both like `ac.tl.rank_peaks_groups()` that uses `sc.tl.rank_genes_groups()` and also calls `ac.tl.add_genes_peaks_groups()`.
 
@@ -83,4 +83,3 @@ There are some rules that functions in those modules try to follow:
 1. Small code overhead. If there's analogous functionality in AnnData or in scanpy, build on top of it. This is important both for matching users' expectations and for reducing the cost of supporting the code across its different versions.
 
 1. Existing plotting functions should be reused unless specific plots are required for certain modalities.
-
