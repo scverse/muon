@@ -1,6 +1,6 @@
-<img src="./docs/img/muon_header.png" data-canonical-src="./docs/img/muon_header.png" width="700"/>
+<img src="https://raw.githubusercontent.com/scverse/muon/main/docs/img/muon_header.png" data-canonical-src="https://raw.githubusercontent.com/scverse/muon/main/docs/img/muon_header.png" width="700"/>
 
-`muon` is a multimodal omics Python framework. 
+`muon` is a multimodal omics Python framework.
 
 [Documentation](https://muon.readthedocs.io/) | [Tutorials](https://muon-tutorials.readthedocs.io/) | [Publication](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-021-02577-8)
 
@@ -30,7 +30,7 @@ If [multimodal data from 10X Genomics](https://support.10xgenomics.com/single-ce
 import muon as mu
 
 mu.read_10x_h5("filtered_feature_bc_matrix.h5")
-# MuData object with n_obs × n_vars = 10000 × 80000 
+# MuData object with n_obs × n_vars = 10000 × 80000
 # 2 modalities
 #   rna:	10000 x 30000
 #     var:	'gene_ids', 'feature_types', 'genome', 'interval'
@@ -67,7 +67,7 @@ sc.tl.pca(adata)
 # Multimodal
 import muon as mu
 mu.tl.mofa(mdata)
-``` 
+```
 
 ## Individual assays
 
@@ -100,16 +100,16 @@ from muon import prot as pt
 
 ---
 
-Some implementation details are noted in [DESIGN.md](./DESIGN.md). 
+Some implementation details are noted in [DESIGN.md](https://github.com/scverse/muon/blob/main/DESIGN.md).
 
-[Contributions](./CONTRIBUTING.md) in the form of [issues](https://github.com/scverse/muon/issues), [pull requests](https://github.com/scverse/muon/pulls) or [discussions](https://github.com/scverse/muon/discussions) are welcome.
+[Contributions](https://github.com/scverse/muon/blob/main/docs/contributing.md) in the form of [issues](https://github.com/scverse/muon/issues), [pull requests](https://github.com/scverse/muon/pulls) or [discussions](https://github.com/scverse/muon/discussions) are welcome.
 
 ## Citation
 
 If you use `muon` in your work, please cite the `muon` publication as follows:
 
 > **MUON: multimodal omics analysis framework**
-> 
+>
 > Danila Bredikhin, Ilia Kats, Oliver Stegle
 >
 > _Genome Biology_ 2022 Feb 01. doi: [10.1186/s13059-021-02577-8](https://doi.org/10.1186/s13059-021-02577-8).
@@ -136,4 +136,3 @@ If you like scverse® and want to support our mission, please consider making a 
   >
 </a>
 </div>
-

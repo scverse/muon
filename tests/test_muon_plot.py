@@ -1,12 +1,10 @@
-import pytest
-
+import matplotlib
 import numpy as np
-from scipy import sparse
-import pandas as pd
+import pytest
 from anndata import AnnData
+
 import muon as mu
 from muon import MuData
-import matplotlib
 
 matplotlib.use("Agg")
 

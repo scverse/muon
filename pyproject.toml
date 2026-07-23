@@ -1,66 +1,181 @@
 [build-system]
-requires = ["flit_core >=2,<4"]
-build-backend = "flit_core.buildapi"
+build-backend = "hatchling.build"
+requires = [ "hatchling" ]
 
-[tool.flit.metadata]
-module = "muon"
-author = "Danila Bredikhin"
-author-email = "danila.bredikhin@embl.de"
-description-file = "README.md"
-home-page = "https://github.com/scverse/muon"
+[project]
+name = "muon"
+version = "0.1.9"
+description = "Multimodal omics analysis framework"
+readme = "README.md"
+license = { file = "LICENSE" }
+maintainers = [
+  { name = "Danila Bredikhin", email = "danila.bredikhin@embl.de" },
+  { name = "Ilia Kats", email = "ilia-kats@gmx.net" },
+]
+authors = [
+  { name = "Danila Bredikhin" },
+  { name = "Ilia Kats" },
+]
+requires-python = ">=3.12"
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: BSD License",
-    "Operating System :: OS Independent",
-    "Development Status :: 3 - Alpha",
-    "Topic :: Scientific/Engineering :: Bio-Informatics",
-    "Intended Audience :: Science/Research"
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
-requires-python = ">= 3.10"
-requires = [
-    "numpy",
-    "pandas>=1",
-    "matplotlib",
-    "seaborn",
-    "h5py",
-    "anndata",
-    "scanpy",
-    "scikit-learn",
-    "umap-learn",
-    "numba",
-    "protobuf",
-    "tqdm",
-    "mudata",
+dependencies = [
+  "anndata>=0.13",
+  "h5py",
+  "matplotlib",
+  "mudata",
+  "numba",
+  "numpy",
+  "pandas>=1",
+  "protobuf",
+  "scanpy",
+  "scikit-learn",
+  "seaborn",
+  # for debug logging (referenced from the issue template)
+  "session-info2",
+  "tqdm",
+  "umap-learn",
 ]
+# https://docs.pypi.org/project_metadata/#project-urls
+optional-dependencies.atac = [
+  "pybedtools",
+  "pysam",
+]
+urls.Documentation = "https://muon.readthedocs.io/"
+urls.Homepage = "https://github.com/scverse/muon"
+urls.Source = "https://github.com/scverse/muon"
 
-[tool.flit.metadata.requires-extra]
-docs = [
-    "sphinx >= 4.0",
-    "pydata-sphinx-theme==0.8.1",
-    "sphinx-book-theme==0.3.3",
-    "readthedocs-sphinx-search",
-    "nbsphinx",
-    "sphinx_automodapi"
-]
-atac = [
-    "pybedtools",
-    "pysam"
+[dependency-groups]
+dev = [
+  "mypy",
+  "prek",
+  "twine>=4.0.2",
 ]
 test = [
-    "pytest",
-    "flake8",
-    "mofapy2",
-    "anndata[lazy]",
-    "fast-array-utils>=1.2.3" # need to explicitly depend on that, see https://github.com/scverse/muon/issues/174
+  "anndata[lazy]",
+  "coverage>=7.10",
+  "fast-array-utils>=1.2.3", # see https://github.com/scverse/muon/issues/174
+  "mofapy2",
+  "pytest",
+  "pytest-cov",              # For VS Code’s coverage functionality
+]
+doc = [
+  "ipykernel",
+  "ipython",
+  "myst-nb>=1.1",
+  "pandas",
+  "scverse-misc[sphinx]>=0.1.2",
+  "sphinx>=8.1",
+  "sphinx-autodoc-typehints",
+  "sphinx-book-theme>=1",
+  "sphinx-copybutton",
+  "sphinx-design",
+  "sphinxcontrib-bibtex>=1",
+  "sphinxcontrib-katex",
+  "sphinxext-opengraph",
 ]
 
-[tool.flit.metadata.urls]
-Documentation = "https://muon.readthedocs.io/en/latest/"
+[tool.hatch]
+build.targets.wheel.packages = [ "src/muon" ]
+envs.default.installer = "uv"
+envs.default.dependency-groups = [ "dev" ]
+envs.docs.scripts.build = "sphinx-build -M html docs docs/_build -W {args}"
+envs.docs.scripts.clean = "git clean -fdX -- {args:docs}"
+envs.docs.scripts.open = "python -m webbrowser -t docs/_build/html/index.html"
+envs.docs.dependency-groups = [ "doc" ]
+envs.hatch-test.matrix = [
+  # Test the lowest and highest supported Python versions with normal deps
+  { deps = [ "stable" ], python = [ "3.12", "3.14" ] },
+  # Test the newest supported Python version also with pre-release deps
+  { deps = [ "pre" ], python = [ "3.14" ] },
+]
+# If the matrix variable `deps` is set to "pre",
+# set the environment variable `UV_PRERELEASE` to "allow".
+envs.hatch-test.overrides.matrix.deps.env-vars = [
+  { value = "allow", key = "UV_PRERELEASE", if = [ "pre" ] },
+]
+envs.hatch-test.dependency-groups = [ "dev", "test" ]
 
-[tool.flit.sdist]
-exclude = [".github", "docs/build"]
+[tool.uv]
+# The .h5mu write fix and the relaxed scverse-misc pin are only on mudata's main
+# branch so far; use it until the next mudata release. Only affects dev/CI
+# resolution — the published wheel still depends on `mudata` from PyPI.
+sources.mudata = { git = "https://github.com/scverse/mudata" }
 
+[tool.ruff]
+line-length = 120
+src = [ "src" ]
+extend-include = [ "*.ipynb" ]
+format.docstring-code-format = true
+lint.select = [
+  "B",      # flake8-bugbear
+  "BLE",    # flake8-blind-except
+  "C4",     # flake8-comprehensions
+  "D",      # pydocstyle
+  "E",      # Error detected by Pycodestyle
+  "F",      # Errors detected by Pyflakes
+  "I",      # isort
+  "RUF100", # Report unused noqa directives
+  "TID",    # flake8-tidy-imports
+  "UP",     # pyupgrade
+  "W",      # Warning detected by Pycodestyle
+]
+lint.ignore = [
+  "B008", # Errors from function calls in argument defaults. These are fine when the result is immutable.
+  "D100", # Missing docstring in public module
+  "D104", # Missing docstring in public package
+  "D105", # __magic__ methods are often self-explanatory, allow missing docstrings
+  "D107", # Missing docstring in __init__
+  # Disable one in each pair of mutually incompatible rules
+  "D203", # We don’t want a blank line before a class docstring
+  "D213", # <> We want docstrings to start immediately after the opening triple quote
+  "D400", # first line should end with a period [Bug: doesn’t work with single-line docstrings]
+  "D401", # First line should be in imperative mood; try rephrasing
+  "E501", # line too long -> we accept long comment lines; formatter gets rid of long code lines
+  "E731", # Do not assign a lambda expression, use a def -> lambda expression assignments are convenient
+  "E741", # allow I, O, l as variable names -> I is the identity matrix
+]
+lint.per-file-ignores."*/__init__.py" = [ "F401" ]
+lint.per-file-ignores."docs/*" = [ "I" ]
+lint.per-file-ignores."tests/*" = [ "D" ]
+lint.pydocstyle.convention = "numpy"
 
-[tool.black]
-line-length = 100
-target-version = ['py37']
+[tool.pytest]
+addopts = [
+  "--import-mode=importlib", # allow using test files with same name
+]
+# Markers registered by anndata's test helpers (imported in the test suite).
+markers = [
+  "array_api: tests exercising the array API (registered by anndata test helpers)",
+  "gpu: tests requiring a GPU (registered by anndata test helpers)",
+]
+strict = true
+testpaths = [ "tests" ]
+
+[tool.coverage]
+run.omit = [
+  "**/test_*.py",
+]
+run.patch = [ "subprocess" ]
+run.source = [ "muon" ]
+
+[tool.cruft]
+skip = [
+  ".git",
+  "tests",
+  "src/**/__init__.py",
+  "src/**/basic.py",
+  "docs/api.md",
+  "docs/changelog.md",
+  "docs/references.bib",
+  "docs/references.md",
+  "docs/notebooks/example.ipynb",
+]
