@@ -9,6 +9,11 @@ Release notes
 
    *
 
+v0.1.10
+-------
+
+* Avoid a ``FutureWarning`` on import by querying the scanpy version via :func:`importlib.metadata.version` instead of the deprecated ``scanpy.__version__``.
+
 v0.1.9
 ------
 
