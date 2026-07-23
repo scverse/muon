@@ -227,7 +227,7 @@ def dsb(
 def clr(
     adata: AnnData,
     inplace: bool = True,
-    axis: int = 0,
+    axis: Literal[0, 1] = 0,
     flavor: Literal["seurat", "stoeckius", "standard"] = "seurat",
 ) -> AnnData | None:
     """
@@ -274,7 +274,14 @@ def clr(
                 )
                 x = x.tocsr()
 
-            x.data /= np.repeat(np.exp(np.log1p(x).mean(axis=axis).toarray()), x.getnnz(axis=axis))
+            logmean = np.log1p(x).mean(axis=axis)
+            if isinstance(x, csc_matrix | csr_matrix):
+                logmean = logmean.A
+                nnz = x.getnnz(axis=axis)
+            else:
+                nnz = np.diff(x.indptr)  # https://github.com/scipy/scipy/issues/19405
+
+            x.data /= np.repeat(np.exp(logmean), nnz)
             np.log1p(x.data, out=x.data)
         else:
             np.log1p(x / np.exp(np.log1p(x).mean(axis=axis, keepdims=True)), out=x)
