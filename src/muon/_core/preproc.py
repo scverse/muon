@@ -1,17 +1,17 @@
 import warnings
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import reduce
+from importlib.metadata import version
 from itertools import repeat
 from typing import Any, Literal, cast
 
 import numpy as np
-import scanpy  # type: ignore[import-untyped]
 from anndata import AnnData
 from numba import njit, prange
 from packaging.version import Version
 from pynndescent.distances import euclidean  # type: ignore[import-untyped]
 from pynndescent.sparse import sparse_euclidean, sparse_jaccard  # type: ignore[import-untyped]
-from scanpy import logging
+from scanpy import logging  # type: ignore[import-untyped]
 from scanpy.tools._utils import _choose_representation  # type: ignore[import-untyped]
 from scipy.sparse import (  # type: ignore[import-untyped]
     SparseEfficiencyWarning,
@@ -28,7 +28,7 @@ from scipy.special import softmax  # type: ignore[import-untyped]
 from sklearn.utils import check_random_state  # type: ignore[import-untyped]
 from umap.umap_ import nearest_neighbors  # type: ignore[import-untyped]
 
-if Version(scanpy.__version__) < Version("1.10"):
+if Version(version("scanpy")) < Version("1.10"):
     from scanpy.neighbors import (  # type: ignore[import-untyped]
         _compute_connectivities_umap as __compute_connectivities_umap,
     )

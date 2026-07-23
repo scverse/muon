@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning][].
 - Adopted the [cookiecutter-scverse](https://github.com/scverse/cookiecutter-scverse) project template
   (`src/` layout, `hatchling` build backend, `ruff`, updated CI and documentation).
 
+### Fixed
+
+- Avoid a `FutureWarning` on import by querying the scanpy version via `importlib.metadata.version` instead of the deprecated `scanpy.__version__`.
+
 ## [0.1.9]
 
 - Fix a regression in `muon.prot.pp.clr` introduced in v0.1.8.
