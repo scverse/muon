@@ -6,6 +6,9 @@ Import muon as:
 import muon as mu
 ```
 
+The {class}`~mudata.MuData` container and `.h5mu` reading/writing (`mu.read`, `mu.write`, `mu.read_h5mu`, …)
+are provided by [mudata](https://mudata.readthedocs.io/) and re-exported here; see its documentation for details.
+
 ## Input/Output
 
 ```{eval-rst}
@@ -14,32 +17,11 @@ import muon as mu
 .. autosummary::
     :toctree: generated
 
-    read
     read_10x_h5
     read_10x_mtx
-    read_anndata
-    read_h5ad
-    read_h5mu
-    read_zarr
-    write
-    write_anndata
-    write_h5ad
-    write_h5mu
-    write_zarr
 ```
 
-## Multimodal
-
-```{eval-rst}
-.. currentmodule:: muon
-
-.. autosummary::
-    :toctree: generated
-
-    MuData
-```
-
-### Preprocessing
+## Preprocessing
 
 ```{eval-rst}
 .. currentmodule:: muon
@@ -55,7 +37,7 @@ import muon as mu
     pp.neighbors
 ```
 
-### Tools
+## Tools
 
 ```{eval-rst}
 .. currentmodule:: muon
@@ -71,7 +53,7 @@ import muon as mu
     tl.louvain
 ```
 
-### Plotting
+## Plotting
 
 ```{eval-rst}
 .. currentmodule:: muon
@@ -89,8 +71,6 @@ import muon as mu
 
 ## ATAC
 
-### Preprocessing
-
 ```{eval-rst}
 .. currentmodule:: muon.atac
 
@@ -100,16 +80,6 @@ import muon as mu
     pp.tfidf
     pp.binarize
     pp.scopen
-```
-
-### Tools
-
-```{eval-rst}
-.. currentmodule:: muon.atac
-
-.. autosummary::
-    :toctree: generated
-
     tl.lsi
     tl.add_peak_annotation
     tl.add_peak_annotation_gene_names
@@ -124,23 +94,11 @@ import muon as mu
     tl.scan_sequences
     tl.nucleosome_signal
     tl.tss_enrichment
-```
-
-### Plotting
-
-```{eval-rst}
-.. currentmodule:: muon.atac
-
-.. autosummary::
-    :toctree: generated
-
     pl.tss_enrichment
     pl.fragment_histogram
     pl.dotplot
     pl.pca
     pl.lsi
-    pl.umap
-    pl.embedding
 ```
 
 ## Protein (CITE-seq)

@@ -13,7 +13,7 @@ from matplotlib.axes import Axes
 from mudata import MuData  # type: ignore[import-untyped]
 from scipy.sparse import issparse  # type: ignore[import-untyped]
 
-from . import tools
+from . import tl
 
 
 def _average_peaks(
@@ -347,7 +347,7 @@ def fragment_histogram(
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
     fragment_path = adata.uns["files"]["fragments"]
-    fragments = tools.fetch_regions_to_df(fragment_path=fragment_path, features=region)
+    fragments = tl.fetch_regions_to_df(fragment_path=fragment_path, features=region)
 
     fragments["length"] = fragments.End - fragments.Start
     fragments.set_index(keys="Cell", inplace=True)

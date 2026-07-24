@@ -21,7 +21,7 @@ from scanpy import logging
 from scanpy.tools._utils import _choose_representation  # type: ignore[import-untyped]
 from scipy.sparse import csr_matrix, issparse  # type: ignore[import-untyped]
 
-from .preproc import _sparse_csr_fast_knn
+from .pp import _sparse_csr_fast_knn
 
 try:
     from louvain.VertexPartition import (  # type: ignore[import-not-found]
@@ -29,7 +29,7 @@ try:
     )
 except ImportError:
 
-    class LouvainMutableVertexPartition:  # type: ignore[no-redef]
+    class LouvainMutableVertexPartition:  # type: ignore[no-redef]  # noqa: D101
         pass
 
     LouvainMutableVertexPartition.__module__ = "louvain.VertexPartition"
@@ -40,7 +40,7 @@ try:
     )
 except ImportError:
 
-    class LeidenMutableVertexPartition:  # type: ignore[no-redef]
+    class LeidenMutableVertexPartition:  # type: ignore[no-redef]  # noqa: D101
         pass
 
     LeidenMutableVertexPartition.__module__ = "leidenalg.VertexPartition"

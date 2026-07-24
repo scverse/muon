@@ -8,6 +8,7 @@ from anndata import AnnData
 
 
 def read_10x_h5(filename: PathLike, atac_only: bool = True, *args, **kwargs) -> AnnData:
+    """Read a 10x Genomics ``.h5`` file, keeping only the ATAC (peak) features by default."""
     adata = sc.read_10x_h5(filename, *args, gex_only=False, **kwargs)
     if atac_only:
         adata = adata[:, [x == "Peaks" for x in adata.var["feature_types"]]]
@@ -15,6 +16,7 @@ def read_10x_h5(filename: PathLike, atac_only: bool = True, *args, **kwargs) -> 
 
 
 def read_10x_mtx(filename: PathLike, atac_only: bool = True, *args, **kwargs) -> AnnData:
+    """Read a 10x Genomics ``mtx`` directory, keeping only the ATAC (peak) features by default."""
     adata = sc.read_10x_mtx(filename, *args, gex_only=False, **kwargs)
     if atac_only:
         adata = adata[:, [x == "Peaks" for x in adata.var["feature_types"]]]

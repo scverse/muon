@@ -6,7 +6,7 @@ import pytest
 from anndata import AnnData
 
 from muon import MuData
-from muon._core.utils import _get_values
+from muon.utils import _get_values
 
 
 @pytest.fixture(

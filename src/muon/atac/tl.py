@@ -19,7 +19,7 @@ from scipy.sparse import lil_matrix  # type: ignore[import-untyped]
 from scipy.sparse.linalg import svds  # type: ignore[import-untyped]
 from tqdm import tqdm  # type: ignore[import-untyped]
 
-from muon._rna.utils import get_gene_annotation_from_rna
+from muon.rna.utils import get_gene_annotation_from_rna
 
 from . import utils
 
@@ -495,6 +495,7 @@ def scan_sequences(
 
 
 def get_sequences(data: AnnData | MuData, bed: str, fasta_file: str, bed_file: str | None = None):
+    """Fetch nucleotide sequences for the regions in a BED string or file from a FASTA file."""
     try:
         import pybedtools  # type: ignore[import-not-found]
     except ImportError:

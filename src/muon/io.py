@@ -7,7 +7,7 @@ import numpy as np
 import scanpy as sc  # type: ignore[import-untyped]
 from mudata import MuData  # type: ignore[import-untyped]
 
-from muon._atac.tools import initialise_default_files
+from muon.atac.tl import initialise_default_files
 
 #
 # Reading data
