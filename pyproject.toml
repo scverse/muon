@@ -28,7 +28,7 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dependencies = [
-  "anndata>=0.13",
+  "anndata",
   "h5py",
   "matplotlib",
   "mudata",
