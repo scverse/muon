@@ -2,14 +2,14 @@ import pytest
 import scanpy as sc  # type: ignore[import-untyped]
 
 
-@pytest.fixture(scope="module")
-def filepath_h5mu(tmpdir_factory):
-    yield str(tmpdir_factory.mktemp("tmp_test_dir").join("test.h5mu"))
+@pytest.fixture
+def filepath_h5mu(tmp_path):
+    yield str(tmp_path / "test.h5mu")
 
 
-@pytest.fixture(scope="module")
-def filepath_hdf5(tmpdir_factory):
-    yield str(tmpdir_factory.mktemp("tmp_mofa_dir").join("mofa_pytest.hdf5"))
+@pytest.fixture
+def filepath_hdf5(tmp_path):
+    yield str(tmp_path / "mofa_pytest.hdf5")
 
 
 @pytest.fixture(scope="module")
