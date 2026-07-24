@@ -431,7 +431,7 @@ def mofa_loadings(
         Infer the filetype if ending on {`'.pdf'`, `'.png'`, `'.svg'`}.
     """
     from scanpy.plotting._anndata import ranking  # type: ignore[import-untyped]
-    from scanpy.plotting._utils import savefig_or_show  # type: ignore[import-untyped]
+    from scanpy.plotting._utils import savefig_or_show
 
     if factors is None:
         factors = [1, 2, 3]

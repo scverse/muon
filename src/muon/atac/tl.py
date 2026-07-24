@@ -29,17 +29,12 @@ from . import utils
 
 
 def lsi(data: AnnData | MuData, scale_embeddings=True, n_comps=50):
-    """
-    Run Latent Semantic Indexing
+    """Run Latent Semantic Indexing.
 
-    Parameters
-    ----------
-    data:
-            AnnData object or MuData object with 'atac' modality
-    scale_embeddings: bool (default: True)
-            Scale embeddings to zero mean and unit variance
-    n_comps: int (default: 50)
-            Number of components to calculate with SVD
+    Args:
+        data: AnnData object or MuData object with an 'atac' modality.
+        scale_embeddings: Scale embeddings to zero mean and unit variance.
+        n_comps: Number of components to calculate with SVD.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -402,7 +397,7 @@ def _parse_motif_matrices(
 def _prepare_motif_scanner(matrices=None, background: int | Iterable = 4, pvalue: float = 0.0001, max_hits: int = 10):
     try:
         import MOODS.scan  # type: ignore[import-not-found]
-        import MOODS.tools  # type: ignore[import-not-found]
+        import MOODS.tools
     except ImportError:
         raise ImportError(
             "MOODS is not available. Install MOODS from PyPI (`pip install MOODS-python`) or from GitHub (`pip install git+https://github.com/jhkorhonen/MOODS`)"
@@ -870,38 +865,24 @@ def tss_enrichment(
     random_state=None,
     barcodes: str | None = None,
 ):
-    """
-    Calculate TSS enrichment according to ENCODE guidelines.
+    """Calculate TSS enrichment according to ENCODE guidelines.
 
-    Adds a column `tss_score` to the `.obs` DataFrame and optionally returns a tss score object.
+    Adds a column ``tss_score`` to the ``.obs`` DataFrame and optionally returns a TSS score object.
 
-    Parameters
-    ----------
-    data
-        AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-    features
-        A DataFrame with feature annotation, e.g. genes.
-        Annotation has to contain columns: Chromosome, Start, End.
-    extend_upsteam
-        Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
-    extend_downstream
-        Number of nucleotides to extend every gene downstream (0 by default)
-    n_tss
-        How many randomly chosen TSS sites to pile up. The fewer the faster. Default: 2000.
-    return_tss
-        Whether to return the TSS pileup matrix. Needed for enrichment plots.
-    random_state : int, array-like, BitGenerator, np.random.RandomState, optional
-        Argument passed to pandas.DataFrame.sample() for sampling features.
-    barcodes
-        Column name in the .obs of the AnnData
-        with barcodes corresponding to the ones in the fragments file.
+    Args:
+        data: AnnData object with peak counts or multimodal MuData object with an 'atac' modality.
+        features: A DataFrame with feature annotation, e.g. genes.
+            Annotation has to contain columns: Chromosome, Start, End.
+        extend_upstream: Number of nucleotides to extend every gene upstream
+            (to extend gene coordinates to promoter regions).
+        extend_downstream: Number of nucleotides to extend every gene downstream.
+        n_tss: How many randomly chosen TSS sites to pile up. The fewer the faster.
+        return_tss: Whether to return the TSS pileup matrix. Needed for enrichment plots.
+        random_state: Argument passed to :meth:`pandas.DataFrame.sample` for sampling features.
+        barcodes: Column name in the ``.obs`` of the AnnData with barcodes corresponding to
+            the ones in the fragments file.
 
-    Returns
-    -------
-    AnnData
-        AnnData object with a 'tss_score' column in the .obs slot.
-
-
+    Returns an AnnData object with a ``tss_score`` column in the ``.obs`` slot when ``return_tss`` is set.
     """
     if isinstance(data, AnnData):
         adata = data

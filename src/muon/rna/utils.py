@@ -5,13 +5,10 @@ from muon import MuData
 
 
 def get_gene_annotation_from_rna(data: AnnData | MuData) -> pd.DataFrame:
-    """
-    Get data frame with start and end positions from interval column of the 'rna' layers .var.
+    """Get a data frame with start and end positions from the ``interval`` column of the 'rna' modality ``.var``.
 
-    Parameters
-    ----------
-    mdata: MuData
-            MuData object
+    Args:
+        data: AnnData or MuData object with an 'rna' modality.
     """
     if isinstance(data, AnnData):
         adata = data

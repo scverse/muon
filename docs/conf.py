@@ -69,7 +69,7 @@ extensions = [
 autosummary_generate = True
 autodoc_member_order = "groupwise"
 default_role = "literal"
-napoleon_google_docstring = False
+napoleon_google_docstring = True
 napoleon_numpy_docstring = True
 napoleon_include_init_with_doc = False
 napoleon_use_rtype = True  # having a separate entry generally helps readability
@@ -100,7 +100,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "anndata": ("https://anndata.scverse.org/en/stable/", None),
     "scanpy": ("https://scanpy.scverse.org/en/stable/", None),
-    "mudata": ("https://mudata.readthedocs.io/en/latest/", None),
+    "mudata": ("https://mudata.readthedocs.io/stable/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),

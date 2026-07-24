@@ -24,18 +24,7 @@ from scipy.sparse import csr_matrix, issparse  # type: ignore[import-untyped]
 from .pp import _sparse_csr_fast_knn
 
 try:
-    from louvain.VertexPartition import (  # type: ignore[import-not-found]
-        MutableVertexPartition as LouvainMutableVertexPartition,
-    )
-except ImportError:
-
-    class LouvainMutableVertexPartition:  # type: ignore[no-redef]  # noqa: D101
-        pass
-
-    LouvainMutableVertexPartition.__module__ = "louvain.VertexPartition"
-
-try:
-    from leidenalg.VertexPartition import (  # type: ignore[import-not-found]
+    from leidenalg.VertexPartition import (  # type: ignore[import-untyped, import-not-found]
         MutableVertexPartition as LeidenMutableVertexPartition,
     )
 except ImportError:
@@ -886,7 +875,7 @@ def snf(
 
 
 #
-# Clustering: Louvain and Leiden
+# Clustering: Leiden
 #
 
 
@@ -895,36 +884,26 @@ def _cluster(
     resolution: float | Sequence[float] | Mapping[str, float] | None = None,
     mod_weights: Sequence[float] | Mapping[str, float] | None = None,
     random_state: int = 0,
-    key_added: str = "louvain",
+    key_added: str = "leiden",
     neighbors_key: str | None = None,
     directed: bool = True,
-    partition_type: type[LeidenMutableVertexPartition] | type[LouvainMutableVertexPartition] | None = None,
+    partition_type: type[LeidenMutableVertexPartition] | None = None,
     partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
-    algorithm: str = "leiden",  # Literal["leiden", "louvain"]
     **kwargs,
 ):
     """
-    Cluster cells using the Leiden or Louvain algorithm.
+    Cluster cells using the Leiden algorithm.
 
-    See :func:`scanpy.tl.leiden` and :func:`scanpy.tl.louvain` for details.
+    See :func:`scanpy.tl.leiden` for details.
     """
+    import leidenalg  # type: ignore[import-untyped, import-not-found]
     from scanpy._utils import get_igraph_from_adjacency  # type: ignore[import-untyped]
     from scanpy.tools._utils import _choose_graph
 
-    if algorithm == "louvain":
-        import louvain  # type: ignore[import-not-found]
-
-        alg = louvain
-    elif algorithm == "leiden":
-        import leidenalg  # type: ignore[import-not-found]
-
-        alg = leidenalg
-    else:
-        raise ValueError(f"Algorithms should be either 'louvain' or 'leiden', not '{algorithm}'")
+    alg = leidenalg
 
     if isinstance(data, AnnData):
-        sc_tl_cluster = sc.tl.leiden if algorithm == "leiden" else sc.tl.louvain
-        return sc_tl_cluster(
+        return sc.tl.leiden(
             data,
             resolution=resolution,
             random_state=random_state,
@@ -967,7 +946,7 @@ def _cluster(
     if random_state:
         optimiser.set_rng_seed(random_state)
 
-    # The same as leiden.find_partition_multiplex() (louvain.find_partition_multiplex())
+    # The same as leiden.find_partition_multiplex()
     # but allows to specify resolution for each modality
     if resolution:
         if isinstance(resolution, Mapping):
@@ -1002,8 +981,8 @@ def _cluster(
         values=groups.astype("U"),
         categories=natsorted(map(str, np.unique(groups))),
     )
-    mdata.uns[algorithm] = {}
-    mdata.uns[algorithm]["params"] = {
+    mdata.uns["leiden"] = {}
+    mdata.uns["leiden"]["params"] = {
         "resolution": resolution,
         "random_state": random_state,
         "partition_improvement": improv,
@@ -1038,7 +1017,7 @@ def leiden(
     Parameters
     ----------
     data
-        :class:`muon.MuData` object.
+        :class:`~mudata.MuData` object.
     resolution
         Resolution parameter controlling coarseness of the clustering
         (higher values -> more clusters).
@@ -1082,82 +1061,6 @@ def leiden(
         directed=directed,
         partition_type=partition_type,
         partition_kwargs=partition_kwargs,
-        algorithm="leiden",
-        **kwargs,
-    )
-
-
-def louvain(
-    data: MuData | AnnData,
-    resolution: float | Sequence[float] | Mapping[str, float] | None = None,
-    mod_weights: Sequence[float] | Mapping[str, float] | None = None,
-    random_state: int = 0,
-    key_added: str = "louvain",
-    neighbors_key: str | None = None,
-    directed: bool = True,
-    partition_type: type[LouvainMutableVertexPartition] | None = None,
-    partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
-    **kwargs,
-):
-    """
-    Cluster cells using the Louvain algorithm.
-
-    This runs only the multiplex Louvain algorithm on the MuData object
-    using connectivities of individual modalities
-    (see `documentation <https://louvain-igraph.readthedocs.io/en/latest/multiplex.html>`_ for more details).
-    For that, :func:`scanpy.pp.neighbors` should be run first for each modality.
-
-    For taking use of ``mdata.obsp['connectivities']``, it's :func:`scanpy.tl.louvain` that should be used.
-    See :func:`scanpy.tl.louvain` for details.
-
-    Parameters
-    ----------
-    data
-        :class:`muon.MuData` object.
-    resolution
-        Resolution parameter controlling coarseness of the clustering
-        (higher values -> more clusters).
-        To use different resolution per modality, dictionary ``{mod: value}``
-        or list/tuple ``[value_mod1, value_mod2, ...]``.
-        Single value to use the same resolution for all modalities.
-    mod_weights
-        Weight each modality controlling its contribution
-        (higher values -> more important).
-        To use different weight per modality, dictionary ``{mod: value}``
-        or list/tuple ``[value_mod1, value_mod2, ...]``.
-        Single value to use the same weight for all modalities.
-    random_state
-        Random seed for the optimization.
-    key_added
-        `mdata.obs` key where cluster labels to be added.
-    neighbors_key
-        Use neighbors connectivities as adjacency.
-        If not specified, look for ``.obsp['connectivities']`` in each modality.
-        If specified, look for
-        ``.obsp[.uns[neighbors_key]['connectivities_key']]`` in each modality
-        for connectivities.
-    directed
-        Treat the graph as directed or undirected.
-    partition_type
-        Type of partition to use,
-        :class:`~louvain.RBConfigurationVertexPartition` by default.
-        See :func:`~louvain.find_partition` for more details.
-    partition_kwargs
-        Arguments to be passed to the ``partition_type``.
-    **kwargs
-        Arguments to be passed to ``optimizer.optimise_partition_multiplex()``.
-    """
-    return _cluster(
-        data=data,
-        resolution=resolution,
-        mod_weights=mod_weights,
-        random_state=random_state,
-        key_added=key_added,
-        neighbors_key=neighbors_key,
-        directed=directed,
-        partition_type=partition_type,
-        partition_kwargs=partition_kwargs,
-        algorithm="louvain",
         **kwargs,
     )
 

@@ -70,6 +70,7 @@ test = [
 doc = [
   "ipykernel",
   "ipython",
+  "leidenalg",
   "myst-nb>=1.1",
   "pandas",
   "scverse-misc[sphinx]>=0.1.2",

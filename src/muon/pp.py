@@ -861,24 +861,15 @@ def sample_obs(
     groupby: str | None = None,
     min_n: int | None = None,
 ):
-    """
-    Return an object with some of the observations (subsampling).
+    """Return a view with a subsample of the observations.
 
-    Parameters
-    ----------
-    data: AnnData or MuData
-        AnnData or MuData object.
-    frac: float (0.1 by default)
-        A fraction of observations to return.
-    groupby: str
-        Categorical column in .obs that is used for prior grouping
-        before sampling observations.
-    min_n: int
-        Return min_n observations if fraction frac of observations
-        is below min_n. When groupby is not None, min_n is applied
-        per group.
-
-    Returns a view of the data.
+    Args:
+        data: AnnData or MuData object.
+        frac: A fraction of observations to return.
+        groupby: Categorical column in ``.obs`` that is used for prior grouping
+            before sampling observations.
+        min_n: Return ``min_n`` observations if the fraction ``frac`` of observations
+            is below ``min_n``. When ``groupby`` is not None, ``min_n`` is applied per group.
     """
     if groupby is None:
         new_n = np.ceil(data.n_obs * frac).astype(int)
