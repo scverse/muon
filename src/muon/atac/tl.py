@@ -470,7 +470,9 @@ def scan_sequences(
 
     else:
         if motifs is None:
-            raise ValueError("A list of motif IDs should be provided that corresponds to the matrices that the motif scanner was built on.")
+            raise ValueError(
+                "A list of motif IDs should be provided that corresponds to the matrices that the motif scanner was built on."
+            )
 
     matches = []
     for seq in sequences:
