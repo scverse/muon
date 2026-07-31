@@ -718,7 +718,7 @@ def count_fragments_features(
     data: AnnData | MuData,
     features: pd.DataFrame | None = None,
     stranded: bool = False,
-    extend_upstream: int | float = 2e3,
+    extend_upstream: float = 2e3,
     extend_downstream: int = 0,
     count_reads: bool = True,
 ) -> AnnData:
