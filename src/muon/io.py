@@ -13,8 +13,7 @@ from muon.atac.tl import initialise_default_files
 
 
 def read_10x_h5(filename: str | Path, extended: bool = True, *args, **kwargs) -> MuData:
-    """
-    Read data from 10X Genomics-formatted HDF5 file
+    """Read data from 10X Genomics-formatted HDF5 file.
 
     This function uses scanpy.read_10x_h5() internally
     and patches its behaviour to:
@@ -64,8 +63,7 @@ def read_10x_h5(filename: str | Path, extended: bool = True, *args, **kwargs) ->
 
 
 def read_10x_mtx(path: str | Path, extended: bool = True, *args, **kwargs) -> MuData:
-    """
-    Read data from 10X Genomics-formatted files (matrix.mtx.gz, features.tsv.gz, barcodes.tsv.gz).
+    """Read data from 10X Genomics-formatted files (matrix.mtx.gz, features.tsv.gz, barcodes.tsv.gz).
 
     This function uses scanpy.read_10x_mtx() internally
     and patches its behaviour to:

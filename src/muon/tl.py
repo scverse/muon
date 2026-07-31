@@ -63,8 +63,7 @@ def _set_mofa_data_from_mudata(
     save_metadata=None,
     use_obs=None,
 ):
-    """
-    Input the data in MuData format
+    """Input the data in MuData format.
 
     Parameters
     ----------
@@ -313,8 +312,7 @@ def mofa(
     quiet: bool = True,
     copy: bool = False,
 ):
-    """
-    Run Multi-Omics Factor Analysis
+    """Run Multi-Omics Factor Analysis.
 
     Parameters
     ----------
@@ -697,8 +695,7 @@ def snf(
     eps: float = np.finfo(np.float64).eps,
     copy: bool = False,
 ) -> MuData | None:
-    """
-    Similarity network fusion (SNF)
+    """Similarity network fusion (SNF).
 
     See Wang et al., 2014 (DOI: 10.1038/nmeth.2810).
 
@@ -763,8 +760,7 @@ def snf(
         mod_n_pcs[mod] = n_pcs if n_pcs is not None else -1
 
     def _affinity_matrix(dist, k, sigma):
-        """
-        Compute the affinity matrix for a distance matrix
+        """Compute the affinity matrix for a distance matrix.
 
         Reference implementation can be found in the SNFtool R package:
         https://github.com/cran/SNFtool/blob/master/R/affinityMatrix.R
@@ -909,8 +905,7 @@ def _cluster(
     algorithm: str = "leiden",  # Literal["leiden", "louvain"]
     **kwargs,
 ):
-    """
-    Cluster cells using the Leiden or Louvain algorithm.
+    """Cluster cells using the Leiden or Louvain algorithm.
 
     See :func:`scanpy.tl.leiden` and :func:`scanpy.tl.louvain` for details.
     """
@@ -1037,8 +1032,7 @@ def leiden(
     partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
     **kwargs,
 ):
-    """
-    Cluster cells using the Leiden algorithm.
+    """Cluster cells using the Leiden algorithm.
 
     This runs only the multiplex Leiden algorithm on the MuData object
     using connectivities of individual modalities
@@ -1112,8 +1106,7 @@ def louvain(
     partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
     **kwargs,
 ):
-    """
-    Cluster cells using the Louvain algorithm.
+    """Cluster cells using the Louvain algorithm.
 
     .. deprecated::
         Use :func:`muon.tl.leiden` instead. This function will be removed in a future release.
@@ -1200,14 +1193,14 @@ def umap(
     method: Literal["umap", "rapids"] = "umap",
     neighbors_key: str | None = None,
 ) -> MuData | None:
-    """
-    Embed the multimodal neighborhood graph using UMAP (McInnes et al, 2018).
+    """Embed the multimodal neighborhood graph using UMAP (McInnes et al, 2018).
 
     UMAP (Uniform Manifold Approximation and Projection) is a manifold learning
     technique suitable for visualizing high-dimensional data. We use ScanPy's
     implementation.
 
-    References: McInnes et al, 2018 (`arXiv:1802.03426` <https://arxiv.org/abs/1802.03426>`_)
+    References:
+        McInnes et al, 2018 (`arXiv:1802.03426` <https://arxiv.org/abs/1802.03426>`_)
 
     Args:
         mdata: MuData object. Multimodal nearest neighbor search must have already
@@ -1248,7 +1241,9 @@ def umap(
             places for ``pp.neighbors``). If specified, umap looks ``.uns[neighbors_key]``
             for neighbors settings and ``.obsp[.uns[neighbors_key]['connectivities_key']]``
             for connectivities.
-    Returns: Depending on ``copy``, returns or updates ``adata`` with the following fields.
+
+    Returns:
+        Depending on ``copy``, returns or updates ``adata`` with the following fields.
 
         **X_umap** : ``mdata.obsm`` field holding UMAP coordinates of data.
     """
@@ -1349,7 +1344,7 @@ def ica(
     copy=False,
     **kwargs,
 ):
-    """Run Independent component analysis"""
+    """Run Independent component analysis."""
     from sklearn.decomposition import FastICA
 
     ica = FastICA(random_state=random_state, n_components=n_components, **kwargs)

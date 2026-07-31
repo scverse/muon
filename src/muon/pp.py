@@ -200,8 +200,7 @@ def l2norm(
     n_pcs: Iterable[int] | int | None = 0,
     copy: bool = False,
 ) -> MuData | AnnData | None:
-    """
-    Normalize observations to unit L2 norm.
+    """Normalize observations to unit L2 norm.
 
     Args:
         mdata: The MuData or AnnData object to normalize.
@@ -216,7 +215,8 @@ def l2norm(
             this is not an iterable, the given number will be used for all modalities.
         copy: Return a copy instead of writing to `mdata`.
 
-    Returns: Depending on ``copy``, returns or updates ``mdata``.
+    Returns:
+        Depending on ``copy``, returns or updates ``mdata``.
     """
     if isinstance(mdata, AnnData):
         if rep is not None and not isinstance(rep, str):
@@ -289,8 +289,7 @@ def neighbors(
     copy: bool = False,
     random_state: int | np.random.RandomState | None = 42,
 ) -> MuData | None:
-    """
-    Multimodal nearest neighbor search.
+    """Multimodal nearest neighbor search.
 
     This implements the multimodal nearest neighbor method of Hao et al. and Swanson et al. The neighbor search
     efficiency on this heavily relies on UMAP. In particular, you may want to decrease n_multineighbors for large
@@ -298,7 +297,8 @@ def neighbors(
     implementation, observations must be normalized to unit L2 norm (see :func:`l2norm`) prior to running per-modality
     nearest-neighbor search.
 
-    References: Hao et al, 2020 (`doi:10.1101/2020.10.12.335331 <https://dx.doi.org/10.1101/2020.10.12.335331>`_),
+    References:
+        Hao et al, 2020 (`doi:10.1101/2020.10.12.335331 <https://dx.doi.org/10.1101/2020.10.12.335331>`_),
         Swanson et al, 2020 (`doi:10.1101/2020.09.04.283887 <https://dx.doi.org/10.1101/2020.09.04.283887>`_)
 
     Args:
@@ -327,7 +327,8 @@ def neighbors(
         copy: Return a copy instead of writing to ``mdata``.
         random_state: Random seed.
 
-    Returns: Depending on ``copy``, returns or updates ``mdata``. Cell-modality weights will be stored in
+    Returns:
+        Depending on ``copy``, returns or updates ``mdata``. Cell-modality weights will be stored in
         ``.obs["modality_weight"]`` separately for each modality.
     """
     randomstate = check_random_state(random_state)
@@ -621,8 +622,7 @@ def neighbors(
 
 
 def intersect_obs(mdata: MuData):
-    """
-    Subset observations (samples or cells) in-place taking observations present only in all modalities.
+    """Subset observations (samples or cells) in-place taking observations present only in all modalities.
 
     Parameters
     ----------
@@ -654,8 +654,7 @@ def _filter_attr(
     key: str | Sequence[str],
     func: Callable | None = None,
 ) -> None:
-    """
-    Filter observations or variables in-place.
+    """Filter observations or variables in-place.
 
     Parameters
     ----------
@@ -810,8 +809,7 @@ def _filter_attr(
 
 
 def filter_obs(data: AnnData | MuData, var: str | Sequence[str], func: Callable | None = None) -> None:
-    """
-    Filter observations (samples or cells) in-place using any column in .obs or in .X.
+    """Filter observations (samples or cells) in-place using any column in .obs or in .X.
 
     Parameters
     ----------
@@ -831,8 +829,7 @@ def filter_obs(data: AnnData | MuData, var: str | Sequence[str], func: Callable 
 
 
 def filter_var(data: AnnData | MuData, var: str | Sequence[str], func: Callable | None = None):
-    """
-    Filter variables (features, e.g. genes) in-place using any column in .var or row in .X.
+    """Filter variables (features, e.g. genes) in-place using any column in .var or row in .X.
 
     Parameters
     ----------

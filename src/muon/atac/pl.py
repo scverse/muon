@@ -112,8 +112,7 @@ def embedding(
     layer: str | None = None,
     **kwargs,
 ):
-    """
-    Scatter plot in the define basis
+    """Scatter plot in the define basis.
 
     See sc.pl.embedding for details.
     """
@@ -149,8 +148,7 @@ def embedding(
 
 
 def pca(data: AnnData | MuData, **kwargs) -> Axes | list[Axes] | None:
-    """
-    Scatter plot for principle components
+    """Scatter plot for principle components.
 
     See sc.pl.embedding for details.
     """
@@ -158,8 +156,7 @@ def pca(data: AnnData | MuData, **kwargs) -> Axes | list[Axes] | None:
 
 
 def lsi(data: AnnData | MuData, **kwargs) -> Axes | list[Axes] | None:
-    """
-    Scatter plot for latent semantic indexing components
+    """Scatter plot for latent semantic indexing components.
 
     See sc.pl.embedding for details.
     """
@@ -167,8 +164,7 @@ def lsi(data: AnnData | MuData, **kwargs) -> Axes | list[Axes] | None:
 
 
 def umap(data: AnnData | MuData, **kwargs) -> Axes | list[Axes] | None:
-    """
-    Scatter plot in UMAP space
+    """Scatter plot in UMAP space.
 
     See sc.pl.embedding for details.
     """
@@ -176,8 +172,7 @@ def umap(data: AnnData | MuData, **kwargs) -> Axes | list[Axes] | None:
 
 
 def mofa(mdata: MuData, **kwargs) -> Axes | list[Axes] | None:
-    """
-    Scatter plot in MOFA factors coordinates
+    """Scatter plot in MOFA factors coordinates.
 
     See sc.pl.embedding for details.
     """
@@ -194,8 +189,7 @@ def dotplot(
     layer: str | None = None,
     **kwargs,
 ):
-    """
-    Dotplot
+    """Dotplot.
 
     See sc.pl.embedding for details.
     """
@@ -234,8 +228,7 @@ def tss_enrichment(
     title: str = "TSS Enrichment",
     ax: Axes | None = None,
 ):
-    """
-    Plot relative enrichment scores around a TSS.
+    """Plot relative enrichment scores around a TSS.
 
     Parameters
     ----------
@@ -294,8 +287,7 @@ def fragment_histogram(
     show: bool | None = None,
     save: str | bool | None = None,
 ):
-    """
-    Plot Histogram of Fragment lengths within specified region.
+    """Plot Histogram of Fragment lengths within specified region.
 
     Parameters
     ----------

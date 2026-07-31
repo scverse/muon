@@ -17,8 +17,7 @@ def _get_values(
     layer: str | None = None,
     obsmap: np.ndarray | None = None,
 ) -> Iterable | None:
-    """
-    A helper function to get values for variables or annotations of observations (.obs columns).
+    """A helper function to get values for variables or annotations of observations (.obs columns).
 
     Strings like "rna:total_count", unless present in .var_names or .obs.columns,
     will be searched for in the modality "rna" if it's present.

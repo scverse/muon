@@ -7,8 +7,7 @@ _VALID_OPTIONS: dict[str, Any] = {}
 
 
 class set_options:
-    """
-    Control muon options.
+    """Control muon options.
 
     MuData options are passed to MuData's set_options.
 

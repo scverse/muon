@@ -1,4 +1,4 @@
-"""Multimodal omics analysis framework"""
+"""Multimodal omics analysis framework."""
 
 from mudata import MuData
 from mudata._core.io import *  # noqa: F403

@@ -20,8 +20,7 @@ def tfidf(
     from_layer: str | None = None,
     to_layer: str | None = None,
 ):
-    """
-    Transform peak counts with TF-IDF (Term Frequency - Inverse Document Frequency).
+    """Transform peak counts with TF-IDF (Term Frequency - Inverse Document Frequency).
 
     TF: peak counts are normalised by total number of counts per cell
     DF: total number of counts for each peak
@@ -128,8 +127,7 @@ def tfidf(
 
 
 def binarize(data: AnnData | MuData):
-    """
-    Transform peak counts to the binary matrix (all the non-zero values become 1).
+    """Transform peak counts to the binary matrix (all the non-zero values become 1).
 
     Parameters
     ----------
@@ -163,8 +161,7 @@ def scopen(
     alpha: int = 1,
     verbose: bool = False,
 ):
-    """
-    Run scOpen (Li et al., 2019, https://doi.org/10.1101/865931) on the count matrix
+    """Run scOpen (Li et al., 2019, https://doi.org/10.1101/865931) on the count matrix.
 
     This function follows the original implementation of the main method
     (https://github.com/CostaLab/scopen/blob/master/scopen/Main.py)

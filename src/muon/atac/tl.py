@@ -81,8 +81,7 @@ def add_peak_annotation(
     sep: str = "\t",
     return_annotation: bool = False,
 ):
-    """
-    Parse peak annotation file and add it to the .uns["atac"]["peak_annotation"]
+    """Parse peak annotation file and add it to the .uns["atac"]["peak_annotation"].
 
     Parameters
     ----------
@@ -160,8 +159,7 @@ def add_peak_annotation_gene_names(
     join_on: str | None = None,
     return_annotation: bool = False,
 ):
-    """
-    Add gene names to peak annotation table in .uns["atac"]["peak_annotation"]
+    """Add gene names to peak annotation table in .uns["atac"]["peak_annotation"].
 
     Parameters
     ----------
@@ -236,8 +234,7 @@ def add_genes_peaks_groups(
     add_peak_type: bool = False,
     add_distance: bool = False,
 ):
-    """
-    Add gene names to peaks ranked by clustering group
+    """Add gene names to peaks ranked by clustering group.
 
     To add gene names to ranked peaks, peaks have to be ranked first.
     For that, run `sc.tl.rank_genes_groups`.
@@ -320,8 +317,7 @@ def rank_peaks_groups(
     add_distance: bool = False,
     **kwargs,
 ):
-    """
-    Rank peaks in clusters groups.
+    """Rank peaks in clusters groups.
 
     Shorthand for running sc.tl.rank_genes_groups
     followed by muon.atac.tl.add_genes_peaks_groups.
@@ -429,15 +425,14 @@ def scan_sequences(
     pvalue: float = 0.0001,
     max_hits: int = 10,
 ):
-    """
-    Scan sequences (e.g. peaks) searching for motifs (JASPAR by default).
+    """Scan sequences (e.g. peaks) searching for motifs (JASPAR by default).
 
     Parameters
     ----------
     data
         AnnData object with peak counts or multimodal MuData object with 'atac' modality.
 
-    Returns
+    Returns:
     -------
     matches
         Pandas dataframe with matched motifs and respective sequence IDs.
@@ -532,8 +527,7 @@ def get_sequences(data: AnnData | MuData, bed: str, fasta_file: str, bed_file: s
 
 
 def locate_file(data: AnnData | MuData, key: str, file: str):
-    """
-    Add path to the file to .uns["files"][key]
+    """Add path to the file to .uns["files"][key].
 
     The file to be added has to exist.
 
@@ -562,8 +556,7 @@ def locate_file(data: AnnData | MuData, key: str, file: str):
 
 
 def locate_genome(data: AnnData | MuData, fasta_file: str):
-    """
-    Add path to the FASTA file with genome to .uns["files"]["genome"]
+    """Add path to the FASTA file with genome to .uns["files"]["genome"].
 
     Genome sequences can be downloaded from GENCODE:
 
@@ -603,8 +596,7 @@ def locate_genome(data: AnnData | MuData, fasta_file: str):
 
 
 def locate_fragments(data: AnnData | MuData, fragments: str, return_fragments: bool = False):
-    """
-    Parse fragments file and add a variable to access it to the .uns["files"]["fragments"]
+    """Parse fragments file and add a variable to access it to the .uns["files"]["fragments"].
 
     Fragments file is never read to memory, and connection to the file is closed
     upon function completion.
@@ -655,8 +647,7 @@ def locate_fragments(data: AnnData | MuData, fragments: str, return_fragments: b
 
 
 def initialise_default_files(data: AnnData | MuData, path: str | Path):
-    """
-    Locate default files for ATAC-seq
+    """Locate default files for ATAC-seq.
 
     - attempt to locate peak annotation file (atac_peak_annotation.tsv)
     - attempt to parse add peak annotation and store it as a DataFrame
@@ -714,8 +705,7 @@ def count_fragments_features(
     extend_downstream: int = 0,
     count_reads: bool = True,
 ) -> AnnData:
-    """
-    Count fragments overlapping given Features. Returns cells x features matrix.
+    """Count fragments overlapping given Features. Returns cells x features matrix.
 
     Parameters
     ----------
@@ -875,7 +865,8 @@ def tss_enrichment(
         barcodes: Column name in the ``.obs`` of the AnnData with barcodes corresponding to
             the ones in the fragments file.
 
-    Returns: The TSS pileup as an AnnData object with a ``tss_score`` column in its ``.obs`` slot
+    Returns:
+        The TSS pileup as an AnnData object with a ``tss_score`` column in its ``.obs`` slot
         when ``return_tss`` is set, ``None`` otherwise.
     """
     if isinstance(data, AnnData):
@@ -932,8 +923,7 @@ def _tss_pileup(
     extend_downstream: int = 1000,
     barcodes: str | None = None,
 ) -> AnnData:
-    """
-    Pile up reads in TSS regions. Returns a cell x position matrix that can be used for QC.
+    """Pile up reads in TSS regions. Returns a cell x position matrix that can be used for QC.
 
     Parameters
     ----------
@@ -1004,8 +994,7 @@ def _tss_pileup(
 
 
 def _calculate_tss_score(data: AnnData, flank_size: int = 100, center_size: int = 1001):
-    """
-    Calculate TSS enrichment scores (defined by ENCODE) for each cell.
+    """Calculate TSS enrichment scores (defined by ENCODE) for each cell.
 
     Parameters
     ----------
@@ -1050,8 +1039,7 @@ def nucleosome_signal(
     mononuleosomal_upper_bound: int = 294,
     barcodes: str | None = None,
 ):
-    """
-    Computes the ratio of nucleosomal cut fragments to nucleosome-free fragments per cell.
+    """Computes the ratio of nucleosomal cut fragments to nucleosome-free fragments per cell.
 
     Nucleosome-free fragments are shorter than 147 bp while mono-mucleosomal fragments are between
     147 bp and 294 bp long.
@@ -1137,8 +1125,7 @@ def fetch_regions_to_df(
     extend_downstream: int = 0,
     relative_coordinates=False,
 ) -> pd.DataFrame:
-    """
-    Parse peak annotation file and return it as DataFrame.
+    """Parse peak annotation file and return it as DataFrame.
 
     Parameters
     ----------

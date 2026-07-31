@@ -26,8 +26,7 @@ def scatter(
     layers: str | Sequence[str | None] | None = None,
     **kwargs,
 ):
-    """
-    Scatter plot along observations or variables axes.
+    """Scatter plot along observations or variables axes.
 
     Variables in each modality can be referenced,
     e.g. ``"rna:X_pca"``.
@@ -105,8 +104,7 @@ def embedding(
     layer: str | Mapping[str, str | None] | None = None,
     **kwargs,
 ):
-    """
-    Scatter plot for .obs
+    """Scatter plot for .obs.
 
     Produce a scatter plot in the define basis,
     which can also be a basis inside any modality,
@@ -268,8 +266,7 @@ def embedding(
 
 
 def mofa(mdata: MuData, **kwargs) -> Axes | list[Axes] | None:
-    """
-    Scatter plot in MOFA factors coordinates
+    """Scatter plot in MOFA factors coordinates.
 
     See :func:`muon.pl.embedding` for details.
     """
@@ -277,8 +274,7 @@ def mofa(mdata: MuData, **kwargs) -> Axes | list[Axes] | None:
 
 
 def umap(mdata: MuData, **kwargs) -> Axes | list[Axes] | None:
-    """
-    UMAP Scatter plot
+    """UMAP Scatter plot.
 
     See :func:`muon.pl.embedding` for details.
     """
@@ -298,8 +294,7 @@ def histogram(
     save: str | bool | None = None,
     **kwags,
 ):
-    """
-    Plot Histogram of Fragment lengths within specified region.
+    """Plot Histogram of Fragment lengths within specified region.
 
     Parameters
     ----------
@@ -411,8 +406,7 @@ def mofa_loadings(
     show: bool | None = None,
     save: str | bool | None = None,
 ):
-    """
-    Rank genes according to contributions to MOFA factors.
+    """Rank genes according to contributions to MOFA factors.
 
     Mirrors the interface of scanpy.pl.pca_loadings.
 
