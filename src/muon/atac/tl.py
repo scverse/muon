@@ -461,10 +461,11 @@ def scan_sequences(
             # For the default scanner, use the default metadata
             motif_meta = _parse_motif_ids()
 
-    elif motifs is None:
-        raise ValueError(
-            "A list of motif IDs should be provided that corresponds to the matrices that the motif scanner was built on."
-        )
+    else:
+        if motifs is None:
+            raise ValueError(
+                "A list of motif IDs should be provided that corresponds to the matrices that the motif scanner was built on."
+            )
 
     matches = []
     for seq in sequences:
