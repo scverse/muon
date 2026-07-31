@@ -102,7 +102,7 @@ from muon import prot as pt
 
 Some implementation details are noted in [DESIGN.md](https://github.com/scverse/muon/blob/main/DESIGN.md).
 
-[Contributions](https://muon.readthedocs.io/page/contributing.html) in the form of [issues](https://github.com/scverse/muon/issues), [pull requests](https://github.com/scverse/muon/pulls) or [discussions](https://github.com/scverse/muon/discussions) are welcome.
+[Contributions](https://muon.readthedocs.io/page/contributing.html) in the form of [issues](https://github.com/scverse/muon/issues), [pull requests](https://github.com/scverse/muon/pulls) or [discussions](https://discourse.scverse.org/) are welcome.
 
 ## Citation
 
