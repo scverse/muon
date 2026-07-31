@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from functools import reduce
@@ -10,21 +11,32 @@ from types import MappingProxyType
 from typing import Any, Literal
 from warnings import warn
 
-import h5py  # type: ignore[import-untyped]
+import h5py
 import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
-import scanpy as sc  # type: ignore[import-untyped]
+import pandas as pd
+import scanpy as sc
 from anndata import AnnData
-from mudata import MuData  # type: ignore[import-untyped]
+from mudata import MuData
 from natsort import natsorted
 from scanpy import logging
-from scanpy.tools._utils import _choose_representation  # type: ignore[import-untyped]
-from scipy.sparse import csr_matrix, issparse  # type: ignore[import-untyped]
+from scanpy.tools._utils import _choose_representation
+from scipy.sparse import csr_matrix, issparse
 
 from .pp import _sparse_csr_fast_knn
 
 try:
-    from leidenalg.VertexPartition import (  # type: ignore[import-untyped, import-not-found]
+    from louvain.VertexPartition import (
+        MutableVertexPartition as LouvainMutableVertexPartition,
+    )
+except ImportError:
+
+    class LouvainMutableVertexPartition:  # type: ignore[no-redef]  # noqa: D101
+        pass
+
+    LouvainMutableVertexPartition.__module__ = "louvain.VertexPartition"
+
+try:
+    from leidenalg.VertexPartition import (
         MutableVertexPartition as LeidenMutableVertexPartition,
     )
 except ImportError:
@@ -67,7 +79,7 @@ def _set_mofa_data_from_mudata(
     use_obs : optional: 'union' or 'intersection', relevant when not all samples (cells) are the same across views
     """
     try:
-        from mofapy2.build_model.utils import guess_likelihoods, process_data  # type: ignore[import-untyped]
+        from mofapy2.build_model.utils import guess_likelihoods, process_data
     except ImportError:
         raise ImportError(
             "MOFA+ is not available. Install MOFA+ from PyPI (`pip install mofapy2`) or from GitHub (`pip install git+https://github.com/bioFAM/MOFA2`)"
@@ -247,10 +259,10 @@ def _set_mofa_data_from_mudata(
     # Define likelihoods
     if likelihoods is None:
         likelihoods = guess_likelihoods(data)
-    assert len(likelihoods) == model.dimensionalities["M"], "Please specify one likelihood for each view"
-    assert set(likelihoods).issubset({"gaussian", "bernoulli", "poisson"}), (
-        "Available likelihoods are 'gaussian', 'bernoulli', 'poisson'"
-    )
+    if len(likelihoods) != model.dimensionalities["M"]:
+        raise ValueError("There must be one likelihood for each view.")
+    if not set(likelihoods) <= {"gaussian", "bernoulli", "poisson"}:
+        raise ValueError("Available likelihoods must be one of 'gaussian', 'bernoulli', 'poisson'")
     model.likelihoods = likelihoods
 
     # Process the data (center, scaling, etc.)
@@ -389,7 +401,7 @@ def mofa(
             return a copy of AnnData instead of writing to the provided object
     """
     try:
-        from mofapy2.run.entry_point import entry_point  # type: ignore[import-untyped]
+        from mofapy2.run.entry_point import entry_point
     except ImportError:
         raise ImportError(
             "MOFA+ is not available. Install MOFA+ from PyPI (`pip install mofapy2`) or from GitHub (`pip install git+https://github.com/bioFAM/MOFA2`)"
@@ -406,7 +418,9 @@ def mofa(
         raise TypeError("Expected an MuData object")
 
     if outfile is None:
-        outfile = os.path.join("/tmp", "mofa_{}.hdf5".format(strftime("%Y%m%d-%H%M%S")))
+        # A plain timestamp collides when several models are trained in the same second.
+        fd, outfile = tempfile.mkstemp(prefix=f"mofa_{strftime('%Y%m%d-%H%M%S')}_", suffix=".hdf5")
+        os.close(fd)
 
     if use_var and use_var not in data.var.columns:
         warn(f"There is no column {use_var} in the provided object", stacklevel=2)
@@ -644,7 +658,7 @@ def mofa(
     try:
         views = f["views"]["views"][:].astype(str)
         variance_per_group = f["variance_explained"]["r2_per_factor"]
-        variance: dict[str, dict[str, Any]] = {m: {} for m in views}
+        variance: dict[str, dict[str, float]] = {m: {} for m in views}
 
         groups = f["groups"]["groups"][:].astype(str)
         if len(groups) > 1:
@@ -676,7 +690,7 @@ def mofa(
 def snf(
     mdata: MuData,
     n_neighbors: int = 20,
-    neighbor_keys: str | dict[str, str | None] | None = None,
+    neighbor_keys: str | Mapping[str, str | None] | None = None,
     key_added: str | None = None,
     n_iterations: int = 20,
     sigma: float = 0.5,
@@ -711,7 +725,7 @@ def snf(
     eps: Small number to avoid numerical errors.
     copy: Return a copy instead of writing to ``mdata``.
     """
-    import scipy.stats as stats  # type: ignore[import-untyped]
+    import scipy.stats as stats
 
     mdata = mdata.copy() if copy else mdata
 
@@ -859,13 +873,16 @@ def snf(
     else:
         conns_key = key_added + "_connectivities"
         dists_key = key_added + "_distances"
-    neighbors_dict: dict[str, Any] = {"connectivities_key": conns_key, "distances_key": dists_key}
-    neighbors_dict["params"] = {
-        "n_neighbors": n_neighbors,
-        "eps": eps,
-        "use_rep": mod_reps,
-        "n_pcs": mod_n_pcs,
-        "method": "snf",
+    neighbors_dict = {
+        "connectivities_key": conns_key,
+        "distances_key": dists_key,
+        "params": {
+            "n_neighbors": n_neighbors,
+            "eps": eps,
+            "use_rep": mod_reps,
+            "n_pcs": mod_n_pcs,
+            "method": "snf",
+        },
     }
     mdata.obsp[conns_key] = connectivities
     mdata.obsp[dists_key] = neighbordistances
@@ -875,7 +892,7 @@ def snf(
 
 
 #
-# Clustering: Leiden
+# Clustering: Louvain and Leiden
 #
 
 
@@ -887,23 +904,38 @@ def _cluster(
     key_added: str = "leiden",
     neighbors_key: str | None = None,
     directed: bool = True,
-    partition_type: type[LeidenMutableVertexPartition] | None = None,
+    partition_type: type[LeidenMutableVertexPartition] | type[LouvainMutableVertexPartition] | None = None,
     partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
+    algorithm: str = "leiden",  # Literal["leiden", "louvain"]
     **kwargs,
 ):
     """
-    Cluster cells using the Leiden algorithm.
+    Cluster cells using the Leiden or Louvain algorithm.
 
-    See :func:`scanpy.tl.leiden` for details.
+    See :func:`scanpy.tl.leiden` and :func:`scanpy.tl.louvain` for details.
     """
-    import leidenalg  # type: ignore[import-untyped, import-not-found]
-    from scanpy._utils import get_igraph_from_adjacency  # type: ignore[import-untyped]
+    from scanpy._utils import get_igraph_from_adjacency
     from scanpy.tools._utils import _choose_graph
 
-    alg = leidenalg
+    if algorithm == "louvain":
+        warn(
+            "The 'louvain' algorithm is deprecated and will be removed in a future release; use 'leiden' instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        import louvain
+
+        alg = louvain
+    elif algorithm == "leiden":
+        import leidenalg
+
+        alg = leidenalg
+    else:
+        raise ValueError(f"Algorithms should be either 'louvain' or 'leiden', not '{algorithm}'")
 
     if isinstance(data, AnnData):
-        return sc.tl.leiden(
+        sc_tl_cluster = sc.tl.leiden if algorithm == "leiden" else sc.tl.louvain
+        return sc_tl_cluster(
             data,
             resolution=resolution,
             random_state=random_state,
@@ -930,9 +962,10 @@ def _cluster(
         if isinstance(mod_weights, Mapping):
             layer_weights: Sequence[float] | None = [mod_weights.get(mod, 1) for mod in mdata.mod]
         elif isinstance(mod_weights, Sequence) and not isinstance(mod_weights, str):
-            assert len(mod_weights) == len(mdata.mod), (
-                f"Length of layers_weights ({len(mod_weights)}) does not match the number of modalities ({len(mdata.mod)})"
-            )
+            if len(mod_weights) != len(mdata.mod):
+                raise ValueError(
+                    f"Length of layers_weights ({len(mod_weights)}) must match the number of modalities ({len(mdata.mod)})."
+                )
             layer_weights = mod_weights
         else:
             layer_weights = [mod_weights for _ in mdata.mod]
@@ -946,7 +979,7 @@ def _cluster(
     if random_state:
         optimiser.set_rng_seed(random_state)
 
-    # The same as leiden.find_partition_multiplex()
+    # The same as leiden.find_partition_multiplex() (louvain.find_partition_multiplex())
     # but allows to specify resolution for each modality
     if resolution:
         if isinstance(resolution, Mapping):
@@ -955,9 +988,10 @@ def _cluster(
                 partition_type(gs[mod], resolution_parameter=resolution[mod], **partition_kwargs) for mod in mdata.mod
             ]
         elif isinstance(resolution, Sequence) and not isinstance(resolution, str):
-            assert len(resolution) == len(mdata.mod), (
-                f"Length of resolution ({len(resolution)}) does not match the number of modalities ({len(mdata.mod)})"
-            )
+            if len(resolution) != len(mdata.mod):
+                raise ValueError(
+                    f"Length of resolution ({len(resolution)}) must match the number of modalities ({len(mdata.mod)})."
+                )
             parts = [
                 partition_type(gs[mod], resolution_parameter=resolution[i], **partition_kwargs)
                 for i, mod in enumerate(mdata.mod)
@@ -981,8 +1015,8 @@ def _cluster(
         values=groups.astype("U"),
         categories=natsorted(map(str, np.unique(groups))),
     )
-    mdata.uns["leiden"] = {}
-    mdata.uns["leiden"]["params"] = {
+    mdata.uns[algorithm] = {}
+    mdata.uns[algorithm]["params"] = {
         "resolution": resolution,
         "random_state": random_state,
         "partition_improvement": improv,
@@ -1061,6 +1095,90 @@ def leiden(
         directed=directed,
         partition_type=partition_type,
         partition_kwargs=partition_kwargs,
+        algorithm="leiden",
+        **kwargs,
+    )
+
+
+def louvain(
+    data: MuData | AnnData,
+    resolution: float | Sequence[float] | Mapping[str, float] | None = None,
+    mod_weights: Sequence[float] | Mapping[str, float] | None = None,
+    random_state: int = 0,
+    key_added: str = "louvain",
+    neighbors_key: str | None = None,
+    directed: bool = True,
+    partition_type: type[LouvainMutableVertexPartition] | None = None,
+    partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
+    **kwargs,
+):
+    """
+    Cluster cells using the Louvain algorithm.
+
+    .. deprecated::
+        Use :func:`muon.tl.leiden` instead. This function will be removed in a future release.
+
+    This runs only the multiplex Louvain algorithm on the MuData object
+    using connectivities of individual modalities
+    (see `documentation <https://louvain-igraph.readthedocs.io/en/latest/multiplex.html>`_ for more details).
+    For that, :func:`scanpy.pp.neighbors` should be run first for each modality.
+
+    For taking use of ``mdata.obsp['connectivities']``, it's :func:`scanpy.tl.louvain` that should be used.
+    See :func:`scanpy.tl.louvain` for details.
+
+    Parameters
+    ----------
+    data
+        :class:`~mudata.MuData` object.
+    resolution
+        Resolution parameter controlling coarseness of the clustering
+        (higher values -> more clusters).
+        To use different resolution per modality, dictionary ``{mod: value}``
+        or list/tuple ``[value_mod1, value_mod2, ...]``.
+        Single value to use the same resolution for all modalities.
+    mod_weights
+        Weight each modality controlling its contribution
+        (higher values -> more important).
+        To use different weight per modality, dictionary ``{mod: value}``
+        or list/tuple ``[value_mod1, value_mod2, ...]``.
+        Single value to use the same weight for all modalities.
+    random_state
+        Random seed for the optimization.
+    key_added
+        `mdata.obs` key where cluster labels to be added.
+    neighbors_key
+        Use neighbors connectivities as adjacency.
+        If not specified, look for ``.obsp['connectivities']`` in each modality.
+        If specified, look for
+        ``.obsp[.uns[neighbors_key]['connectivities_key']]`` in each modality
+        for connectivities.
+    directed
+        Treat the graph as directed or undirected.
+    partition_type
+        Type of partition to use,
+        :class:`~louvain.RBConfigurationVertexPartition` by default.
+        See :func:`~louvain.find_partition` for more details.
+    partition_kwargs
+        Arguments to be passed to the ``partition_type``.
+    **kwargs
+        Arguments to be passed to ``optimizer.optimise_partition_multiplex()``.
+    """
+    warn(
+        "muon.tl.louvain is deprecated and will be removed in a future release; use muon.tl.leiden instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _cluster(
+        data=data,
+        resolution=resolution,
+        mod_weights=mod_weights,
+        random_state=random_state,
+        key_added=key_added,
+        neighbors_key=neighbors_key,
+        directed=directed,
+        partition_type=partition_type,
+        partition_kwargs=partition_kwargs,
+        algorithm="louvain",
         **kwargs,
     )
 
@@ -1089,9 +1207,7 @@ def umap(
     technique suitable for visualizing high-dimensional data. We use ScanPy's
     implementation.
 
-    References
-    ----------
-        McInnes et al, 2018 (`arXiv:1802.03426` <https://arxiv.org/abs/1802.03426>`_)
+    References: McInnes et al, 2018 (`arXiv:1802.03426` <https://arxiv.org/abs/1802.03426>`_)
 
     Args:
         mdata: MuData object. Multimodal nearest neighbor search must have already
@@ -1234,7 +1350,7 @@ def ica(
     **kwargs,
 ):
     """Run Independent component analysis"""
-    from sklearn.decomposition import FastICA  # type: ignore[import-untyped]
+    from sklearn.decomposition import FastICA
 
     ica = FastICA(random_state=random_state, n_components=n_components, **kwargs)
     x_ica = ica.fit_transform(data.obsm[basis])

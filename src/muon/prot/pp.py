@@ -1,27 +1,34 @@
 from collections.abc import Collection
-from numbers import Integral, Real
-from typing import Any, Literal
+from typing import Literal
 from warnings import warn
 
 import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 from anndata import AnnData
-from mudata import MuData  # type: ignore[import-untyped]
-from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix, issparse  # type: ignore[import-untyped]
-from scipy.stats import gmean  # type: ignore[import-untyped]
-from sklearn.decomposition import PCA  # type: ignore[import-untyped]
-from sklearn.linear_model import LinearRegression  # type: ignore[import-untyped]
-from sklearn.mixture import GaussianMixture  # type: ignore[import-untyped]
+from mudata import MuData
+from scipy.sparse import (
+    csc_array,
+    csc_matrix,
+    csr_array,
+    csr_matrix,
+    issparse,
+    sparray,
+    spmatrix,
+)
+from scipy.stats import gmean
+from sklearn.decomposition import PCA
+from sklearn.linear_model import LinearRegression
+from sklearn.mixture import GaussianMixture
 
 
 def dsb(
     data: AnnData | MuData,
     data_raw: AnnData | MuData | None = None,
-    pseudocount: Integral = 10,  # type: ignore[assignment]
+    pseudocount: int = 10,
     denoise_counts: bool = True,
     isotype_controls: Collection[str] | None = None,
-    empty_counts_range: tuple[Real, Real] | None = None,
-    cell_counts_range: tuple[Real, Real] | None = None,
+    empty_counts_range: tuple[float, float] | None = None,
+    cell_counts_range: tuple[float, float] | None = None,
     scale_factor: Literal["standardize", "mean_subtract"] = "standardize",
     quantile_clipping: bool = False,
     quantile_clip: tuple[float, float] = (0.001, 0.9995),
@@ -34,9 +41,7 @@ def dsb(
     Normalized data will be written to ``data`` (if it is an AnnData object) or ``data.mod['prot']``
     (if it is a MuData object) as an X matrix or as a new layer named ``dsb``.
 
-    References
-    ----------
-        Mulè et al, 2020 (`doi:10.1101/2020.02.24.963603 <https://dx.doi.org/10.1101/2020.02.24.963603>`_)
+    References: Mulè et al, 2020 (`doi:10.1101/2020.02.24.963603 <https://dx.doi.org/10.1101/2020.02.24.963603>`_)
 
     Args:
         data: AnnData object with protein expression counts or MuData object with ``prot`` modality.
@@ -60,9 +65,7 @@ def dsb(
         add_layer: Whether to add a ``'dsb'`` layer instead of assigning to the X matrix.
         random_state: Random seed.
 
-    Returns
-    -------
-        ``None`` if ``data_raw`` is not ``None`` (in this case the normalized data are written directly
+    Returns: ``None`` if ``data_raw`` is not ``None`` (in this case the normalized data are written directly
         to ``data``), otherwise a ``MuData`` object containing filtered data (non-empty droplets).
     """
     toreturn = None
@@ -110,8 +113,8 @@ def dsb(
     if quantile_clipping:
         if len(quantile_clip) != 2:
             raise ValueError("quantile_clip must have exactly 2 values")
-        quantile_clip = np.asarray(quantile_clip)  # type: ignore[assignment]
-        if np.any((quantile_clip < 0) | (quantile_clip > 1)):  # type: ignore[operator]
+        quantile_clip_values = np.asarray(quantile_clip)
+        if np.any((quantile_clip_values < 0) | (quantile_clip_values > 1)):
             raise ValueError("quantile_clip must be between 0 and 1")
 
     if cells.shape[1] != empty.shape[1]:  # this should only be possible if mudata_raw != None
@@ -232,9 +235,7 @@ def clr(
             - standard: The standard CLR transform without any pseudocounts. Does not preserve sparse matrices
                 and may yield infinite values if the input contains zeros.
 
-    References
-    ----------
-        Stoeckius et al, 2017 (`doi:10.1038/nmeth.4380 <https://dx.doi.org/10.1038/nmeth.4380>`_)
+    References: Stoeckius et al, 2017 (`doi:10.1038/nmeth.4380 <https://dx.doi.org/10.1038/nmeth.4380>`_)
     """
     if axis not in [0, 1]:
         raise ValueError("Invalid value for `axis` provided. Admissible options are `0` and `1`.")
@@ -242,10 +243,12 @@ def clr(
     if not inplace:
         adata = adata.copy()
 
-    x: Any = adata.X
+    x = adata.X
+    if x is None:
+        raise ValueError("Cannot apply the CLR transformation: .X is None.")
 
     if flavor == "seurat":
-        if issparse(x):
+        if isinstance(x, sparray | spmatrix):
             if axis == 0 and not isinstance(x, csc_matrix | csc_array):
                 warn(
                     "adata.X is sparse but not in CSC format. CSC format required for `axis=0`. Converting to CSC.",
@@ -269,10 +272,10 @@ def clr(
             x.data /= np.repeat(np.exp(logmean), nnz)
             np.log1p(x.data, out=x.data)
         else:
+            x = np.asarray(x)
             np.log1p(x / np.exp(np.log1p(x).mean(axis=axis, keepdims=True)), out=x)
     elif flavor in ("stoeckius", "standard"):
-        if issparse(x):
-            x = x.toarray()
+        x = x.toarray() if isinstance(x, sparray | spmatrix) else np.asarray(x)
         if flavor == "stoeckius":
             x += 1
         np.log(x / gmean(x, axis=axis, keepdims=True), out=x)

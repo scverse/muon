@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from anndata import AnnData
 from anndata.tests.helpers import assert_equal
-from mudata import MuData  # type: ignore[import-untyped]
+from mudata import MuData
 
 import muon as mu
 

@@ -1,19 +1,18 @@
 import warnings
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from functools import reduce
 from importlib.metadata import version
-from itertools import repeat
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import numpy as np
 from anndata import AnnData
 from numba import njit, prange
 from packaging.version import Version
-from pynndescent.distances import euclidean  # type: ignore[import-untyped]
-from pynndescent.sparse import sparse_euclidean, sparse_jaccard  # type: ignore[import-untyped]
-from scanpy import logging  # type: ignore[import-untyped]
-from scanpy.tools._utils import _choose_representation  # type: ignore[import-untyped]
-from scipy.sparse import (  # type: ignore[import-untyped]
+from pynndescent.distances import euclidean
+from pynndescent.sparse import sparse_euclidean, sparse_jaccard
+from scanpy import logging
+from scanpy.tools._utils import _choose_representation
+from scipy.sparse import (
     SparseEfficiencyWarning,
     csr_array,
     csr_matrix,
@@ -23,23 +22,23 @@ from scipy.sparse import (  # type: ignore[import-untyped]
     isspmatrix_csr,
     linalg,
 )
-from scipy.spatial.distance import cdist  # type: ignore[import-untyped]
-from scipy.special import softmax  # type: ignore[import-untyped]
-from sklearn.utils import check_random_state  # type: ignore[import-untyped]
-from umap.umap_ import nearest_neighbors  # type: ignore[import-untyped]
+from scipy.spatial.distance import cdist
+from scipy.special import softmax
+from sklearn.utils import check_random_state
+from umap.umap_ import nearest_neighbors
 
 if Version(version("scanpy")) < Version("1.10"):
-    from scanpy.neighbors import (  # type: ignore[import-untyped]
+    from scanpy.neighbors import (
         _compute_connectivities_umap as __compute_connectivities_umap,
     )
 
     _compute_connectivities_umap = lambda *args, **kwargs: __compute_connectivities_umap(*args, **kwargs)[1]
 else:
-    from scanpy.neighbors._connectivity import (  # type: ignore[import-untyped,no-redef]
+    from scanpy.neighbors._connectivity import (  # type: ignore[no-redef]
         umap as _compute_connectivities_umap,
     )
 
-from mudata import MuData  # type: ignore[import-untyped]
+from mudata import MuData
 
 # Computational methods for preprocessing
 
@@ -50,8 +49,8 @@ _sparse_jaccard = njit(getattr(sparse_jaccard, "py_func", sparse_jaccard), inlin
 
 @njit
 def _jaccard_euclidean_metric(
-    x: int,
-    y: int,
+    x: np.ndarray,
+    y: np.ndarray,
     X: np.ndarray,
     neighbors_indices: np.ndarray,
     neighbors_indptr: np.ndarray,
@@ -59,27 +58,28 @@ def _jaccard_euclidean_metric(
     N: int,
     bbox_norm: float,
 ):
-    x = int(x[0])  # type: ignore[index]  # this is for compatibility with pynndescent
-    y = int(y[0])  # type: ignore[index]  # pynndescent converts the data to float32
-    if x == y:
+    # pynndescent passes the observation indices as 1-element float32 arrays
+    i = int(x[0])
+    j = int(y[0])
+    if i == j:
         return N + 1.0
 
-    from_inds = neighbors_indices[neighbors_indptr[x] : neighbors_indptr[x + 1]]
-    from_data = neighbors_data[neighbors_indptr[x] : neighbors_indptr[x + 1]]
-    to_inds = neighbors_indices[neighbors_indptr[y] : neighbors_indptr[y + 1]]
-    to_data = neighbors_data[neighbors_indptr[y] : neighbors_indptr[y + 1]]
+    from_inds = neighbors_indices[neighbors_indptr[i] : neighbors_indptr[i + 1]]
+    from_data = neighbors_data[neighbors_indptr[i] : neighbors_indptr[i + 1]]
+    to_inds = neighbors_indices[neighbors_indptr[j] : neighbors_indptr[j + 1]]
+    to_data = neighbors_data[neighbors_indptr[j] : neighbors_indptr[j + 1]]
     jac = _sparse_jaccard(from_inds, from_data, to_inds, to_data)
 
     if jac < 1.0:
-        return (N - jac * N) + (bbox_norm - _euclidean(X[x, :], X[y, :])) / bbox_norm
+        return (N - jac * N) + (bbox_norm - _euclidean(X[i, :], X[j, :])) / bbox_norm
     else:
         return N + 1.0
 
 
 @njit
 def _jaccard_sparse_euclidean_metric(
-    x: int,
-    y: int,
+    x: np.ndarray,
+    y: np.ndarray,
     X_indices: np.ndarray,
     X_indptr: np.ndarray,
     X_data: np.ndarray,
@@ -89,22 +89,23 @@ def _jaccard_sparse_euclidean_metric(
     N: int,
     bbox_norm: float,
 ):
-    x = int(x[0])  # type: ignore[index]  # this is for compatibility with pynndescent
-    y = int(y[0])  # type: ignore[index]  # pynndescent converts the data to float32
-    if x == y:
+    # pynndescent passes the observation indices as 1-element float32 arrays
+    i = int(x[0])
+    j = int(y[0])
+    if i == j:
         return N + 1.0
 
-    from_inds = neighbors_indices[neighbors_indptr[x] : neighbors_indptr[x + 1]]
-    from_data = neighbors_data[neighbors_indptr[x] : neighbors_indptr[x + 1]]
-    to_inds = neighbors_indices[neighbors_indptr[y] : neighbors_indptr[y + 1]]
-    to_data = neighbors_data[neighbors_indptr[y] : neighbors_indptr[y + 1]]
+    from_inds = neighbors_indices[neighbors_indptr[i] : neighbors_indptr[i + 1]]
+    from_data = neighbors_data[neighbors_indptr[i] : neighbors_indptr[i + 1]]
+    to_inds = neighbors_indices[neighbors_indptr[j] : neighbors_indptr[j + 1]]
+    to_data = neighbors_data[neighbors_indptr[j] : neighbors_indptr[j + 1]]
     jac = _sparse_jaccard(from_inds, from_data, to_inds, to_data)
 
     if jac < 1.0:
-        from_inds = X_indices[X_indptr[x] : X_indptr[x + 1]]
-        from_data = X_data[X_indptr[x] : X_indptr[x + 1]]
-        to_inds = X_indices[X_indptr[y] : X_indptr[y + 1]]
-        to_data = X_data[X_indptr[y] : X_indptr[y + 1]]
+        from_inds = X_indices[X_indptr[i] : X_indptr[i + 1]]
+        from_data = X_data[X_indptr[i] : X_indptr[i + 1]]
+        to_inds = X_indices[X_indptr[j] : X_indptr[j + 1]]
+        to_data = X_data[X_indptr[j] : X_indptr[j + 1]]
         euclidean = _sparse_euclidean(from_inds, from_data, to_inds, to_data)
         return (N - jac * N) + (bbox_norm - euclidean) / bbox_norm
     else:
@@ -117,6 +118,7 @@ def _sparse_csr_fast_knn_(N: int, indptr: np.ndarray, indices: np.ndarray, data:
     knn_indices = np.zeros((N * n_neighbors,), dtype=indices.dtype)
     knn_data = np.zeros((N * n_neighbors,), dtype=data.dtype)
 
+    # mypy does not consider numba's prange iterable
     for i in prange(indptr.size - 1):  # type: ignore[attr-defined]
         start = indptr[i]
         end = indptr[i + 1]
@@ -158,7 +160,7 @@ def _sparse_csr_ptp(X: csr_matrix | csr_array):
 def _make_slice_intervals(idx, maxsize=10000):
     bins = np.concatenate(((-1,), np.where(np.diff(idx) > 1)[0], (idx.size - 1,)))
     allstarts, allstops = [], []
-    for start, stop in zip(bins[:-1] + 1, bins[1:], strict=False):
+    for start, stop in zip(bins[:-1] + 1, bins[1:], strict=True):
         size = stop - start
         if size > maxsize:
             nbins = size // maxsize
@@ -226,30 +228,23 @@ def l2norm(
                 pass
             else:
                 raise RuntimeError("If 'rep' is an Iterable, it must have length 1")
-        if n_pcs is not None and isinstance(n_pcs, Iterable):
-            it = iter(n_pcs)
-            n_pcs = next(it)
-            try:
-                next(it)
-            except StopIteration:
-                pass
-            else:
-                raise RuntimeError("If 'n_pcs' is an Iterable, it must have length 1")
+        if isinstance(n_pcs, Iterable):
+            raise ValueError("`n_pcs` cannot be a sequence if `mdata` is an AnnData object`.")
         if copy:
             mdata = mdata.copy()
-        _l2norm(mdata, rep, cast("int | None", n_pcs))
+        _l2norm(mdata, rep, n_pcs)
     else:
         if mod is None:
-            mod = mdata.mod.keys()
+            mods = list(mdata.mod.keys())
         elif isinstance(mod, str):
-            mod = [mod]
-        if rep is None or isinstance(rep, str):
-            rep = repeat(rep)  # type: ignore[arg-type]
-        if n_pcs is None or isinstance(n_pcs, int):
-            n_pcs = repeat(n_pcs)  # type: ignore[arg-type]
+            mods = [mod]
+        else:
+            mods = list(mod)
+        reps = [rep] * len(mods) if rep is None or isinstance(rep, str) else list(rep)
+        pcs = [n_pcs] * len(mods) if n_pcs is None or isinstance(n_pcs, int) else list(n_pcs)
         if copy:
             mdata = mdata.copy()
-        for m, r, n in zip(mod, rep, n_pcs, strict=False):
+        for m, r, n in zip(mods, reps, pcs, strict=True):
             _l2norm(mdata.mod[m], r, n)
 
     return mdata if copy else None
@@ -260,7 +255,7 @@ def neighbors(
     n_neighbors: int | None = None,
     n_bandwidth_neighbors: int = 20,
     n_multineighbors: int = 200,
-    neighbor_keys: dict[str, str | None] | None = None,
+    neighbor_keys: Mapping[str, str | None] | None = None,
     metric: Literal[
         "euclidean",
         "braycurtis",
@@ -303,9 +298,7 @@ def neighbors(
     implementation, observations must be normalized to unit L2 norm (see :func:`l2norm`) prior to running per-modality
     nearest-neighbor search.
 
-    References
-    ----------
-        Hao et al, 2020 (`doi:10.1101/2020.10.12.335331 <https://dx.doi.org/10.1101/2020.10.12.335331>`_)
+    References: Hao et al, 2020 (`doi:10.1101/2020.10.12.335331 <https://dx.doi.org/10.1101/2020.10.12.335331>`_),
         Swanson et al, 2020 (`doi:10.1101/2020.09.04.283887 <https://dx.doi.org/10.1101/2020.09.04.283887>`_)
 
     Args:
@@ -419,7 +412,7 @@ def neighbors(
         lmemory = low_memory if low_memory is not None else N > 50000
         if issparse(X):
             X = X.tocsr()
-            cmetric: Any = _jaccard_sparse_euclidean_metric
+            cmetric: Callable = _jaccard_sparse_euclidean_metric
             metric_kwds = {
                 "X_indices": X.indices,
                 "X_indptr": X.indptr,
@@ -496,7 +489,7 @@ def neighbors(
     if largeidx:  # work around scipy bug https://github.com/scipy/scipy/issues/13155
         neighbordistances.indptr = neighbordistances.indptr.astype(np.int64)
         neighbordistances.indices = neighbordistances.indices.astype(np.int64)
-    for _i, m in enumerate(modalities):
+    for m in modalities:
         cmetric = neighbors_params[m].get("metric", "euclidean")
         observations1 = observations.intersection(mdata.mod[m].obs.index)
 
@@ -578,7 +571,7 @@ def neighbors(
             def neighdist(cell, nz, rep=rep):
                 return -cdist(rep[None, cell, :], rep[nz, :], metric=metric)
 
-        for cell, _j in enumerate(fullidx):
+        for cell in range(len(fullidx)):
             row = slice(neighbordistances.indptr[cell], neighbordistances.indptr[cell + 1])
             nz = neighbordistances.indices[row]
             neighbordistances.data[row] += np.exp(neighdist(cell, nz) / csigmas[cell]).squeeze() * weights[cell, i]
@@ -601,16 +594,19 @@ def neighbors(
     else:
         conns_key = f"{key_added}_connectivities"
         dists_key = f"{key_added}_distances"
-    neighbors_dict: dict[str, Any] = {"connectivities_key": conns_key, "distances_key": dists_key}
-    neighbors_dict["params"] = {
-        "n_neighbors": n_neighbors,
-        "n_multineighbors": n_multineighbors,
-        "metric": metric,
-        "eps": eps,
-        "random_state": random_state,
-        "use_rep": mod_reps,
-        "n_pcs": mod_n_pcs,
-        "method": "umap",
+    neighbors_dict = {
+        "connectivities_key": conns_key,
+        "distances_key": dists_key,
+        "params": {
+            "n_neighbors": n_neighbors,
+            "n_multineighbors": n_multineighbors,
+            "metric": metric,
+            "eps": eps,
+            "random_state": random_state,
+            "use_rep": mod_reps,
+            "n_pcs": mod_n_pcs,
+            "method": "umap",
+        },
     }
     mdata.obsp[dists_key] = neighbordistances
     mdata.obsp[conns_key] = connectivities
@@ -709,10 +705,13 @@ def _filter_attr(
         elif key in other_names:
             if func is None:
                 raise ValueError(f"Function has to be provided since {key} is not a column in .{attr}.")
+            X = data.X
+            if X is None:
+                raise ValueError(f"Cannot filter by {key} since .X is empty.")
             if attr == "obs":
-                subset = func(data.X[:, np.where(other_names == key)[0]].reshape(-1))  # type: ignore[index, union-attr]
+                subset = func(np.asarray(X[:, np.where(other_names == key)[0]]).reshape(-1))
             else:
-                subset = func(data.X[np.where(other_names == key)[0], :].reshape(-1))  # type: ignore[index, union-attr]
+                subset = func(np.asarray(X[np.where(other_names == key)[0], :]).reshape(-1))
         else:
             raise ValueError(f"Column name from .{attr} or one of the {other}_names was expected but got {key}.")
     else:
@@ -882,12 +881,11 @@ def sample_obs(
     elif data.obs[groupby].dtype != "category":
         raise TypeError(f".obs['{groupby}'] is not categorical")
     else:
-        obs_names: Any = []
+        obs_names = []
         for cat in data.obs[groupby].cat.categories:
             view = data[data.obs[groupby] == cat]
             new_n = np.ceil(view.n_obs * frac).astype(int)
             if min_n is not None and new_n < min_n:
                 new_n = min_n
             obs_names.append(np.random.choice(view.obs_names.values, size=new_n, replace=False))
-        obs_names = np.concatenate(obs_names)
-        return data[obs_names]
+        return data[np.concatenate(obs_names)]

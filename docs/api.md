@@ -50,6 +50,7 @@ are provided by [mudata](https://mudata.readthedocs.io/) and re-exported here; s
     tl.ica
     tl.umap
     tl.leiden
+    tl.louvain
 ```
 
 ## Plotting

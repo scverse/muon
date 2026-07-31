@@ -1,11 +1,9 @@
-from os import PathLike
 from pathlib import Path
-from typing import cast
 
-import h5py  # type: ignore[import-untyped]
+import h5py
 import numpy as np
-import scanpy as sc  # type: ignore[import-untyped]
-from mudata import MuData  # type: ignore[import-untyped]
+import scanpy as sc
+from mudata import MuData
 
 from muon.atac.tl import initialise_default_files
 
@@ -14,7 +12,7 @@ from muon.atac.tl import initialise_default_files
 #
 
 
-def read_10x_h5(filename: PathLike, extended: bool = True, *args, **kwargs) -> MuData:
+def read_10x_h5(filename: str | Path, extended: bool = True, *args, **kwargs) -> MuData:
     """
     Read data from 10X Genomics-formatted HDF5 file
 
@@ -60,12 +58,12 @@ def read_10x_h5(filename: PathLike, extended: bool = True, *args, **kwargs) -> M
 
     if extended:
         if "atac" in mdata.mod:
-            initialise_default_files(mdata, cast(Path, filename))
+            initialise_default_files(mdata, filename)
 
     return mdata
 
 
-def read_10x_mtx(path: PathLike, extended: bool = True, *args, **kwargs) -> MuData:
+def read_10x_mtx(path: str | Path, extended: bool = True, *args, **kwargs) -> MuData:
     """
     Read data from 10X Genomics-formatted files (matrix.mtx.gz, features.tsv.gz, barcodes.tsv.gz).
 
@@ -93,6 +91,6 @@ def read_10x_mtx(path: PathLike, extended: bool = True, *args, **kwargs) -> MuDa
     # - attempt to locate fragments file
     if extended:
         if "atac" in mdata.mod:
-            initialise_default_files(mdata, cast(Path, path))
+            initialise_default_files(mdata, path)
 
     return mdata

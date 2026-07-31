@@ -1,11 +1,10 @@
-from typing import Any, cast
 from warnings import warn
 
 import numpy as np
 from anndata import AnnData
-from mudata import MuData  # type: ignore[import-untyped]
-from scanpy._utils import view_to_actual  # type: ignore[import-untyped]
-from scipy.sparse import csr_matrix, dia_matrix, issparse  # type: ignore[import-untyped]
+from mudata import MuData
+from scanpy._utils import view_to_actual
+from scipy.sparse import csr_matrix, dia_matrix, issparse, spmatrix
 
 # Computational methods for preprocessing
 
@@ -15,7 +14,7 @@ def tfidf(
     log_tf: bool = True,
     log_idf: bool = True,
     log_tfidf: bool = False,
-    scale_factor: int | float = 1e4,
+    scale_factor: float = 1e4,
     inplace: bool = True,
     copy: bool = False,
     from_layer: str | None = None,
@@ -80,14 +79,16 @@ def tfidf(
 
     view_to_actual(adata)
 
-    counts: Any = adata.X if from_layer is None else adata.layers[from_layer]
+    counts: np.ndarray | spmatrix = adata.X if from_layer is None else adata.layers[from_layer]
+    if counts is None:
+        raise ValueError("Expected a count matrix, but none was found")
 
     # Check before the computation
     if to_layer is not None and to_layer in adata.layers:
         warn(f"Existing layer '{str(to_layer)}' will be overwritten", stacklevel=2)
 
     if issparse(counts):
-        n_peaks: Any = np.asarray(counts.sum(axis=1)).reshape(-1)
+        n_peaks: np.ndarray | dia_matrix = np.asarray(counts.sum(axis=1)).reshape(-1)
         n_peaks = dia_matrix((1.0 / n_peaks, 0), shape=(n_peaks.size, n_peaks.size))
         # This prevents making TF dense
         tf = np.dot(n_peaks, counts)
@@ -142,11 +143,15 @@ def binarize(data: AnnData | MuData):
     else:
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
-    if issparse(adata.X):
+    counts: np.ndarray | spmatrix = adata.X
+    if counts is None:
+        raise ValueError("Expected a count matrix, but none was found")
+
+    if issparse(counts):
         # Sparse matrix
-        adata.X.data[adata.X.data != 0] = 1  # type: ignore[union-attr]
+        counts.data[counts.data != 0] = 1
     else:
-        adata.X[adata.X != 0] = 1  # type: ignore[index]
+        counts[counts != 0] = 1
 
 
 def scopen(
@@ -180,7 +185,7 @@ def scopen(
     try:
         import time
 
-        from scopen.MF import non_negative_factorization  # type: ignore[import-not-found]
+        from scopen.MF import non_negative_factorization
     except ImportError:
         raise ImportError(
             "scOpen is not available. Install scOpen from PyPI (`pip install scopen`) \
@@ -189,34 +194,35 @@ def scopen(
 
     start = time.time()
 
-    data = cast(Any, adata.X).T
+    x: np.ndarray | spmatrix = adata.X
+    if x is None:
+        raise ValueError("Expected a count matrix, but none was found")
+
     # Make a dense matrix if it's sparse
-    if callable(getattr(data, "toarray", None)):
-        data = data.toarray()
+    toarray = getattr(x, "toarray", None)
+    counts = np.greater(toarray() if callable(toarray) else x, 0).T
 
-    data = np.greater(data, 0)
+    (m, n) = counts.shape
 
-    (m, n) = data.shape
-
-    n_open_regions = np.log10(data.sum(axis=0))
+    n_open_regions = np.log10(counts.sum(axis=0))
     max_n_open_regions = np.max(n_open_regions)
     min_n_open_regions = np.min(n_open_regions)
 
     print(f"Number of peaks: {m}\nNumber of cells: {n}")
-    print(f"Number of non-zeros before imputation: {np.count_nonzero(data)}")
+    print(f"Number of non-zeros before imputation: {np.count_nonzero(counts)}")
 
     rho = min_rho + (max_rho - min_rho) * (max_n_open_regions - n_open_regions) / (
         max_n_open_regions - min_n_open_regions
     )
 
-    data = data[:, :] * (1 / (1 - rho))
+    counts = counts[:, :] * (1 / (1 - rho))
 
     # Run bounded non-negative matrix factorisation
     w_hat, h_hat, _ = non_negative_factorization(
-        X=data, n_components=n_components, alpha=alpha, max_iter=max_iter, verbose=int(verbose)
+        X=counts, n_components=n_components, alpha=alpha, max_iter=max_iter, verbose=int(verbose)
     )
 
-    del data
+    del counts
 
     # Calculate imputed matrix
     m_hat = np.dot(w_hat, h_hat)
@@ -231,4 +237,4 @@ def scopen(
     secs = time.time() - start
     m, s = divmod(secs, 60)
     h, m = divmod(m, 60)
-    print("[total time: ", f"{int(h)}h {int(m)}m {int(s)}s", "]")
+    print(f"[total time: {int(h)}h {int(m)}m {int(s)}s]")

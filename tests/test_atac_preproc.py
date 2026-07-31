@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 from anndata import AnnData
-from scipy.sparse import rand  # type: ignore[import-untyped]
+from scipy.sparse import rand
 
 from muon import atac as ac
 

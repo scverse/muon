@@ -3,6 +3,10 @@
 *~
 buck-out/
 
+# IDEs
+/.idea/
+/.vscode/
+
 # Compiled files
 .venv/
 __pycache__/
@@ -10,6 +14,7 @@ __pycache__/
 
 # Distribution / packaging
 /dist/
+/src/muon/_version.py
 
 # Tests and coverage
 /data/

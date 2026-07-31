@@ -106,6 +106,7 @@ intersphinx_mapping = {
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     "matplotlib": ("https://matplotlib.org/stable/", None),
     "leidenalg": ("https://leidenalg.readthedocs.io/en/stable/", None),
+    "louvain": ("https://louvain-igraph.readthedocs.io/en/latest/", None),
 }
 
 # List of patterns, relative to source directory, that match files and
@@ -139,4 +140,6 @@ nitpick_ignore = [
     # If building the documentation fails because of a missing link that is outside your control,
     # you can add an exception to this list.
     #     ("py:class", "igraph.Graph"),
+    # Placeholder muon defines when louvain-igraph is unavailable, so it has no documentation to link to.
+    ("py:class", "louvain.VertexPartition.LouvainMutableVertexPartition"),
 ]

@@ -1,11 +1,11 @@
 import unittest
 
 import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 import pytest
 from anndata import AnnData
+from mudata import MuData
 
-from muon import MuData
 from muon.utils import _get_values
 
 

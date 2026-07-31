@@ -12,8 +12,8 @@
       "github_user": "scverse",
       "github_repo": "muon",
       "license": "BSD 3-Clause License",
-      "ide_integration": true,
-      "issue_categorization": "labels",
+      "ide_integration": false,
+      "issue_categorization": "issue types",
       "_copy_without_render": [
         ".github/workflows/build.yaml",
         ".github/workflows/test.yaml",

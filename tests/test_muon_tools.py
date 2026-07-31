@@ -1,10 +1,12 @@
+import os
+import tempfile
 import unittest
 
 import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 import pytest
 from anndata import AnnData
-from scipy import sparse  # type: ignore[import-untyped]
+from scipy import sparse
 
 import muon as mu
 from muon import MuData
@@ -12,6 +14,10 @@ from muon import MuData
 
 class TestMOFASimple(unittest.TestCase):
     def setUp(self):
+        tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmpdir.cleanup)
+        self.outfile = os.path.join(tmpdir.name, "mofa.hdf5")
+
         # Create a dataset using 5 factors
         np.random.seed(1000)
         z = np.random.normal(size=(100, 5))
@@ -30,7 +36,7 @@ class TestMOFASimple(unittest.TestCase):
             n_factors=n_factors,
             quiet=True,
             verbose=False,
-            outfile="/tmp/test_mofa_muon_tools.hdf5",
+            outfile=self.outfile,
         )
         y = np.concatenate([self.mdata.mod["y1"].X, self.mdata.mod["y2"].X], axis=1)
         yhat = np.dot(self.mdata.obsm["X_mofa"], self.mdata.varm["LFs"].T)
@@ -99,7 +105,6 @@ class TestMOFA2D:
         n_g1, n_g2 = 10, 20
         d_m1, d_m2 = 30, 40
         k = 5
-        n_g1 + n_g2
 
         # Generate data
         np.random.seed(42)

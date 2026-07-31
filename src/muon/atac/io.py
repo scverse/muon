@@ -2,13 +2,20 @@ from os import PathLike
 from warnings import warn
 
 import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
-import scanpy as sc  # type: ignore[import-untyped]
+import pandas as pd
+import scanpy as sc
 from anndata import AnnData
 
 
 def read_10x_h5(filename: PathLike, atac_only: bool = True, *args, **kwargs) -> AnnData:
-    """Read a 10x Genomics ``.h5`` file, keeping only the ATAC (peak) features by default."""
+    """Read a 10x Genomics ``.h5`` file, keeping only the ATAC (peak) features by default.
+
+    Args:
+        filename: Path to the 10x Genomics HDF5 file (``.h5``).
+        atac_only: Only keep features of type ``Peaks``, discarding e.g. gene expression features.
+        args: Positional arguments passed to :func:`scanpy.read_10x_h5`.
+        kwargs: Keyword arguments passed to :func:`scanpy.read_10x_h5`.
+    """
     adata = sc.read_10x_h5(filename, *args, gex_only=False, **kwargs)
     if atac_only:
         adata = adata[:, [x == "Peaks" for x in adata.var["feature_types"]]]
@@ -16,7 +23,14 @@ def read_10x_h5(filename: PathLike, atac_only: bool = True, *args, **kwargs) -> 
 
 
 def read_10x_mtx(filename: PathLike, atac_only: bool = True, *args, **kwargs) -> AnnData:
-    """Read a 10x Genomics ``mtx`` directory, keeping only the ATAC (peak) features by default."""
+    """Read a 10x Genomics ``mtx`` directory, keeping only the ATAC (peak) features by default.
+
+    Args:
+        filename: Path to the directory with the ``mtx`` matrix and its features and barcodes files.
+        atac_only: Only keep features of type ``Peaks``, discarding e.g. gene expression features.
+        args: Positional arguments passed to :func:`scanpy.read_10x_mtx`.
+        kwargs: Keyword arguments passed to :func:`scanpy.read_10x_mtx`.
+    """
     adata = sc.read_10x_mtx(filename, *args, gex_only=False, **kwargs)
     if atac_only:
         adata = adata[:, [x == "Peaks" for x in adata.var["feature_types"]]]
@@ -24,31 +38,24 @@ def read_10x_mtx(filename: PathLike, atac_only: bool = True, *args, **kwargs) ->
 
 
 def read_snap(filename: PathLike, matrix: str, bin_size: int | None = None):
-    """
-    Read a matrix from a .snap file.
+    """Read a matrix from a ``.snap`` file.
 
-    Parameters
-    ----------
-    filename : str
-            Path to .snap file.
-    matrix : str
-            Count matrix to be read, which can be
-            - cell-by-peak ('peaks', 'PM'),
-            - cell-by-gene ('genes', 'GM'),
-            - cell-by-bin matrix ('bins', 'AM').
-            In the latter case `bin_size` has to be provided.
-    bin_size : Optional[int]
-            Bin size, only relevant and necessary when cells x bins matrix (AM) is read.
+    Args:
+        filename: Path to the ``.snap`` file.
+        matrix: Count matrix to be read, which can be cell-by-peak (``'peaks'``, ``'PM'``),
+            cell-by-gene (``'genes'``, ``'GM'``) or cell-by-bin (``'bins'``, ``'AM'``).
+            In the latter case ``bin_size`` has to be provided.
+        bin_size: Bin size, only relevant and necessary when a cells x bins matrix (AM) is read.
     """
     try:
-        from snaptools import snap  # type: ignore[import-not-found]
+        from snaptools import snap
     except ImportError:
         raise ImportError(
             "SnapTools library is not available. Install SnapTools from PyPI (`pip install snaptools`) or from GitHub (`pip install git+https://github.com/r3fang/SnapTools`)"
         ) from None
 
-    import h5py  # type: ignore[import-untyped]
-    from scipy.sparse import csr_matrix  # type: ignore[import-untyped]
+    import h5py
+    from scipy.sparse import csr_matrix
 
     # Allow both PM and pm
     matrix = matrix.lower()

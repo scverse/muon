@@ -1,12 +1,11 @@
 import warnings
 from collections.abc import Iterable, Sequence
-from typing import Any, cast
 
 import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 from anndata import AnnData
-from mudata import MuData  # type: ignore[import-untyped]
-from scipy.sparse import issparse  # type: ignore[import-untyped]
+from mudata import MuData
+from scipy.sparse import sparray, spmatrix
 
 # Utility functions
 
@@ -86,24 +85,24 @@ def _get_values(
 
     # Handle composite keys, e.g. X_umap:1
     obsm_key = None
-    maybe_index: str | int = 0
+    obsm_index = 0
     if ":" in key and key_mod is None and key not in data.var_names:
         maybe_obsm_key, maybe_index = key.split(":", 1)
         if maybe_obsm_key in data.obsm:
             try:
-                maybe_index = int(maybe_index)
+                obsm_index = int(maybe_index)
             except ValueError:
                 raise ValueError(
                     f"Expected an integer component index after ':' in '{key}', but got '{maybe_index}'."
                 ) from None
-            if maybe_index == 0:
+            if obsm_index == 0:
                 raise ValueError("Enumeration for the components in .obsm starts at 1, by convention.")
             obsm_key = maybe_obsm_key
 
     # .obsm
     if obsm_key:
-        values = data.obsm[obsm_key][:, cast(int, maybe_index) - 1]
-        if issparse(values):
+        values = data.obsm[obsm_key][:, obsm_index - 1]
+        if isinstance(values, sparray | spmatrix):
             values = np.array(values.todense()).squeeze()
         return _maybe_apply_obsmap(values, obsmap)
 
@@ -164,7 +163,8 @@ def _get_values(
                 keysidx = data.var.index.get_indexer_for([key])
                 if keysidx == -1:
                     raise ValueError(f"Key {key} could not be found.")
-                values = cast(Any, data.layers[layer])[:, keysidx[0]]
+                layer_matrix: np.ndarray | sparray | spmatrix = data.layers[layer]
+                values = layer_matrix[:, keysidx[0]]
                 if use_raw:
                     warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}", stacklevel=2)
                 if len(keysidx) > 1:
@@ -181,12 +181,15 @@ def _get_values(
             keysidx = data.var.index.get_indexer_for([key])
             if keysidx == -1:
                 raise ValueError(f"Key {key} could not be found.")
-            values = cast(Any, data.X)[:, keysidx[0]]
+            x = data.X
+            if x is None:
+                raise ValueError(f"Cannot retrieve the key {key}: .X is None.")
+            values = x[:, keysidx[0]]
             if len(keysidx) > 1:
                 warnings.warn(f"Key {key} is not unique in the index, using the first value...", stacklevel=2)
 
-        if issparse(values):
-            values = np.array(cast(Any, values).todense()).squeeze()
+        if isinstance(values, sparray | spmatrix):
+            values = np.array(values.todense()).squeeze()
         values = _maybe_apply_obsmap(values, obsmap)
 
         return values

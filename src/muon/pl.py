@@ -1,15 +1,14 @@
 import warnings
-from collections.abc import Iterable, Sequence
-from typing import Any, cast
+from collections.abc import Iterable, Mapping, Sequence
 
 import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
-import scanpy as sc  # type: ignore[import-untyped]
-import seaborn as sns  # type: ignore[import-untyped]
+import pandas as pd
+import scanpy as sc
+import seaborn as sns
 from anndata import AnnData
 from matplotlib.axes import Axes
-from mudata import MuData  # type: ignore[import-untyped]
-from scipy.sparse import issparse  # type: ignore[import-untyped]
+from mudata import MuData
+from scipy.sparse import issparse
 
 from .utils import _get_values
 
@@ -24,7 +23,7 @@ def scatter(
     y: str | None = None,
     color: str | Sequence[str] | None = None,
     use_raw: bool | None = None,
-    layers: str | Sequence[str] | None = None,
+    layers: str | Sequence[str | None] | None = None,
     **kwargs,
 ):
     """
@@ -49,7 +48,7 @@ def scatter(
     use_raw : Optional[bool], optional (default: None)
         Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
         If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
-    layers : Optional[Union[str, Sequence[str]]], optional (default: None)
+    layers : Optional[Union[str, Sequence[Optional[str]]]], optional (default: None)
         Names of the layers where x, y, and color come from.
         No layer is used by default. A single layer value will be expanded to [layer, layer, layer].
     **kwargs
@@ -59,7 +58,7 @@ def scatter(
         return sc.pl.scatter(data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs)
 
     if isinstance(layers, str) or layers is None:
-        layers = cast(Sequence[str], [layers, layers, layers])
+        layers = [layers, layers, layers]
 
     obs = pd.DataFrame(
         {
@@ -70,11 +69,11 @@ def scatter(
     obs.index = data.obs_names
     if color is not None:
         # Workaround for scanpy#311, scanpy#1497
+        color_obs: pd.DataFrame
         if isinstance(color, str):
-            color_obs = _get_values(data, color, use_raw=use_raw, layer=layers[2])
-            color_obs = pd.DataFrame({color: color_obs})
+            color_obs = pd.DataFrame({color: _get_values(data, color, use_raw=use_raw, layer=layers[2])})
         else:
-            color_obs = cast(pd.DataFrame, _get_values(data, color, use_raw=use_raw, layer=layers[2]))
+            color_obs = _get_values(data, color, use_raw=use_raw, layer=layers[2])
 
         color_obs.index = data.obs_names
         obs = pd.concat([obs, color_obs], axis=1, ignore_index=False)
@@ -103,7 +102,7 @@ def embedding(
     basis: str,
     color: str | Sequence[str] | None = None,
     use_raw: bool | None = None,
-    layer: str | None = None,
+    layer: str | Mapping[str, str | None] | None = None,
     **kwargs,
 ):
     """
@@ -127,8 +126,10 @@ def embedding(
     use_raw : Optional[bool], optional (default: None)
         Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
         If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
-    layer : Optional[str], optional (default: None)
+    layer : Optional[Union[str, Mapping[str, Optional[str]]]], optional (default: None)
         Name of the layer in the modality where a feature (from `color`) is derived from.
+        A mapping from modality names to layer names can be provided
+        in order to use a different layer for each modality.
         No layer is used by default. If a valid `layer` is provided, this takes precedence
         over `use_raw=True`.
     **kwargs
@@ -174,13 +175,11 @@ def embedding(
         return sc.pl.embedding(ad, basis=basis_mod, **kwargs)
 
     # Some `color` has been provided
-    keys: Sequence[str]
     if isinstance(color, str):
-        keys = color = [color]
-    elif isinstance(color, Iterable):
-        keys = color
-    else:
+        color = [color]
+    elif not isinstance(color, Iterable):
         raise TypeError("Expected color to be a string or an iterable.")
+    keys = color
 
     # Fetch respective features
     if not all(key in obs for key in keys):
@@ -232,7 +231,7 @@ def embedding(
                     fmod_adata = data.mod[m][:, mod_keys]
 
                 if layer is not None:
-                    if isinstance(layer, dict):
+                    if isinstance(layer, Mapping):
                         m_layer = layer.get(m, None)
                         if m_layer is not None:
                             x = data.mod[m][:, mod_keys].layers[m_layer]
@@ -249,7 +248,8 @@ def embedding(
                             f"Layer {layer} is not present for the modality {m}, using count matrix instead",
                             stacklevel=2,
                         )
-                x = cast(Any, fmod_adata.X).toarray() if issparse(fmod_adata.X) else fmod_adata.X
+                to_array = getattr(fmod_adata.X, "toarray", None)
+                x = to_array() if callable(to_array) else fmod_adata.X
                 obs = obs.join(
                     pd.DataFrame(x, columns=mod_keys, index=fmod_adata.obs_names),
                     how="left",
@@ -259,7 +259,7 @@ def embedding(
 
     ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp, uns=adata.uns)
     retval = sc.pl.embedding(ad, basis=basis_mod, color=color, **kwargs)
-    for key, col in zip(keys, color, strict=False):
+    for key, col in zip(keys, color, strict=True):
         try:
             adata.uns[f"{key}_colors"] = ad.uns[f"{col}_colors"]
         except KeyError:
@@ -316,7 +316,7 @@ def histogram(
         A string is appended to the default filename.
         Infer the filetype if ending on {`'.pdf'`, `'.png'`, `'.svg'`}.
     """
-    from scanpy.plotting._utils import savefig_or_show  # type: ignore[import-untyped]
+    from scanpy.plotting._utils import savefig_or_show
 
     if not isinstance(data, AnnData) and not isinstance(data, MuData):
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
@@ -324,11 +324,13 @@ def histogram(
     if isinstance(keys, str):
         keys = [keys]
 
-    obs_keys = [i for i in keys if i in data.obs.columns]
+    obs: pd.DataFrame = data.obs
+    obs_keys = [i for i in keys if i in obs.columns]
     var_keys = [i for i in keys if i in data.var.index.values]
-    assert len(obs_keys) + len(var_keys) == len(keys), "Keys should be columns of .obs or some of .var_names"
+    if len(obs_keys) + len(var_keys) != len(keys):
+        raise ValueError("Keys should be columns of .obs or some of .var_names")
 
-    df = cast(Any, data.obs).loc[:, obs_keys]
+    df = obs.loc[:, obs_keys]
 
     # Fetch respective features
     if len(var_keys) > 0:
@@ -351,7 +353,8 @@ def histogram(
                 else:
                     x = adata[:, mod_keys].X
 
-                x = cast(Any, x).toarray() if issparse(x) else x
+                to_array = getattr(x, "toarray", None)
+                x = to_array() if callable(to_array) else x
                 x_df = pd.DataFrame(x, index=adata.obs_names, columns=mod_keys)
                 df = pd.concat([df, x_df], axis=1)
 
@@ -375,7 +378,7 @@ def histogram(
             raise ValueError("Maximum 1 category in groupby with more than 1 key")
 
         if len(groupby) == 1:
-            df = pd.concat((df, cast(Any, data.obs).loc[:, groupby]), axis=1)
+            df = pd.concat((df, obs.loc[:, groupby]), axis=1)
             df = df.melt(id_vars=groupby[0], ignore_index=False)
             g = sns.FacetGrid(df, col=groupby[0], row="variable", sharey=False, sharex=False)
             g.map(hist, "value", **kwags)
@@ -402,7 +405,7 @@ def histogram(
 
 def mofa_loadings(
     mdata: MuData,
-    factors: str | Sequence[int] | np.ndarray | None = None,
+    factors: str | Sequence[int] | None = None,
     include_lowest: bool = True,
     n_points: int | None = None,
     show: bool | None = None,
@@ -430,16 +433,16 @@ def mofa_loadings(
         A string is appended to the default filename.
         Infer the filetype if ending on {`'.pdf'`, `'.png'`, `'.svg'`}.
     """
-    from scanpy.plotting._anndata import ranking  # type: ignore[import-untyped]
+    from scanpy.plotting._anndata import ranking
     from scanpy.plotting._utils import savefig_or_show
 
     if factors is None:
         factors = [1, 2, 3]
     elif isinstance(factors, str):
         factors = [int(x) for x in factors.split(",")]
-    factors = np.array(factors) - 1
+    indices = np.array(factors) - 1
 
-    if np.any(factors < 0):
+    if np.any(indices < 0):
         raise ValueError("Component indices must be greater than zero.")
 
     if n_points is None:
@@ -453,7 +456,7 @@ def mofa_loadings(
             "varm",
             "LFs",
             n_points=n_points,
-            indices=factors,
+            indices=indices,
             include_lowest=include_lowest,
         )
 

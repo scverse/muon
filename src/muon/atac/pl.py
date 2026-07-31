@@ -1,24 +1,27 @@
 import warnings
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
-import scanpy as sc  # type: ignore[import-untyped]
-import seaborn as sns  # type: ignore[import-untyped]
+import pandas as pd
+import scanpy as sc
+import seaborn as sns
 from anndata import AnnData
 from matplotlib.axes import Axes
-from mudata import MuData  # type: ignore[import-untyped]
-from scipy.sparse import issparse  # type: ignore[import-untyped]
+from mudata import MuData
+from scipy.sparse import issparse
 
 from . import tl
 
 
+def _to_dense(x) -> np.ndarray:
+    return np.asarray(x.toarray() if issparse(x) else x)
+
+
 def _average_peaks(
     adata: AnnData,
-    keys: list[str],
+    keys: Iterable[str],
     average: str | None,
     func: str,
     use_raw: bool,
@@ -27,10 +30,15 @@ def _average_peaks(
     # Define the function to be used for aggregation
     if average:
         avg_func = getattr(np, func)
+
+    matrix = adata.layers[layer] if layer else adata.raw.X if use_raw else adata.X
+    if matrix is None:
+        raise ValueError("No count matrix found in .X. Provide a `layer` or set `use_raw=True`.")
+
     # New keys will be placed here
     attr_names = []
     tmp_names = []
-    x = cast(Any, adata.obs).loc[:, []]
+    x = pd.DataFrame(index=adata.obs.index)
     for key in keys:
         if key not in adata.var_names and key not in adata.obs.columns:
             if "atac" not in adata.uns or "peak_annotation" not in adata.uns["atac"]:
@@ -56,21 +64,14 @@ def _average_peaks(
                 tmp_names.append(attr_name)
 
                 if attr_name not in adata.obs.columns:
-                    if layer:
-                        x[attr_name] = np.asarray(
-                            avg_func(cast(Any, adata.layers[layer])[:, peaksidx], axis=1)
-                        ).reshape(-1)
-                    elif use_raw:
-                        x[attr_name] = np.asarray(avg_func(adata.raw.X[:, peaksidx], axis=1)).reshape(-1)
-                    else:
-                        x[attr_name] = np.asarray(avg_func(cast(Any, adata.X)[:, peaksidx], axis=1)).reshape(-1)
+                    x[attr_name] = np.asarray(avg_func(matrix[:, peaksidx], axis=1)).reshape(-1)
 
             elif average == "peak_type":
                 peak_types = peak_sel.peak_type
 
                 # {'promoter': ['chrX:NNN_NNN', ...], 'distal': ['chrX:NNN_NNN', ...]}
                 peak_dict = defaultdict(list)
-                for k, v in zip(peak_types, peaksidx, strict=False):
+                for k, v in zip(peak_types, peaksidx, strict=True):
                     peak_dict[k].append(v)
 
                 # 'CD4 (promoter peaks)', 'CD4 (distal peaks)'
@@ -80,14 +81,7 @@ def _average_peaks(
                     tmp_names.append(attr_name)
 
                     if attr_name not in adata.obs.columns:
-                        if layer:
-                            x[attr_name] = np.asarray(avg_func(cast(Any, adata.layers[layer])[:, p], axis=1)).reshape(
-                                -1
-                            )
-                        elif use_raw:
-                            x[attr_name] = np.asarray(avg_func(adata.raw.X[:, p], axis=1)).reshape(-1)
-                        else:
-                            x[attr_name] = np.asarray(avg_func(cast(Any, adata.X)[:, p], axis=1)).reshape(-1)
+                        x[attr_name] = np.asarray(avg_func(matrix[:, np.asarray(p)], axis=1)).reshape(-1)
 
             else:
                 # No averaging, one plot per peak
@@ -97,30 +91,13 @@ def _average_peaks(
                         stacklevel=2,
                     )
                 attr_names += list(peaks.values)
-                if layer:
-                    x_peaks = cast(Any, adata.layers[layer])[:, peaksidx]
-                elif use_raw:
-                    x_peaks = adata.raw.X[:, peaksidx]
-                else:
-                    x_peaks = cast(Any, adata.X)[:, peaksidx]
-                if issparse(x_peaks):
-                    x_peaks = x_peaks.toarray()
-                x_peaks = pd.DataFrame(np.asarray(x_peaks), columns=peaks.values, index=x.index)
+                x_peaks = pd.DataFrame(_to_dense(matrix[:, peaksidx]), columns=peaks.values, index=x.index)
                 x = pd.concat([x, x_peaks], axis=1)
 
         else:
             attr_names.append(key)
             keyloc = adata.var.index.get_loc(key)
-            if layer:
-                x_peak = cast(Any, adata.layers[layer])[:, keyloc]
-            elif use_raw:
-                x_peak = adata.raw.X[:, keyloc]
-            else:
-                x_peak = cast(Any, adata.X)[:, keyloc]
-            if issparse(x_peak):
-                x_peak = x_peak.toarray()
-            x_peak = x_peak.reshape(-1)
-            x[key] = x_peak
+            x[key] = _to_dense(matrix[:, keyloc]).reshape(-1)
 
     return (x, attr_names, tmp_names)
 
@@ -130,7 +107,7 @@ def embedding(
     basis: str,
     color: str | list[str] | None = None,
     average: str | None = "total",
-    func: str | None = "mean",
+    func: str = "mean",
     use_raw: bool = True,
     layer: str | None = None,
     **kwargs,
@@ -156,7 +133,7 @@ def embedding(
             raise TypeError("Expected color to be a string or an iterable.")
 
         x, attr_names, _ = _average_peaks(
-            adata=adata, keys=keys, average=average, func=cast(str, func), use_raw=use_raw, layer=layer
+            adata=adata, keys=keys, average=average, func=func, use_raw=use_raw, layer=layer
         )
         ad = AnnData(x, obs=adata.obs, obsm=adata.obsm)
         retval = sc.pl.embedding(ad, basis=basis, color=attr_names, **kwargs)
@@ -212,8 +189,8 @@ def dotplot(
     var_names: str | Sequence[str] | Mapping[str, str | Sequence[str]],
     groupby: str | None = None,
     average: str | None = "total",
-    func: str | None = "mean",
-    use_raw: bool | None = None,
+    func: str = "mean",
+    use_raw: bool = False,
     layer: str | None = None,
     **kwargs,
 ):
@@ -229,10 +206,11 @@ def dotplot(
     else:
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
+    keys: Iterable[str]
     if isinstance(var_names, str):
         keys = [var_names]
     elif isinstance(var_names, Iterable):
-        keys = cast("list[str]", var_names)
+        keys = var_names
     else:
         raise TypeError("Expected var_names to be a string or an iterable.")
 
@@ -240,8 +218,8 @@ def dotplot(
         adata=adata,
         keys=keys,
         average=average,
-        func=cast(str, func),
-        use_raw=cast(bool, use_raw),
+        func=func,
+        use_raw=use_raw,
         layer=layer,
     )
     ad = AnnData(x, obs=adata.obs)
@@ -276,9 +254,8 @@ def tss_enrichment(
         if isinstance(color, str):
             color = [color]
 
-        groups = cast(Any, data.obs).groupby(color)
-
-        for name, group in groups:
+        obs: pd.DataFrame = data.obs
+        for name, group in obs.groupby(color):
             ad = data[group.index]
             _tss_enrichment_single(ad, ax, label=name)
     else:
@@ -296,14 +273,15 @@ def tss_enrichment(
 
 def _tss_enrichment_single(data: AnnData, ax: Axes, sd: bool = False, *args, **kwargs):
     x = data.var["TSS_position"]
-    means = cast(Any, data.X).mean(axis=0)
+    pileup = _to_dense(data.X)
+    means = pileup.mean(axis=0)
     ax.plot(x, means, **kwargs)
     if sd:
-        sd = np.sqrt(cast(Any, data.X).var(axis=0))
+        stddev = np.sqrt(pileup.var(axis=0))
         plt.fill_between(
             x,
-            means - sd,
-            means + sd,
+            means - stddev,
+            means + stddev,
             alpha=0.2,
         )
 
@@ -337,7 +315,7 @@ def fragment_histogram(
         A string is appended to the default filename.
         Infer the filetype if ending on {`'.pdf'`, `'.png'`, `'.svg'`}.
     """
-    from scanpy.plotting._utils import savefig_or_show  # type: ignore[import-untyped]
+    from scanpy.plotting._utils import savefig_or_show
 
     if isinstance(data, AnnData):
         adata = data
@@ -351,10 +329,11 @@ def fragment_histogram(
 
     fragments["length"] = fragments.End - fragments.Start
     fragments.set_index(keys="Cell", inplace=True)
-    if barcodes and barcodes in adata.obs.columns:
-        fragments = fragments.join(cast(Any, adata.obs).set_index(barcodes), how="right")
+    obs: pd.DataFrame = adata.obs
+    if barcodes and barcodes in obs.columns:
+        fragments = fragments.join(obs.set_index(barcodes), how="right")
     else:
-        fragments = fragments.join(adata.obs, how="right")
+        fragments = fragments.join(obs, how="right")
 
     # Handle sns.distplot deprecation and sns.histplot addition
     hist = sns.histplot if hasattr(sns, "histplot") else sns.distplot

@@ -5,19 +5,19 @@ from collections.abc import Iterable
 from contextlib import suppress
 from datetime import datetime
 from glob import glob
+from itertools import islice
 from pathlib import Path
-from typing import Any, cast
 from warnings import warn
 
 import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
-import scanpy as sc  # type: ignore[import-untyped]
+import pandas as pd
+import scanpy as sc
 from anndata import AnnData
-from mudata import MuData  # type: ignore[import-untyped]
+from mudata import MuData
 from scanpy import logging
-from scipy.sparse import lil_matrix  # type: ignore[import-untyped]
-from scipy.sparse.linalg import svds  # type: ignore[import-untyped]
-from tqdm import tqdm  # type: ignore[import-untyped]
+from scipy.sparse import lil_matrix
+from scipy.sparse.linalg import svds
+from tqdm import tqdm
 
 from muon.rna.utils import get_gene_annotation_from_rna
 
@@ -44,7 +44,7 @@ def lsi(data: AnnData | MuData, scale_embeddings=True, n_comps=50):
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
     # In an unlikely scnenario when there are less 50 features, set n_comps to that value
-    n_comps = min(n_comps, adata.X.shape[1])  # type: ignore[union-attr]
+    n_comps = min(n_comps, adata.n_vars)
 
     logging.info("Performing SVD")
     cell_embeddings, svalues, peaks_loadings = svds(adata.X, k=n_comps)
@@ -57,7 +57,7 @@ def lsi(data: AnnData | MuData, scale_embeddings=True, n_comps=50):
     if scale_embeddings:
         cell_embeddings = (cell_embeddings - cell_embeddings.mean(axis=0)) / cell_embeddings.std(axis=0)
 
-    stdev = svalues / np.sqrt(adata.X.shape[0] - 1)  # type: ignore[union-attr]
+    stdev = svalues / np.sqrt(adata.n_obs - 1)
 
     adata.obsm["X_lsi"] = cell_embeddings
     adata.uns["lsi"] = {"stdev": stdev}
@@ -177,6 +177,9 @@ def add_peak_annotation_gene_names(
     """
     if isinstance(data, AnnData):
         adata = data
+
+        if gene_names is None:
+            raise ValueError("`gene_names` has to be provided as a pd.DataFrame when passing an AnnData object.")
     elif isinstance(data, MuData) and "atac" in data.mod:
         adata = data.mod["atac"]
 
@@ -187,9 +190,6 @@ def add_peak_annotation_gene_names(
                 raise ValueError("There is no .mod['rna'] modality. Provide `gene_names` as a pd.DataFrame.")
     else:
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
-
-    if gene_names is None:
-        raise ValueError("`gene_names` has to be provided as a pd.DataFrame when passing an AnnData object.")
 
     if "atac" not in adata.uns or "peak_annotation" not in adata.uns["atac"]:
         raise KeyError("There is no peak annotation yet. Run muon.atac.tl.add_peak_annotation first.")
@@ -373,8 +373,8 @@ def _parse_motif_matrices(
     pseudocount: float = 0.0001,
 ):
     try:
-        import MOODS.parsers  # type: ignore[import-not-found]
-        import MOODS.tools  # type: ignore[import-not-found]
+        import MOODS.parsers
+        import MOODS.tools
     except ImportError:
         raise ImportError(
             "MOODS is not available. Install MOODS from PyPI (`pip install MOODS-python`) \
@@ -396,7 +396,7 @@ def _parse_motif_matrices(
 
 def _prepare_motif_scanner(matrices=None, background: int | Iterable = 4, pvalue: float = 0.0001, max_hits: int = 10):
     try:
-        import MOODS.scan  # type: ignore[import-not-found]
+        import MOODS.scan
         import MOODS.tools
     except ImportError:
         raise ImportError(
@@ -442,23 +442,16 @@ def scan_sequences(
     matches
         Pandas dataframe with matched motifs and respective sequence IDs.
     """
-    try:
-        import MOODS.scan  # noqa: F401
-    except ImportError:
-        raise ImportError(
-            "MOODS is not available. Install MOODS from PyPI (`pip install MOODS-python`) or from GitHub (`pip install git+https://github.com/jhkorhonen/MOODS`)"
-        ) from None
-
-    if motifs is None:
-        assert matrices is None, (
+    if motifs is None and matrices is not None:
+        raise ValueError(
             "Both a list of matrices and a corresponding list of motif IDs should be provided — or none to use the built-in ones, unless a scanner is provided."
         )
 
     if motif_scanner is None:
         if matrices is None:
             motifs = _parse_motif_matrices(files=None, background=background)["motifs"]
-        else:
-            assert motifs is not None, "A list of motif IDs should be provided if building a scanner from matrices"
+        elif motifs is None:
+            raise ValueError("A list of motif IDs should be provided if building a scanner from matrices")
 
         motif_scanner = _prepare_motif_scanner(
             matrices=matrices, background=background, pvalue=pvalue, max_hits=max_hits
@@ -468,8 +461,8 @@ def scan_sequences(
             # For the default scanner, use the default metadata
             motif_meta = _parse_motif_ids()
 
-    else:
-        assert motifs is not None, (
+    elif motifs is None:
+        raise ValueError(
             "A list of motif IDs should be provided that corresponds to the matrices that the motif scanner was built on."
         )
 
@@ -492,7 +485,7 @@ def scan_sequences(
 def get_sequences(data: AnnData | MuData, bed: str, fasta_file: str, bed_file: str | None = None):
     """Fetch nucleotide sequences for the regions in a BED string or file from a FASTA file."""
     try:
-        import pybedtools  # type: ignore[import-not-found]
+        import pybedtools
     except ImportError:
         raise ImportError(
             "Pybedtools is not available. Install pybedtools from PyPI (`pip install pybedtools`) or from GitHub (`pip install git+https://github.com/daler/pybedtools`)"
@@ -634,7 +627,7 @@ def locate_fragments(data: AnnData | MuData, fragments: str, return_fragments: b
             raise TypeError("Expected AnnData or MuData object with 'atac' modality")
 
         try:
-            import pysam  # type: ignore[import-not-found]
+            import pysam
         except ImportError:
             raise ImportError(
                 "pysam is not available. It is required to work with the fragments file. \
@@ -651,14 +644,13 @@ def locate_fragments(data: AnnData | MuData, fragments: str, return_fragments: b
 
         if return_fragments:
             return frag
+        # The connection has to be closed
+        frag.close()
 
-    except Exception as e:  # noqa: BLE001
-        print(e)
-
-    finally:
-        if frag is not None and not return_fragments:
-            # The connection has to be closed
+    except Exception:
+        if frag is not None:
             frag.close()
+        raise
 
 
 def initialise_default_files(data: AnnData | MuData, path: str | Path):
@@ -717,7 +709,7 @@ def count_fragments_features(
     data: AnnData | MuData,
     features: pd.DataFrame | None = None,
     stranded: bool = False,
-    extend_upstream: int | float = 2e3,
+    extend_upstream: float = 2e3,
     extend_downstream: int = 0,
     count_reads: bool = True,
 ) -> AnnData:
@@ -882,7 +874,8 @@ def tss_enrichment(
         barcodes: Column name in the ``.obs`` of the AnnData with barcodes corresponding to
             the ones in the fragments file.
 
-    Returns an AnnData object with a ``tss_score`` column in the ``.obs`` slot when ``return_tss`` is set.
+    Returns: The TSS pileup as an AnnData object with a ``tss_score`` column in its ``.obs`` slot
+        when ``return_tss`` is set, ``None`` otherwise.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -971,9 +964,9 @@ def _tss_pileup(
 
     # Dictionary with matrix positions
     if barcodes and barcodes in adata.obs.columns:
-        d = dict(zip(adata.obs.loc[:, barcodes], range(n), strict=False))  # type: ignore[union-attr]
+        d = dict(zip(adata.obs.loc[:, barcodes], range(n), strict=True))  # type: ignore[union-attr]
     else:
-        d = dict(zip(adata.obs.index, range(n), strict=False))
+        d = dict(zip(adata.obs.index, range(n), strict=True))
 
     # Not sparse since we expect most positions to be filled
     mx = np.zeros((n, n_features), dtype=int)
@@ -1022,7 +1015,10 @@ def _calculate_tss_score(data: AnnData, flank_size: int = 100, center_size: int 
     center_size
         Number of nucleotides in the center on either side of the region (ENCODE standard: 1001bp).
     """
-    x = cast(Any, data.X)
+    x = data.X
+    if not isinstance(x, np.ndarray):
+        raise TypeError(f"Expected a dense TSS pileup in .X, got {type(x).__name__}.")
+
     region_size = x.shape[1]
 
     if center_size > region_size:
@@ -1094,21 +1090,18 @@ def nucleosome_signal(
 
     # Dictionary with matrix row indices
     if barcodes and barcodes in adata.obs.columns:
-        d = dict(zip(adata.obs.loc[:, barcodes], range(adata.n_obs), strict=False))  # type: ignore[union-attr]
+        d = dict(zip(adata.obs.loc[:, barcodes], range(adata.n_obs), strict=True))  # type: ignore[union-attr]
     else:
-        d = dict(zip(adata.obs.index, range(adata.n_obs), strict=False))
+        d = dict(zip(adata.obs.index, range(adata.n_obs), strict=True))
     mat = np.zeros(shape=(adata.n_obs, 2), dtype=int)
-
-    fr = fragments.fetch()
 
     if n is None:
         n = int(adata.n_obs * 1e4)
     else:
         n = int(n)  # Cast n to int
 
-    for _i in tqdm(range(n), desc="Reading Fragments"):
+    for f in tqdm(islice(fragments.fetch(), n), total=n, desc="Reading Fragments"):
         try:
-            f = next(fr)
             length = f.end - f.start
             row_ind = d[f.name]
             if length < nucleosome_free_upper_bound:
@@ -1117,8 +1110,6 @@ def nucleosome_signal(
                 mat[row_ind, 1] += 1
         except KeyError:
             pass
-        # if i % 1000000 == 0:
-        #     print(f"Read {i/1000000} Mio. fragments.", end='\r')
 
     # Prevent division by 0
     mat[mat[:, 0] == 0, :] += 1

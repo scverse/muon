@@ -1,6 +1,6 @@
 import re
 
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 
 
 def parse_region_string(region: str) -> pd.DataFrame:

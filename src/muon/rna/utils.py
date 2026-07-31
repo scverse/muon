@@ -1,4 +1,4 @@
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 from anndata import AnnData
 
 from muon import MuData
@@ -18,9 +18,9 @@ def get_gene_annotation_from_rna(data: AnnData | MuData) -> pd.DataFrame:
         raise TypeError("Expected AnnData or MuData object with 'rna' modality")
 
     if "interval" in adata.var.columns:
-        features = pd.DataFrame([s.replace(":", "-", 1).split("-") for s in adata.var.interval])  # type: ignore[union-attr]
+        features = pd.DataFrame([s.replace(":", "-", 1).split("-") for s in adata.var["interval"]])
         features.columns = ["Chromosome", "Start", "End"]
-        features["gene_id"] = adata.var.gene_ids.values  # type: ignore[union-attr]
+        features["gene_id"] = adata.var["gene_ids"].values
         features["gene_name"] = adata.var.index.values
         features.index = adata.var.index
         # Remove genes with no coordinates indicated
