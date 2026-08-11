@@ -19,7 +19,7 @@ def tfidf(
     copy: bool = False,
     from_layer: str | None = None,
     to_layer: str | None = None,
-):
+) -> np.ndarray | spmatrix | AnnData | None:
     """Transform peak counts with TF-IDF (Term Frequency - Inverse Document Frequency).
 
     TF: peak counts are normalised by total number of counts per cell
@@ -28,29 +28,19 @@ def tfidf(
 
     By default, log(TF) * log(IDF) is returned.
 
-    Parameters
-    ----------
-    data
-            AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-    log_idf
-            Log-transform IDF term (True by default).
-    log_tf
-            Log-transform TF term (True by default).
-    log_tfidf
-            Log-transform TF*IDF term (False by default).
+    Args:
+        data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+        log_idf: Log-transform IDF term (True by default).
+        log_tf: Log-transform TF term (True by default).
+        log_tfidf: Log-transform TF*IDF term (False by default).
             Can only be used when log_tf and log_idf are False.
-    scale_factor
-            Scale factor to multiply the TF-IDF matrix by (1e4 by default).
-    inplace
-            If to modify counts in the AnnData object (True by default).
-    copy
-            If to return a copy of the AnnData object or the 'atac' modality (False by default).
+        scale_factor: Scale factor to multiply the TF-IDF matrix by (1e4 by default).
+        inplace: If to modify counts in the AnnData object (True by default).
+        copy: If to return a copy of the AnnData object or the 'atac' modality (False by default).
             Not compatible with inplace=False.
-    from_layer
-            Layer to use counts (AnnData.layers[from_layer])
+        from_layer: Layer to use counts (AnnData.layers[from_layer])
             instead of AnnData.X used by default.
-    to_layer
-            Layer to save transformed counts to (AnnData.layers[to_layer])
+        to_layer: Layer to save transformed counts to (AnnData.layers[to_layer])
             instead of AnnData.X used by default.
             Not compatible with inplace=False.
     """
@@ -125,14 +115,14 @@ def tfidf(
     if copy:
         return adata
 
+    return None
 
-def binarize(data: AnnData | MuData):
+
+def binarize(data: AnnData | MuData) -> None:
     """Transform peak counts to the binary matrix (all the non-zero values become 1).
 
-    Parameters
-    ----------
-    data
-            AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+    Args:
+        data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -160,17 +150,21 @@ def scopen(
     max_rho: float = 0.5,
     alpha: int = 1,
     verbose: bool = False,
-):
+) -> None:
     """Run scOpen (Li et al., 2019, https://doi.org/10.1101/865931) on the count matrix.
 
     This function follows the original implementation of the main method
     (https://github.com/CostaLab/scopen/blob/master/scopen/Main.py)
     adapting it for AnnDaata and MuData formats.
 
-    Parameters
-    ----------
-    data
-            AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+    Args:
+        data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+        n_components: Number of components of the matrix factorisation.
+        max_iter: Number of iterations for the optimisation.
+        min_rho: Lower bound of the per-cell dropout rate that the number of open regions is scaled to.
+        max_rho: Upper bound of the per-cell dropout rate that the number of open regions is scaled to.
+        alpha: Parameter for model regularisation to prevent from over-fitting.
+        verbose: If to print the progress of the matrix factorisation.
     """
     if isinstance(data, AnnData):
         adata = data

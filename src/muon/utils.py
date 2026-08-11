@@ -29,24 +29,18 @@ def _get_values(
     An AnnData object is returned with the requested variables
     available in .obs so that scanpy.pl interface can be reused.
 
-    Parameters
-    ----------
-    data : Union[AnnData, MuData]
-        MuData or AnnData object
-    key : Optional[str]
-        String to search for
-    use_raw : Optional[bool], optional (default: None)
-        Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
-        If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
-    layer : Optional[str], optional (default: None)
-        Name of the layer in the modality where a feature (from `color`) is derived from.
-        No layer is used by default. If a valid `layer` is provided, this takes precedence
-        over `use_raw=True`.
-    obsmap : Optional[np.ndarray], optional (default: None)
-        Provide a vector of the desired size were 0 are missing values and non-zero values
-        correspond to the 1-based index of the value.
-        This is used internally for when AnnData as a modality has less observations
-        than MuData has globally (i.e. other modalities have other cells).
+    Args:
+        data: MuData or AnnData object
+        key: String to search for
+        use_raw: Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
+            If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
+        layer: Name of the layer in the modality where a feature (from `color`) is derived from.
+            No layer is used by default. If a valid `layer` is provided, this takes precedence
+            over `use_raw=True`.
+        obsmap: Provide a vector of the desired size were 0 are missing values and non-zero values
+            correspond to the 1-based index of the value.
+            This is used internally for when AnnData as a modality has less observations
+            than MuData has globally (i.e. other modalities have other cells).
     """
     if key is None:
         return None

@@ -621,13 +621,11 @@ def neighbors(
 # Utility functions: intersecting observations
 
 
-def intersect_obs(mdata: MuData):
+def intersect_obs(mdata: MuData) -> None:
     """Subset observations (samples or cells) in-place taking observations present only in all modalities.
 
-    Parameters
-    ----------
-    mdata: MuData
-            MuData object
+    Args:
+        mdata: MuData object
     """
     if mdata.isbacked:
         warnings.warn(
@@ -656,14 +654,11 @@ def _filter_attr(
 ) -> None:
     """Filter observations or variables in-place.
 
-    Parameters
-    ----------
-    data: AnnData or MuData
-            AnnData or MuData object
-    key: str or Sequence[str]
-            Names or key to filter
-    func
-            Function to apply to the variable used for filtering.
+    Args:
+        data: AnnData or MuData object
+        attr: Attribute to filter, either ``"obs"`` or ``"var"``
+        key: Names or key to filter
+        func: Function to apply to the variable used for filtering.
             If the variable is of type boolean and func is an identity function,
             the func argument can be omitted.
     """
@@ -811,15 +806,11 @@ def _filter_attr(
 def filter_obs(data: AnnData | MuData, var: str | Sequence[str], func: Callable | None = None) -> None:
     """Filter observations (samples or cells) in-place using any column in .obs or in .X.
 
-    Parameters
-    ----------
-    data: AnnData or MuData
-            AnnData or MuData object
-    var: str or Sequence[str]
-            Column name in .obs or in .X to be used for filtering.
+    Args:
+        data: AnnData or MuData object
+        var: Column name in .obs or in .X to be used for filtering.
             Alternatively, obs_names can be provided directly.
-    func
-            Function to apply to the variable used for filtering.
+        func: Function to apply to the variable used for filtering.
             If the variable is of type boolean and func is an identity function,
             the func argument can be omitted.
     """
@@ -828,18 +819,14 @@ def filter_obs(data: AnnData | MuData, var: str | Sequence[str], func: Callable 
     return
 
 
-def filter_var(data: AnnData | MuData, var: str | Sequence[str], func: Callable | None = None):
+def filter_var(data: AnnData | MuData, var: str | Sequence[str], func: Callable | None = None) -> None:
     """Filter variables (features, e.g. genes) in-place using any column in .var or row in .X.
 
-    Parameters
-    ----------
-    data: AnnData or MuData
-            AnnData or MuData object
-    var: str or Sequence[str]
-            Column name in .var or row name in .X to be used for filtering.
+    Args:
+        data: AnnData or MuData object
+        var: Column name in .var or row name in .X to be used for filtering.
             Alternatively, var_names can be provided directly.
-    func
-            Function to apply to the variable used for filtering.
+        func: Function to apply to the variable used for filtering.
             If the variable is of type boolean and func is an identity function,
             the func argument can be omitted.
     """
@@ -856,7 +843,7 @@ def sample_obs(
     frac: float = 0.1,
     groupby: str | None = None,
     min_n: int | None = None,
-):
+) -> AnnData | MuData:
     """Return a view with a subsample of the observations.
 
     Args:

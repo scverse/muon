@@ -65,17 +65,16 @@ def _set_mofa_data_from_mudata(
 ):
     """Input the data in MuData format.
 
-    Parameters
-    ----------
-    model: MOFA+ model entry point object
-    mdata: a MuData object
-    groups_label : optional: a column name in adata.obs for grouping the samples
-    use_raw : optional: use raw slot of AnnData as input values
-    use_layer : optional: use a specific layer of AnnData as input values (supersedes use_raw option)
-    likelihoods : optional: likelihoods to use (guessed from the data if not provided)
-    features_subset : optional: .var column with a boolean value to select genes (e.g. "highly_variable"), None by default
-    save_metadata : optional: save metadata for samples (cells) and for features
-    use_obs : optional: 'union' or 'intersection', relevant when not all samples (cells) are the same across views
+    Args:
+        model: MOFA+ model entry point object
+        mdata: a MuData object
+        groups_label: a column name in adata.obs for grouping the samples
+        use_raw: use raw slot of AnnData as input values
+        use_layer: use a specific layer of AnnData as input values (supersedes use_raw option)
+        likelihoods: likelihoods to use (guessed from the data if not provided)
+        features_subset: .var column with a boolean value to select genes (e.g. "highly_variable"), None by default
+        save_metadata: save metadata for samples (cells) and for features
+        use_obs: 'union' or 'intersection', relevant when not all samples (cells) are the same across views
     """
     try:
         from mofapy2.build_model.utils import guess_likelihoods, process_data
@@ -311,92 +310,53 @@ def mofa(
     verbose: bool = False,
     quiet: bool = True,
     copy: bool = False,
-):
+) -> AnnData | MuData | None:
     """Run Multi-Omics Factor Analysis.
 
-    Parameters
-    ----------
-    data
-            an MuData object
-    groups_label : optional
-            a column name in adata.obs for grouping the samples
-    use_raw : optional
-            use raw slot of AnnData as input values
-    use_layer : optional
-            use a specific layer of AnnData as input values (supersedes use_raw option)
-    use_var : optional
-            .var column with a boolean value to select genes (e.g. "highly_variable"), None by default
-    use_obs : optional
-            strategy to deal with samples (cells) not being the same across modalities ("union" or "intersection", throw error by default)
-    likelihoods : optional
-            likelihoods to use, default is guessed from the data
-    n_factors : optional
-            number of factors to train the model with
-    scale_views : optional
-            scale views to unit variance
-    scale_groups : optional
-            scale groups to unit variance
-    center_groups : optional
-            center groups to zero mean (True by default)
-    ard_weights : optional
-            use view-wise sparsity
-    ard_factors : optional
-            use group-wise sparsity
-    spikeslab_weights : optional
-            use feature-wise sparsity (e.g. gene-wise)
-    spikeslab_factors : optional
-            use sample-wise sparsity (e.g. cell-wise)
-    n_iterations : optional
-            upper limit on the number of iterations
-    convergence_mode : optional
-            fast, medium, or slow convergence mode
-    use_float32 : optional
-            use reduced precision (float32)
-    gpu_mode : optional
-            if to use GPU mode
-    gpu_device : optional
-            which GPU device to use
-    svi_mode : optional
-            if to use Stochastic Variational Inference (SVI)
-    svi_batch_size : optional
-            batch size as a fraction (only applicable when svi_mode=True, 0.5 by default)
-    svi_learning_rate : optional
-            learning rate (only applicable when svi_mode=True, 1.0 by default)
-    svi_forgetting_rate : optional
-            forgetting_rate (only applicable when svi_mode=True, 0.5 by default)
-    svi_start_stochastic : optional
-            first iteration to start SVI (only applicable when svi_mode=True, 1 by default)
-    smooth_covariate : optional
-            use a covariate (column in .obs) to learn smooth factors (MEFISTO)
-    smooth_warping : optional
-            if to learn the alignment of covariates (e.g. time points) from different groups;
+    Args:
+        data: an MuData object
+        groups_label: a column name in adata.obs for grouping the samples
+        use_raw: use raw slot of AnnData as input values
+        use_layer: use a specific layer of AnnData as input values (supersedes use_raw option)
+        use_var: .var column with a boolean value to select genes (e.g. "highly_variable"), None by default
+        use_obs: strategy to deal with samples (cells) not being the same across modalities ("union" or "intersection", throw error by default)
+        likelihoods: likelihoods to use, default is guessed from the data
+        n_factors: number of factors to train the model with
+        scale_views: scale views to unit variance
+        scale_groups: scale groups to unit variance
+        center_groups: center groups to zero mean (True by default)
+        ard_weights: use view-wise sparsity
+        ard_factors: use group-wise sparsity
+        spikeslab_weights: use feature-wise sparsity (e.g. gene-wise)
+        spikeslab_factors: use sample-wise sparsity (e.g. cell-wise)
+        n_iterations: upper limit on the number of iterations
+        convergence_mode: fast, medium, or slow convergence mode
+        use_float32: use reduced precision (float32)
+        gpu_mode: if to use GPU mode
+        gpu_device: which GPU device to use
+        svi_mode: if to use Stochastic Variational Inference (SVI)
+        svi_batch_size: batch size as a fraction (only applicable when svi_mode=True, 0.5 by default)
+        svi_learning_rate: learning rate (only applicable when svi_mode=True, 1.0 by default)
+        svi_forgetting_rate: forgetting_rate (only applicable when svi_mode=True, 0.5 by default)
+        svi_start_stochastic: first iteration to start SVI (only applicable when svi_mode=True, 1 by default)
+        smooth_covariate: use a covariate (column in .obs) to learn smooth factors (MEFISTO)
+        smooth_warping: if to learn the alignment of covariates (e.g. time points) from different groups;
             by default, the first group is used as a reference, which can be adjusted by setting
             the REF_GROUP in smooth_kwargs = { "warping_ref": REF_GROUP } (MEFISTO)
-    smooth_kwargs : optional
-            additional arguments for MEFISTO (covariates_names, scale_cov, start_opt, n_grid, opt_freq,
+        smooth_kwargs: additional arguments for MEFISTO (covariates_names, scale_cov, start_opt, n_grid, opt_freq,
             warping_freq, warping_ref, warping_open_begin, warping_open_end,
             sparseGP, frac_inducing, model_groups, new_values)
-    save_parameters : optional
-            if to save training parameters
-    save_data : optional
-            if to save training data
-    save_metadata : optional
-            if to load metadata from the AnnData object (.obs and .var tables) and save it, False by default
-    seed : optional
-            random seed
-    outfile : optional
-            path to HDF5 file to store the model
-    expectations : optional
-            which nodes should be used to save expectations for (will save only W and Z by default);
+        save_parameters: if to save training parameters
+        save_data: if to save training data
+        save_metadata: if to load metadata from the AnnData object (.obs and .var tables) and save it, False by default
+        seed: random seed
+        outfile: path to HDF5 file to store the model
+        expectations: which nodes should be used to save expectations for (will save only W and Z by default);
             possible expectation names include Y, W, Z, Tau, AlphaZ, AlphaW, ThetaW, ThetaZ
-    save_interrupted : optional
-            if to save partially trained model when the training is interrupted
-    verbose : optional
-            print verbose information during traing
-    quiet : optional
-            silence messages during training procedure
-    copy : optional
-            return a copy of AnnData instead of writing to the provided object
+        save_interrupted: if to save partially trained model when the training is interrupted
+        verbose: print verbose information during traing
+        quiet: silence messages during training procedure
+        copy: return a copy of AnnData instead of writing to the provided object
     """
     try:
         from mofapy2.run.entry_point import entry_point
@@ -702,25 +662,20 @@ def snf(
     Reference implementation can be found in the SNFtool R package:
     https://github.com/cran/SNFtool/blob/master/R/SNF.R
 
-    Parameters
-    ----------
-    mdata:
-            MuData object
-    n_neighbors: int (default: 20)
-            Number of neighbours to be used in the K-nearest neighbours step
-    neighbor_keys: Keys in .uns where per-modality neighborhood information is stored. Defaults to ``"neighbors"``.
+    Args:
+        mdata: MuData object
+        n_neighbors: Number of neighbours to be used in the K-nearest neighbours step
+        neighbor_keys: Keys in .uns where per-modality neighborhood information is stored. Defaults to ``"neighbors"``.
             If set as a dictionary, only the modalities present in ``neighbor_keys`` will be used for multimodal nearest neighbor search.
             If set as a string, has to exist in all modalities.
-    key_added: If not specified, the multimodal neighbors data is stored in ``.uns["neighbors"]``, distances and
+        key_added: If not specified, the multimodal neighbors data is stored in ``.uns["neighbors"]``, distances and
             connectivities are stored in ``.obsp["distances"]`` and ``.obsp["connectivities"]``, respectively. If specified, the
             neighbors data is added to ``.uns[key_added]``, distances are stored in ``.obsp[key_added + "_distances"]`` and
             connectivities in ``.obsp[key_added + "_connectivities"]``.
-    n_iterations: int (default: 20)
-            Number of iterations for the diffusion process
-    sigma: float (default: 0.5)
-            Variance for the local model when calculating affinity matrices
-    eps: Small number to avoid numerical errors.
-    copy: Return a copy instead of writing to ``mdata``.
+        n_iterations: Number of iterations for the diffusion process
+        sigma: Variance for the local model when calculating affinity matrices
+        eps: Small number to avoid numerical errors.
+        copy: Return a copy instead of writing to ``mdata``.
     """
     import scipy.stats as stats
 
@@ -765,14 +720,10 @@ def snf(
         Reference implementation can be found in the SNFtool R package:
         https://github.com/cran/SNFtool/blob/master/R/affinityMatrix.R
 
-        Parameters
-        ----------
-        mdata:
-                MuData object
-        k: int (default: 20)
-                Number of neighbours to be used in the K-nearest neighbours step
-        sigma: float (default: 0.5)
-                Variance for the local model when calculating affinity matrices
+        Args:
+            dist: Distance matrix
+            k: Number of neighbours to be used in the K-nearest neighbours step
+            sigma: Variance for the local model when calculating affinity matrices
         """
         dist = (dist + dist.T) / 2
         if issparse(dist):
@@ -904,7 +855,7 @@ def _cluster(
     partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
     algorithm: str = "leiden",  # Literal["leiden", "louvain"]
     **kwargs,
-):
+) -> AnnData | None:
     """Cluster cells using the Leiden or Louvain algorithm.
 
     See :func:`scanpy.tl.leiden` and :func:`scanpy.tl.louvain` for details.
@@ -1031,7 +982,7 @@ def leiden(
     partition_type: type[LeidenMutableVertexPartition] | None = None,
     partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
     **kwargs,
-):
+) -> AnnData | None:
     """Cluster cells using the Leiden algorithm.
 
     This runs only the multiplex Leiden algorithm on the MuData object
@@ -1042,42 +993,31 @@ def leiden(
     For taking use of ``mdata.obsp['connectivities']``, it's :func:`scanpy.tl.leiden` that should be used.
     See :func:`scanpy.tl.leiden` for details.
 
-    Parameters
-    ----------
-    data
-        :class:`~mudata.MuData` object.
-    resolution
-        Resolution parameter controlling coarseness of the clustering
-        (higher values -> more clusters).
-        To use different resolution per modality, dictionary ``{mod: value}``
-        or list/tuple ``[value_mod1, value_mod2, ...]``.
-        Single value to use the same resolution for all modalities.
-    mod_weights
-        Weight each modality controlling its contribution
-        (higher values -> more important).
-        To use different weight per modality, dictionary ``{mod: value}``
-        or list/tuple ``[value_mod1, value_mod2, ...]``.
-        Single value to use the same weight for all modalities.
-    random_state
-        Random seed for the optimization.
-    key_added
-        `mdata.obs` key where cluster labels to be added.
-    neighbors_key
-        Use neighbors connectivities as adjacency.
-        If not specified, look for ``.obsp['connectivities']`` in each modality.
-        If specified, look for
-        ``.obsp[.uns[neighbors_key]['connectivities_key']]`` in each modality
-        for connectivities.
-    directed
-        Treat the graph as directed or undirected.
-    partition_type
-        Type of partition to use,
-        :class:`~leidenalg.RBConfigurationVertexPartition` by default.
-        See :func:`~leidenalg.find_partition` for more details.
-    partition_kwargs
-        Arguments to be passed to the ``partition_type``.
-    **kwargs
-        Arguments to be passed to ``optimizer.optimise_partition_multiplex()``.
+    Args:
+        data: :class:`~mudata.MuData` object.
+        resolution: Resolution parameter controlling coarseness of the clustering
+            (higher values -> more clusters).
+            To use different resolution per modality, dictionary ``{mod: value}``
+            or list/tuple ``[value_mod1, value_mod2, ...]``.
+            Single value to use the same resolution for all modalities.
+        mod_weights: Weight each modality controlling its contribution
+            (higher values -> more important).
+            To use different weight per modality, dictionary ``{mod: value}``
+            or list/tuple ``[value_mod1, value_mod2, ...]``.
+            Single value to use the same weight for all modalities.
+        random_state: Random seed for the optimization.
+        key_added: `mdata.obs` key where cluster labels to be added.
+        neighbors_key: Use neighbors connectivities as adjacency.
+            If not specified, look for ``.obsp['connectivities']`` in each modality.
+            If specified, look for
+            ``.obsp[.uns[neighbors_key]['connectivities_key']]`` in each modality
+            for connectivities.
+        directed: Treat the graph as directed or undirected.
+        partition_type: Type of partition to use,
+            :class:`~leidenalg.RBConfigurationVertexPartition` by default.
+            See :func:`~leidenalg.find_partition` for more details.
+        partition_kwargs: Arguments to be passed to the ``partition_type``.
+        **kwargs: Arguments to be passed to ``optimizer.optimise_partition_multiplex()``.
     """
     return _cluster(
         data=data,
@@ -1105,7 +1045,7 @@ def louvain(
     partition_type: type[LouvainMutableVertexPartition] | None = None,
     partition_kwargs: Mapping[str, Any] = MappingProxyType({}),
     **kwargs,
-):
+) -> AnnData | None:
     """Cluster cells using the Louvain algorithm.
 
     .. deprecated::
@@ -1119,42 +1059,31 @@ def louvain(
     For taking use of ``mdata.obsp['connectivities']``, it's :func:`scanpy.tl.louvain` that should be used.
     See :func:`scanpy.tl.louvain` for details.
 
-    Parameters
-    ----------
-    data
-        :class:`~mudata.MuData` object.
-    resolution
-        Resolution parameter controlling coarseness of the clustering
-        (higher values -> more clusters).
-        To use different resolution per modality, dictionary ``{mod: value}``
-        or list/tuple ``[value_mod1, value_mod2, ...]``.
-        Single value to use the same resolution for all modalities.
-    mod_weights
-        Weight each modality controlling its contribution
-        (higher values -> more important).
-        To use different weight per modality, dictionary ``{mod: value}``
-        or list/tuple ``[value_mod1, value_mod2, ...]``.
-        Single value to use the same weight for all modalities.
-    random_state
-        Random seed for the optimization.
-    key_added
-        `mdata.obs` key where cluster labels to be added.
-    neighbors_key
-        Use neighbors connectivities as adjacency.
-        If not specified, look for ``.obsp['connectivities']`` in each modality.
-        If specified, look for
-        ``.obsp[.uns[neighbors_key]['connectivities_key']]`` in each modality
-        for connectivities.
-    directed
-        Treat the graph as directed or undirected.
-    partition_type
-        Type of partition to use,
-        :class:`~louvain.RBConfigurationVertexPartition` by default.
-        See :func:`~louvain.find_partition` for more details.
-    partition_kwargs
-        Arguments to be passed to the ``partition_type``.
-    **kwargs
-        Arguments to be passed to ``optimizer.optimise_partition_multiplex()``.
+    Args:
+        data: :class:`~mudata.MuData` object.
+        resolution: Resolution parameter controlling coarseness of the clustering
+            (higher values -> more clusters).
+            To use different resolution per modality, dictionary ``{mod: value}``
+            or list/tuple ``[value_mod1, value_mod2, ...]``.
+            Single value to use the same resolution for all modalities.
+        mod_weights: Weight each modality controlling its contribution
+            (higher values -> more important).
+            To use different weight per modality, dictionary ``{mod: value}``
+            or list/tuple ``[value_mod1, value_mod2, ...]``.
+            Single value to use the same weight for all modalities.
+        random_state: Random seed for the optimization.
+        key_added: `mdata.obs` key where cluster labels to be added.
+        neighbors_key: Use neighbors connectivities as adjacency.
+            If not specified, look for ``.obsp['connectivities']`` in each modality.
+            If specified, look for
+            ``.obsp[.uns[neighbors_key]['connectivities_key']]`` in each modality
+            for connectivities.
+        directed: Treat the graph as directed or undirected.
+        partition_type: Type of partition to use,
+            :class:`~louvain.RBConfigurationVertexPartition` by default.
+            See :func:`~louvain.find_partition` for more details.
+        partition_kwargs: Arguments to be passed to the ``partition_type``.
+        **kwargs: Arguments to be passed to ``optimizer.optimise_partition_multiplex()``.
     """
     warn(
         "muon.tl.louvain is deprecated and will be removed in a future release; use muon.tl.leiden instead.",
@@ -1343,7 +1272,7 @@ def ica(
     scale=False,
     copy=False,
     **kwargs,
-):
+) -> AnnData | MuData | None:
     """Run Independent component analysis."""
     from sklearn.decomposition import FastICA
 

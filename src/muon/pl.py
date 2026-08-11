@@ -25,7 +25,7 @@ def scatter(
     use_raw: bool | None = None,
     layers: str | Sequence[str | None] | None = None,
     **kwargs,
-):
+) -> Axes | list[Axes] | None:
     """Scatter plot along observations or variables axes.
 
     Variables in each modality can be referenced,
@@ -33,25 +33,17 @@ def scatter(
 
     See :func:`scanpy.pl.scatter` for details.
 
-    Parameters
-    ----------
-    data : Union[AnnData, MuData]
-        MuData or AnnData object
-    x : Optional[str]
-        x coordinate
-    y : Optional[str]
-        y coordinate
-    color : Optional[Union[str, Sequence[str]]], optional (default: None)
-        Keys or a single key for variables or annotations of observations (.obs columns),
-        or a hex colour specification.
-    use_raw : Optional[bool], optional (default: None)
-        Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
-        If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
-    layers : Optional[Union[str, Sequence[Optional[str]]]], optional (default: None)
-        Names of the layers where x, y, and color come from.
-        No layer is used by default. A single layer value will be expanded to [layer, layer, layer].
-    **kwargs
-        Additional keyword arguments passed to :func:`scanpy.pl.scatter`.
+    Args:
+        data: MuData or AnnData object
+        x: x coordinate
+        y: y coordinate
+        color: Keys or a single key for variables or annotations of observations (.obs columns),
+            or a hex colour specification.
+        use_raw: Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
+            If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
+        layers: Names of the layers where x, y, and color come from.
+            No layer is used by default. A single layer value will be expanded to [layer, layer, layer].
+        kwargs: Additional keyword arguments passed to :func:`scanpy.pl.scatter`.
     """
     if isinstance(data, AnnData):
         return sc.pl.scatter(data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs)
@@ -103,7 +95,7 @@ def embedding(
     use_raw: bool | None = None,
     layer: str | Mapping[str, str | None] | None = None,
     **kwargs,
-):
+) -> Axes | list[Axes] | None:
     """Scatter plot for .obs.
 
     Produce a scatter plot in the define basis,
@@ -112,26 +104,19 @@ def embedding(
 
     See :func:`scanpy.pl.embedding` for details.
 
-    Parameters
-    ----------
-    data : Union[AnnData, MuData]
-        MuData or AnnData object
-    basis : str
-        Name of the `obsm` basis to use
-    color : Optional[Union[str, typing.Sequence[str]]], optional (default: None)
-        Keys for variables or annotations of observations (.obs columns).
-        Can be from any modality.
-    use_raw : Optional[bool], optional (default: None)
-        Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
-        If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
-    layer : Optional[Union[str, Mapping[str, Optional[str]]]], optional (default: None)
-        Name of the layer in the modality where a feature (from `color`) is derived from.
-        A mapping from modality names to layer names can be provided
-        in order to use a different layer for each modality.
-        No layer is used by default. If a valid `layer` is provided, this takes precedence
-        over `use_raw=True`.
-    **kwargs
-        Additional keyword arguments passed to :func:`scanpy.pl.embedding`.
+    Args:
+        data: MuData or AnnData object
+        basis: Name of the `obsm` basis to use
+        color: Keys for variables or annotations of observations (.obs columns).
+            Can be from any modality.
+        use_raw: Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
+            If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
+        layer: Name of the layer in the modality where a feature (from `color`) is derived from.
+            A mapping from modality names to layer names can be provided
+            in order to use a different layer for each modality.
+            No layer is used by default. If a valid `layer` is provided, this takes precedence
+            over `use_raw=True`.
+        kwargs: Additional keyword arguments passed to :func:`scanpy.pl.embedding`.
     """
     if isinstance(data, AnnData):
         return sc.pl.embedding(data, basis=basis, color=color, use_raw=use_raw, layer=layer, **kwargs)
@@ -292,24 +277,19 @@ def histogram(
     groupby: str | Sequence[str] | None = None,
     show: bool | None = None,
     save: str | bool | None = None,
-    **kwags,
-):
+    **kwargs,
+) -> None:
     """Plot Histogram of Fragment lengths within specified region.
 
-    Parameters
-    ----------
-    data
-        AnnData object with peak counts or multimodal MuData object.
-    keys
-        Keys to plot.
-    groupby
-        Column name(s) of .obs slot of the AnnData object according to which the plot is split.
-    show
-        Show the plot, do not return axis.
-    save
-        If `True` or a `str`, save the figure.
-        A string is appended to the default filename.
-        Infer the filetype if ending on {`'.pdf'`, `'.png'`, `'.svg'`}.
+    Args:
+        data: AnnData object with peak counts or multimodal MuData object.
+        keys: Keys to plot.
+        groupby: Column name(s) of .obs slot of the AnnData object according to which the plot is split.
+        show: Show the plot, do not return axis.
+        save: If `True` or a `str`, save the figure.
+            A string is appended to the default filename.
+            Infer the filetype if ending on {`'.pdf'`, `'.png'`, `'.svg'`}.
+        kwargs: Additional keyword arguments passed to the seaborn histogram function.
     """
     from scanpy.plotting._utils import savefig_or_show
 
@@ -359,7 +339,7 @@ def histogram(
     if groupby is None:
         df = df.melt()
         g = sns.FacetGrid(df, col="variable", sharey=False, sharex=False)
-        g.map(hist, "value", **kwags)
+        g.map(hist, "value", **kwargs)
         [x.set_xlabel(keys[i]) for i, x in enumerate(g.axes[0])]
         [x.set_title("") for i, x in enumerate(g.axes[0])]
 
@@ -376,7 +356,7 @@ def histogram(
             df = pd.concat((df, obs.loc[:, groupby]), axis=1)
             df = df.melt(id_vars=groupby[0], ignore_index=False)
             g = sns.FacetGrid(df, col=groupby[0], row="variable", sharey=False, sharex=False)
-            g.map(hist, "value", **kwags)
+            g.map(hist, "value", **kwargs)
             [x.set_xlabel(keys[row]) for row in range(len(g.axes)) for i, x in enumerate(g.axes[row])]
             [
                 x.set_title(f"{groupby[0]} {g.col_names[i]}")
@@ -387,7 +367,7 @@ def histogram(
         else:
             # 1 key, 2 groupby arguments
             g = sns.FacetGrid(df, col=groupby[0], row=groupby[1], sharey=False, sharex=False)
-            g.map(hist, keys[0], **kwags)
+            g.map(hist, keys[0], **kwargs)
             [x.set_xlabel(keys[0]) for row in range(len(g.axes)) for i, x in enumerate(g.axes[row])]
             [
                 x.set_title(f"{groupby[0]} {g.row_names[col]} | {groupby[1]} {g.row_names[row]}")
@@ -405,27 +385,20 @@ def mofa_loadings(
     n_points: int | None = None,
     show: bool | None = None,
     save: str | bool | None = None,
-):
+) -> None:
     """Rank genes according to contributions to MOFA factors.
 
     Mirrors the interface of scanpy.pl.pca_loadings.
 
-    Parameters
-    ----------
-    mdata
-        MuData objects with .obsm["X_mofa"] and .varm["LFs"].
-    factors
-        For example, ``'1,2,3'`` means ``[1, 2, 3]``, first, second, third factors.
-    include_lowest
-        Whether to show the variables with both highest and lowest loadings.
-    n_points
-        Number of variables to plot for each factor.
-    show
-        Show the plot, do not return axis.
-    save
-        If `True` or a `str`, save the figure.
-        A string is appended to the default filename.
-        Infer the filetype if ending on {`'.pdf'`, `'.png'`, `'.svg'`}.
+    Args:
+        mdata: MuData objects with .obsm["X_mofa"] and .varm["LFs"].
+        factors: For example, ``'1,2,3'`` means ``[1, 2, 3]``, first, second, third factors.
+        include_lowest: Whether to show the variables with both highest and lowest loadings.
+        n_points: Number of variables to plot for each factor.
+        show: Show the plot, do not return axis.
+        save: If `True` or a `str`, save the figure.
+            A string is appended to the default filename.
+            Infer the filetype if ending on {`'.pdf'`, `'.png'`, `'.svg'`}.
     """
     from scanpy.plotting._anndata import ranking
     from scanpy.plotting._utils import savefig_or_show

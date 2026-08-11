@@ -7,6 +7,7 @@ from datetime import datetime
 from glob import glob
 from itertools import islice
 from pathlib import Path
+from typing import Any
 from warnings import warn
 
 import numpy as np
@@ -28,7 +29,7 @@ from . import utils
 #
 
 
-def lsi(data: AnnData | MuData, scale_embeddings=True, n_comps=50):
+def lsi(data: AnnData | MuData, scale_embeddings=True, n_comps=50) -> None:
     """Run Latent Semantic Indexing.
 
     Args:
@@ -80,21 +81,16 @@ def add_peak_annotation(
     annotation: str | Path | pd.DataFrame,
     sep: str = "\t",
     return_annotation: bool = False,
-):
+) -> pd.DataFrame | None:
     """Parse peak annotation file and add it to the .uns["atac"]["peak_annotation"].
 
-    Parameters
-    ----------
-    data
-            AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-    annotation
-            A path to the peak annotation file (e.g. peak_annotation.tsv) or DataFrame with it.
+    Args:
+        data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+        annotation: A path to the peak annotation file (e.g. peak_annotation.tsv) or DataFrame with it.
             Annotation has to contain columns: peak, gene, distance, peak_type.
-    sep
-            Separator for the peak annotation file. Only used if the file name is provided.
+        sep: Separator for the peak annotation file. Only used if the file name is provided.
             Tab by default.
-    return_annotation
-            If return adata.uns['atac']['peak_annotation']. False by default.
+        return_annotation: If return adata.uns['atac']['peak_annotation']. False by default.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -152,26 +148,23 @@ def add_peak_annotation(
     if return_annotation:
         return pa
 
+    return None
+
 
 def add_peak_annotation_gene_names(
     data: AnnData | MuData,
     gene_names: pd.DataFrame | None = None,
     join_on: str | None = None,
     return_annotation: bool = False,
-):
+) -> pd.DataFrame | None:
     """Add gene names to peak annotation table in .uns["atac"]["peak_annotation"].
 
-    Parameters
-    ----------
-    data
-            AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-    gene_names
-            A DataFrame indexed on the gene name
-    join_on
-            Name of the column in the gene_names DataFrame corresponding to the peak annotation index.
+    Args:
+        data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+        gene_names: A DataFrame indexed on the gene name
+        join_on: Name of the column in the gene_names DataFrame corresponding to the peak annotation index.
             It is automatically set to "gene_ids" or "gene_name" if none is provided.
-    return_annotation
-            If return adata.uns['atac']['peak_annotation']. False by default.
+        return_annotation: If return adata.uns['atac']['peak_annotation']. False by default.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -213,7 +206,7 @@ def add_peak_annotation_gene_names(
 
         if return_annotation:
             return ann
-        return
+        return None
 
     ann = ann.join(gene_id_name).rename_axis(join_on).reset_index(drop=False)
 
@@ -227,13 +220,15 @@ def add_peak_annotation_gene_names(
     if return_annotation:
         return ann
 
+    return None
+
 
 # Gene names for peaks
 def add_genes_peaks_groups(
     data: AnnData | MuData,
     add_peak_type: bool = False,
     add_distance: bool = False,
-):
+) -> None:
     """Add gene names to peaks ranked by clustering group.
 
     To add gene names to ranked peaks, peaks have to be ranked first.
@@ -244,14 +239,10 @@ def add_genes_peaks_groups(
     To add gene names instead of gene IDs, consider
     running `muon.atac.tl.add_peak_annotation_gene_names` then.
 
-    Parameters
-    ----------
-    data
-        AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-    add_peak_type : bool (False by default)
-        If to add peak type to the ranked peaks per group.
-    add_distance : bool (False by default)
-        If to add distance to the ranked peaks per group.
+    Args:
+        data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+        add_peak_type: If to add peak type to the ranked peaks per group.
+        add_distance: If to add distance to the ranked peaks per group.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -316,7 +307,7 @@ def rank_peaks_groups(
     add_peak_type: bool = False,
     add_distance: bool = False,
     **kwargs,
-):
+) -> None:
     """Rank peaks in clusters groups.
 
     Shorthand for running sc.tl.rank_genes_groups
@@ -324,16 +315,12 @@ def rank_peaks_groups(
 
     See sc.tl.rank_genes_groups for details.
 
-    Parameters
-    ----------
-    data : Union[AnnData, MuData]
-        AnnData object with peak counts or MuData object with 'atac' modality.
-    groupby : str
-        The key of the observations grouping to consider.
-    add_peak_type : bool (False by default)
-        If to add peak type to the ranked peaks per group
-    add_distance : bool (False by default)
-        If to add distance to the ranked peaks per group
+    Args:
+        data: AnnData object with peak counts or MuData object with 'atac' modality.
+        groupby: The key of the observations grouping to consider.
+        add_peak_type: If to add peak type to the ranked peaks per group
+        add_distance: If to add distance to the ranked peaks per group
+        kwargs: Keyword arguments passed to :func:`scanpy.tl.rank_genes_groups`.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -424,17 +411,10 @@ def scan_sequences(
     background: int = 4,
     pvalue: float = 0.0001,
     max_hits: int = 10,
-):
+) -> pd.DataFrame:
     """Scan sequences (e.g. peaks) searching for motifs (JASPAR by default).
 
-    Parameters
-    ----------
-    data
-        AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-
     Returns:
-    -------
-    matches
         Pandas dataframe with matched motifs and respective sequence IDs.
     """
     if motifs is None and matrices is not None:
@@ -478,7 +458,7 @@ def scan_sequences(
     return matches
 
 
-def get_sequences(data: AnnData | MuData, bed: str, fasta_file: str, bed_file: str | None = None):
+def get_sequences(data: AnnData | MuData, bed: str, fasta_file: str, bed_file: str | None = None) -> list[str]:
     """Fetch nucleotide sequences for the regions in a BED string or file from a FASTA file."""
     try:
         import pybedtools
@@ -526,19 +506,15 @@ def get_sequences(data: AnnData | MuData, bed: str, fasta_file: str, bed_file: s
     return sequences
 
 
-def locate_file(data: AnnData | MuData, key: str, file: str):
+def locate_file(data: AnnData | MuData, key: str, file: str) -> None:
     """Add path to the file to .uns["files"][key].
 
     The file to be added has to exist.
 
-    Parameters
-    ----------
-    data
-            AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-    key
-            A key to store the file (e.g. 'fragments')
-    file
-            A path to the file (e.g. ./atac_fragments.tsv.gz).
+    Args:
+        data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+        key: A key to store the file (e.g. 'fragments')
+        file: A path to the file (e.g. ./atac_fragments.tsv.gz).
     """
     if isinstance(data, AnnData):
         adata = data
@@ -555,7 +531,7 @@ def locate_file(data: AnnData | MuData, key: str, file: str):
     adata.uns["files"][key] = file
 
 
-def locate_genome(data: AnnData | MuData, fasta_file: str):
+def locate_genome(data: AnnData | MuData, fasta_file: str) -> None:
     """Add path to the FASTA file with genome to .uns["files"]["genome"].
 
     Genome sequences can be downloaded from GENCODE:
@@ -563,12 +539,9 @@ def locate_genome(data: AnnData | MuData, fasta_file: str):
     - GRCh38: ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_34/GRCh38.p13.genome.fa.gz
     - GRCm38: ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M25/GRCm38.p6.genome.fa.gz
 
-    Parameters
-    ----------
-    data
-            AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-    fasta_file
-            A path to the file (e.g. ./atac_fragments.tsv.gz).
+    Args:
+        data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+        fasta_file: A path to the file (e.g. ./atac_fragments.tsv.gz).
     """
     if not isinstance(data, AnnData) and not (isinstance(data, MuData) and "atac" in data.mod):
         raise TypeError("Expected AnnData or MuData object with 'atac' modality")
@@ -595,20 +568,16 @@ def locate_genome(data: AnnData | MuData, fasta_file: str):
 #
 
 
-def locate_fragments(data: AnnData | MuData, fragments: str, return_fragments: bool = False):
+def locate_fragments(data: AnnData | MuData, fragments: str, return_fragments: bool = False) -> Any | None:
     """Parse fragments file and add a variable to access it to the .uns["files"]["fragments"].
 
     Fragments file is never read to memory, and connection to the file is closed
     upon function completion.
 
-    Parameters
-    ----------
-    data
-            AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-    fragments
-            A path to the compressed tab-separated fragments file (e.g. atac_fragments.tsv.gz).
-    return_fragments
-            If return the Tabix connection the fragments file. False by default.
+    Args:
+        data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+        fragments: A path to the compressed tab-separated fragments file (e.g. atac_fragments.tsv.gz).
+        return_fragments: If return the Tabix connection the fragments file. False by default.
     """
     frag = None
     try:
@@ -640,13 +609,15 @@ def locate_fragments(data: AnnData | MuData, fragments: str, return_fragments: b
         # The connection has to be closed
         frag.close()
 
+        return None
+
     except Exception:
         if frag is not None:
             frag.close()
         raise
 
 
-def initialise_default_files(data: AnnData | MuData, path: str | Path):
+def initialise_default_files(data: AnnData | MuData, path: str | Path) -> None:
     """Locate default files for ATAC-seq.
 
     - attempt to locate peak annotation file (atac_peak_annotation.tsv)
@@ -707,29 +678,22 @@ def count_fragments_features(
 ) -> AnnData:
     """Count fragments overlapping given Features. Returns cells x features matrix.
 
-    Parameters
-    ----------
-        data
-                AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-        features
-                A DataFrame with feature annotation, e.g. genes.
-                Annotation should contain columns (case-insensitive):
-                chr/chrom/chromosome (longer takes precedence), start, end.
-        stranded
-                Use strand information for each feature.
-                Has to be encoded as a "strand" (case-insensitive) column in features.
-                When stranded=True, extend_upsteam and extend_downstream will be used
-                according to each feature's strand information.
-        extend_upsteam
-                Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
-        extend_downstream
-                Number of nucleotides to extend every gene downstream (0 by default)
-        count_reads: bool (True by default)
-                NOTE: default will be changed to False from v0.2.
-                If to count reads instead of fragments.
-                If True, the number of reads (read support) per fragment will be used.
-                This will also include duplicate read pairs.
-                If False, `1` will be added for each fragment.
+    Args:
+        data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+        features: A DataFrame with feature annotation, e.g. genes.
+            Annotation should contain columns (case-insensitive):
+            chr/chrom/chromosome (longer takes precedence), start, end.
+        stranded: Use strand information for each feature.
+            Has to be encoded as a "strand" (case-insensitive) column in features.
+            When stranded=True, extend_upsteam and extend_downstream will be used
+            according to each feature's strand information.
+        extend_upstream: Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
+        extend_downstream: Number of nucleotides to extend every gene downstream (0 by default)
+        count_reads: NOTE: default will be changed to False from v0.2.
+            If to count reads instead of fragments.
+            If True, the number of reads (read support) per fragment will be used.
+            This will also include duplicate read pairs.
+            If False, `1` will be added for each fragment.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -847,7 +811,7 @@ def tss_enrichment(
     return_tss: bool = True,
     random_state=None,
     barcodes: str | None = None,
-):
+) -> AnnData | None:
     """Calculate TSS enrichment according to ENCODE guidelines.
 
     Adds a column ``tss_score`` to the ``.obs`` DataFrame and optionally returns a TSS score object.
@@ -915,6 +879,8 @@ def tss_enrichment(
     if return_tss:
         return tss_pileup
 
+    return None
+
 
 def _tss_pileup(
     adata: AnnData,
@@ -925,20 +891,15 @@ def _tss_pileup(
 ) -> AnnData:
     """Pile up reads in TSS regions. Returns a cell x position matrix that can be used for QC.
 
-    Parameters
-    ----------
-    data
-        AnnData object with associated fragments file.
-    features
-        A DataFrame with feature annotation, e.g. genes.
-        Annotation has to contain columns: Chromosome, Start, End.
-    extend_upsteam
-        Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
-    extend_downstream
-        Number of nucleotides to extend every gene downstream (0 by default)
-    barcodes
-        Column name in the .obs of the AnnData
-        with barcodes corresponding to the ones in the fragments file.
+    Args:
+        adata: AnnData object with associated fragments file.
+        features: A DataFrame with feature annotation, e.g. genes.
+            Annotation has to contain columns: Chromosome, Start, End.
+        extend_upstream: Number of nucleotides to extend every gene upstream
+            (to extend gene coordinates to promoter regions).
+        extend_downstream: Number of nucleotides to extend every gene downstream.
+        barcodes: Column name in the .obs of the AnnData
+            with barcodes corresponding to the ones in the fragments file.
     """
     if "files" not in adata.uns or "fragments" not in adata.uns["files"]:
         raise KeyError("There is no fragments file located yet. Run muon.atac.tl.locate_fragments first.")
@@ -996,14 +957,10 @@ def _tss_pileup(
 def _calculate_tss_score(data: AnnData, flank_size: int = 100, center_size: int = 1001):
     """Calculate TSS enrichment scores (defined by ENCODE) for each cell.
 
-    Parameters
-    ----------
-    data
-        AnnData object with TSS positons as generated by `tss_pileup`.
-    flank_size
-        Number of nucleotides in the flank on either side of the region (ENCODE standard: 100bp).
-    center_size
-        Number of nucleotides in the center on either side of the region (ENCODE standard: 1001bp).
+    Args:
+        data: AnnData object with TSS positons as generated by `tss_pileup`.
+        flank_size: Number of nucleotides in the flank on either side of the region (ENCODE standard: 100bp).
+        center_size: Number of nucleotides in the center on either side of the region (ENCODE standard: 1001bp).
     """
     x = data.X
     if not isinstance(x, np.ndarray):
@@ -1038,25 +995,19 @@ def nucleosome_signal(
     nucleosome_free_upper_bound: int = 147,
     mononuleosomal_upper_bound: int = 294,
     barcodes: str | None = None,
-):
+) -> None:
     """Computes the ratio of nucleosomal cut fragments to nucleosome-free fragments per cell.
 
     Nucleosome-free fragments are shorter than 147 bp while mono-mucleosomal fragments are between
     147 bp and 294 bp long.
 
-    Parameters
-    ----------
-    data
-        AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-    n
-        Number of fragments to count. If `None`, 1e4 fragments * number of cells.
-    nucleosome_free_upper_bound
-        Number of bases up to which a fragment counts as nucleosome free. Default: 147
-    mononuleosomal_upper_bound
-        Number of bases up to which a fragment counts as mononuleosomal. Default: 294
-    barcodes
-        Column name in the .obs of the AnnData
-        with barcodes corresponding to the ones in the fragments file.
+    Args:
+        data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
+        n: Number of fragments to count. If `None`, 1e4 fragments * number of cells.
+        nucleosome_free_upper_bound: Number of bases up to which a fragment counts as nucleosome free.
+        mononuleosomal_upper_bound: Number of bases up to which a fragment counts as mononuleosomal.
+        barcodes: Column name in the .obs of the AnnData
+            with barcodes corresponding to the ones in the fragments file.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -1127,19 +1078,14 @@ def fetch_regions_to_df(
 ) -> pd.DataFrame:
     """Parse peak annotation file and return it as DataFrame.
 
-    Parameters
-    ----------
-    fragment_path
-        Location of the fragments file (must be tabix indexed).
-    features
-        A DataFrame with feature annotation, e.g. genes or a string of format `chr1:1-2000000` or`chr1-1-2000000`.
-        Annotation has to contain columns: Chromosome, Start, End.
-    extend_upsteam
-        Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
-    extend_downstream
-        Number of nucleotides to extend every gene downstream (0 by default)
-    relative_coordinates
-        Return the coordinates with their relative position to the middle of the features.
+    Args:
+        fragment_path: Location of the fragments file (must be tabix indexed).
+        features: A DataFrame with feature annotation, e.g. genes or a string of format `chr1:1-2000000` or`chr1-1-2000000`.
+            Annotation has to contain columns: Chromosome, Start, End.
+        extend_upstream: Number of nucleotides to extend every gene upstream
+            (to extend gene coordinates to promoter regions).
+        extend_downstream: Number of nucleotides to extend every gene downstream.
+        relative_coordinates: Return the coordinates with their relative position to the middle of the features.
     """
     try:
         import pysam

@@ -21,13 +21,12 @@ def read_10x_h5(filename: str | Path, extended: bool = True, *args, **kwargs) ->
     - attempt to locate peak annotation file and add peak annotation;
     - attempt to locate fragments file.
 
-    Parameters
-    ----------
-    filename : str
-            Path to 10X HDF5 file (.h5)
-    extended : bool, optional (default: True)
-            Perform extended functionality automatically such as
+    Args:
+        filename: Path to 10X HDF5 file (.h5)
+        extended: Perform extended functionality automatically such as
             locating peak annotation and fragments files.
+        *args: Positional arguments to be passed to :func:`scanpy.read_10x_h5`.
+        **kwargs: Keyword arguments to be passed to :func:`scanpy.read_10x_h5`.
     """
     adata = sc.read_10x_h5(filename, *args, gex_only=False, **kwargs)
 
@@ -71,14 +70,13 @@ def read_10x_mtx(path: str | Path, extended: bool = True, *args, **kwargs) -> Mu
     - (for ATAC-seq) attempt to locate peak annotation file and add peak annotation;
     - (for ATAC-seq) attempt to locate fragments file.
 
-    Parameters
-    ----------
-    path : str
-            Path to 10X folder (filtered_feature_bc_matrix or raw_feature_bc_matrix)
+    Args:
+        path: Path to 10X folder (filtered_feature_bc_matrix or raw_feature_bc_matrix)
             or to the matrix file inside it
-    extended : bool, optional (default: True)
-            Perform extended functionality automatically such as
+        extended: Perform extended functionality automatically such as
             locating peak annotation and fragments files.
+        *args: Positional arguments to be passed to :func:`scanpy.read_10x_mtx`.
+        **kwargs: Keyword arguments to be passed to :func:`scanpy.read_10x_mtx`.
     """
     adata = sc.read_10x_mtx(path, *args, gex_only=False, **kwargs)
 

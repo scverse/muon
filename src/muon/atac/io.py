@@ -37,7 +37,7 @@ def read_10x_mtx(filename: PathLike, atac_only: bool = True, *args, **kwargs) ->
     return adata
 
 
-def read_snap(filename: PathLike, matrix: str, bin_size: int | None = None):
+def read_snap(filename: PathLike, matrix: str, bin_size: int | None = None) -> AnnData:
     """Read a matrix from a ``.snap`` file.
 
     Args:
