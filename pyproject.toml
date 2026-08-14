@@ -9,7 +9,7 @@ readme = "README.md"
 license = { file = "LICENSE" }
 maintainers = [
   { name = "Danila Bredikhin", email = "danila.bredikhin@embl.de" },
-  { name = "Ilia Kats", email = "ilia-kats@gmx.net" },
+  { name = "Ilia Kats", email = "i.kats@dkfz-heidelberg.de" },
 ]
 authors = [
   { name = "Danila Bredikhin" },
