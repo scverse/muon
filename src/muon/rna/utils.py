@@ -1,7 +1,7 @@
 import pandas as pd
 from anndata import AnnData
 
-from muon import MuData
+from mudata import MuData
 
 
 def get_gene_annotation_from_rna(data: AnnData | MuData) -> pd.DataFrame:
