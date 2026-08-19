@@ -9,6 +9,7 @@ buck-out/
 
 # Compiled files
 .venv/
+uv.lock
 __pycache__/
 .*cache/
 
