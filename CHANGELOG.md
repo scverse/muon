@@ -76,7 +76,7 @@ and this project adheres to [Semantic Versioning][].
 ### Changed
 
 - Compatibility with scanpy 1.10.
-- Extend `_l2norm` to sparse inputs.
+- Extend `l2norm` to sparse inputs.
 
 ## [0.1.5]
 
@@ -108,7 +108,7 @@ and this project adheres to [Semantic Versioning][].
 ### Added
 
 - MOFA can now be run in the stochastic mode (SVI) using the new arguments for `muon.tl.mofa`.
-- MOFA model weights can be visualised with `muon.pl.mofa_loadings`.
+- MOFA model weights can be visualized with `muon.pl.mofa_loadings`.
 - New plots such as `muon.pl.scatter`.
 - Layers can be defined as `{modality: layer}` in `muon.pl.embedding`.
 
@@ -122,14 +122,14 @@ and this project adheres to [Semantic Versioning][].
 ### Fixed
 
 - In-place filtering functions (`muon.pp.filter_obs` and `muon.pp.filter_var`) can now be run one
-  after another without requiring `muon.MuData.update`.
+  after another without requiring `mudata.MuData.update`.
 
 ## [0.1.1]
 
 ### Added
 
-- ATAC module: handle fragments files with barcodes different from `obs_names` and support
-  `atac_peak_annotation.tsv` files produced by Cell Ranger ARC 2.0.0.
+- The ATAC module can now handle fragments files with barcodes different from `obs_names`.
+- Support for `atac_peak_annotation.tsv` files produced by Cell Ranger ARC 2.0.0.
 
 ### Changed
 
@@ -137,8 +137,9 @@ and this project adheres to [Semantic Versioning][].
 
 ### Fixed
 
-- Reading `.h5mu` files in backed mode when modalities have `.raw` attributes, `SNF` functionality
-  (`muon.tl.snf`), and colouring plots by `var_names` present in `.raw` but not in the root `AnnData`.
+- Reading `.h5mu` files in backed mode when modalities have `.raw` attributes.
+- `SNF` functionality (`muon.tl.snf`).
+- coloring plots by `var_names` present in `.raw` but not in the root `AnnData`.
 
 ## [0.1.0]
 
