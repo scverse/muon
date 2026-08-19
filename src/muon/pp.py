@@ -452,7 +452,7 @@ def neighbors(
             for i, neighbors in enumerate(nn_indices):
                 csigmas[i] = cdist(X[i : (i + 1), :], X[neighbors, :], metric="euclidean").mean()
 
-        currtheta = None
+        currtheta = 0
         thetas = np.full((len(observations1), len(modalities) - 1), -np.inf, dtype=neighbordistances.dtype)
 
         lasti = 0
