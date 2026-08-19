@@ -202,9 +202,7 @@ def embedding(
                     if data.mod[m].raw is not None:
                         keysidx = data.mod[m].raw.var.index.get_indexer_for(mod_keys)
                         fmod_adata = AnnData(
-                            X=data.mod[m].raw.X[:, keysidx],
-                            var=pd.DataFrame(index=mod_keys),
-                            obs=data.mod[m].obs,
+                            X=data.mod[m].raw.X[:, keysidx], var=pd.DataFrame(index=mod_keys), obs=data.mod[m].obs
                         )
                     else:
                         if use_raw:
@@ -233,10 +231,7 @@ def embedding(
                         )
                 to_array = getattr(fmod_adata.X, "toarray", None)
                 x = to_array() if callable(to_array) else fmod_adata.X
-                obs = obs.join(
-                    pd.DataFrame(x, columns=mod_keys, index=fmod_adata.obs_names),
-                    how="left",
-                )
+                obs = obs.join(pd.DataFrame(x, columns=mod_keys, index=fmod_adata.obs_names), how="left")
 
         color = [mod_key_modifier[k] for k in keys]
 

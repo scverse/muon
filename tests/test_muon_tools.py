@@ -31,13 +31,7 @@ class TestMOFASimple(unittest.TestCase):
 
     def test_mofa_nfactors(self):
         n_factors = 10
-        mu.tl.mofa(
-            self.mdata,
-            n_factors=n_factors,
-            quiet=True,
-            verbose=False,
-            outfile=self.outfile,
-        )
+        mu.tl.mofa(self.mdata, n_factors=n_factors, quiet=True, verbose=False, outfile=self.outfile)
         y = np.concatenate([self.mdata.mod["y1"].X, self.mdata.mod["y2"].X], axis=1)
         yhat = np.dot(self.mdata.obsm["X_mofa"], self.mdata.varm["LFs"].T)
 
@@ -51,12 +45,7 @@ class TestMOFASimple(unittest.TestCase):
         self.assertFalse(any(i > 0.1 for i in r2[5:]))
 
     def test_mofa_anndata(self):
-        mu.tl.mofa(
-            self.mdata["y1"],
-            n_factors=10,
-            quiet=True,
-            verbose=False,
-        )
+        mu.tl.mofa(self.mdata["y1"], n_factors=10, quiet=True, verbose=False)
         self.assertTrue("X_mofa" in self.mdata["y1"].obsm)
         self.assertTrue("LFs" in self.mdata["y1"].varm)
 
@@ -64,13 +53,7 @@ class TestMOFASimple(unittest.TestCase):
         adata = self.mdata["y1"].copy()
         adata.obs["ab"] = np.random.choice(["a", "b"], adata.n_obs)
         adata.obs["ab"] = adata.obs.ab.astype("category")
-        mu.tl.mofa(
-            adata,
-            groups_label="ab",
-            n_factors=10,
-            quiet=True,
-            verbose=False,
-        )
+        mu.tl.mofa(adata, groups_label="ab", n_factors=10, quiet=True, verbose=False)
         self.assertTrue("X_mofa" in adata.obsm)
         self.assertTrue("LFs" in adata.varm)
 
@@ -83,13 +66,7 @@ class TestMOFASimple(unittest.TestCase):
             if sparsity == 1 or sparsity == 2:
                 y2.X = sparse.csr_matrix(y2.X)
             mdata = MuData({"y1": y1[:-10], "y2": y2[10:]})
-            mu.tl.mofa(
-                mdata,
-                n_factors=10,
-                quiet=True,
-                verbose=False,
-                use_obs="union",
-            )
+            mu.tl.mofa(mdata, n_factors=10, quiet=True, verbose=False, use_obs="union")
             self.assertTrue("X_mofa" in mdata.obsm)
             self.assertTrue("LFs" in mdata.varm)
 

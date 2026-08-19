@@ -6,15 +6,7 @@ import numpy as np
 import pandas as pd
 from anndata import AnnData
 from mudata import MuData
-from scipy.sparse import (
-    csc_array,
-    csc_matrix,
-    csr_array,
-    csr_matrix,
-    issparse,
-    sparray,
-    spmatrix,
-)
+from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix, issparse, sparray, spmatrix
 from scipy.stats import gmean
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
@@ -125,11 +117,7 @@ def dsb(
         warn("empty_counts_range values are not provided, treating all the non-cells as empty droplets", stacklevel=2)
         empty = empty[~empty.obs_names.isin(cells.obs_names)]
     else:
-        warn(
-            "empty_counts_range will be deprecated in the future versions",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        warn("empty_counts_range will be deprecated in the future versions", DeprecationWarning, stacklevel=2)
         if data_raw is not None:
             if not isinstance(data_raw, MuData) or "rna" not in data_raw.mod:
                 warn(

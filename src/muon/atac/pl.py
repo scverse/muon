@@ -20,12 +20,7 @@ def _to_dense(x) -> np.ndarray:
 
 
 def _average_peaks(
-    adata: AnnData,
-    keys: Iterable[str],
-    average: str | None,
-    func: str,
-    use_raw: bool,
-    layer: str | None,
+    adata: AnnData, keys: Iterable[str], average: str | None, func: str, use_raw: bool, layer: str | None
 ):
     # Define the function to be used for aggregation
     if average:
@@ -209,12 +204,7 @@ def dotplot(
         raise TypeError("Expected var_names to be a string or an iterable.")
 
     x, attr_names, tmp_names = _average_peaks(
-        adata=adata,
-        keys=keys,
-        average=average,
-        func=func,
-        use_raw=use_raw,
-        layer=layer,
+        adata=adata, keys=keys, average=average, func=func, use_raw=use_raw, layer=layer
     )
     ad = AnnData(x, obs=adata.obs)
     sc.pl.dotplot(ad, var_names=attr_names, groupby=groupby, **kwargs)
@@ -223,10 +213,7 @@ def dotplot(
 
 
 def tss_enrichment(
-    data: AnnData,
-    color: str | Sequence[str] | None = None,
-    title: str = "TSS Enrichment",
-    ax: Axes | None = None,
+    data: AnnData, color: str | Sequence[str] | None = None, title: str = "TSS Enrichment", ax: Axes | None = None
 ) -> None:
     """Plot relative enrichment scores around a TSS.
 
@@ -266,12 +253,7 @@ def _tss_enrichment_single(data: AnnData, ax: Axes, sd: bool = False, *args, **k
     ax.plot(x, means, **kwargs)
     if sd:
         stddev = np.sqrt(pileup.var(axis=0))
-        plt.fill_between(
-            x,
-            means - stddev,
-            means + stddev,
-            alpha=0.2,
-        )
+        plt.fill_between(x, means - stddev, means + stddev, alpha=0.2)
 
 
 def fragment_histogram(

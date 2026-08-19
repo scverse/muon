@@ -216,10 +216,7 @@ class TestIntersectObs:
 
         mdata_ = MuData(modalities)
 
-        common_obs = reduce(
-            lambda a, b: [i for i in a if i in b],
-            [adata.obs_names for adata in mdata_.mod.values()],
-        )
+        common_obs = reduce(lambda a, b: [i for i in a if i in b], [adata.obs_names for adata in mdata_.mod.values()])
 
         mu.pp.intersect_obs(mdata_)
         assert mdata_.n_obs == len(common_obs)

@@ -28,9 +28,7 @@ from sklearn.utils import check_random_state
 from umap.umap_ import nearest_neighbors
 
 if Version(version("scanpy")) < Version("1.10"):
-    from scanpy.neighbors import (
-        _compute_connectivities_umap as __compute_connectivities_umap,
-    )
+    from scanpy.neighbors import _compute_connectivities_umap as __compute_connectivities_umap
 
     _compute_connectivities_umap = lambda *args, **kwargs: __compute_connectivities_umap(*args, **kwargs)[1]
 else:
@@ -533,8 +531,7 @@ def neighbors(
                     np.where(observations.isin(observations1))[0], sparse_matrix_assign_splits
                 )
                 modstarts, modstops = _make_slice_intervals(
-                    np.where(mdata.mod[m].obs.index.isin(observations1))[0],
-                    sparse_matrix_assign_splits,
+                    np.where(mdata.mod[m].obs.index.isin(observations1))[0], sparse_matrix_assign_splits
                 )
 
                 for fullidxstart1, fullidxstop1, modidxstart1, modidxstop1 in zip(
@@ -647,10 +644,7 @@ def intersect_obs(mdata: MuData) -> None:
 
 
 def _filter_attr(
-    data: AnnData | MuData,
-    attr: Literal["obs", "var"],
-    key: str | Sequence[str],
-    func: Callable | None = None,
+    data: AnnData | MuData, attr: Literal["obs", "var"], key: str | Sequence[str], func: Callable | None = None
 ) -> None:
     """Filter observations or variables in-place.
 
@@ -839,10 +833,7 @@ def filter_var(data: AnnData | MuData, var: str | Sequence[str], func: Callable 
 
 
 def sample_obs(
-    data: AnnData | MuData,
-    frac: float = 0.1,
-    groupby: str | None = None,
-    min_n: int | None = None,
+    data: AnnData | MuData, frac: float = 0.1, groupby: str | None = None, min_n: int | None = None
 ) -> AnnData | MuData:
     """Return a view with a subsample of the observations.
 

@@ -9,12 +9,7 @@ from mudata import MuData
 from muon.utils import _get_values
 
 
-@pytest.fixture(
-    params=[
-        {"same_obs": True},
-        {"same_obs": False},
-    ]
-)
+@pytest.fixture(params=[{"same_obs": True}, {"same_obs": False}])
 def mdata(request):
     mdata = MuData(
         {

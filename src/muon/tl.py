@@ -25,9 +25,7 @@ from scipy.sparse import csr_matrix, issparse
 from .pp import _sparse_csr_fast_knn
 
 try:
-    from louvain.VertexPartition import (
-        MutableVertexPartition as LouvainMutableVertexPartition,
-    )
+    from louvain.VertexPartition import MutableVertexPartition as LouvainMutableVertexPartition
 except ImportError:
 
     class LouvainMutableVertexPartition:  # type: ignore[no-redef]  # noqa: D101
@@ -36,9 +34,7 @@ except ImportError:
     LouvainMutableVertexPartition.__module__ = "louvain.VertexPartition"
 
 try:
-    from leidenalg.VertexPartition import (
-        MutableVertexPartition as LeidenMutableVertexPartition,
-    )
+    from leidenalg.VertexPartition import MutableVertexPartition as LeidenMutableVertexPartition
 except ImportError:
 
     class LeidenMutableVertexPartition:  # type: ignore[no-redef]  # noqa: D101
@@ -402,10 +398,7 @@ def mofa(
         lik = [lik for _ in range(len(mdata.mod))]
 
     ent.set_data_options(
-        scale_views=scale_views,
-        scale_groups=scale_groups,
-        center_groups=center_groups,
-        use_float32=use_float32,
+        scale_views=scale_views, scale_groups=scale_groups, center_groups=center_groups, use_float32=use_float32
     )
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting data from MuData object...")
     _set_mofa_data_from_mudata(
@@ -823,13 +816,7 @@ def snf(
     neighbors_dict = {
         "connectivities_key": conns_key,
         "distances_key": dists_key,
-        "params": {
-            "n_neighbors": n_neighbors,
-            "eps": eps,
-            "use_rep": mod_reps,
-            "n_pcs": mod_n_pcs,
-            "method": "snf",
-        },
+        "params": {"n_neighbors": n_neighbors, "eps": eps, "use_rep": mod_reps, "n_pcs": mod_n_pcs, "method": "snf"},
     }
     mdata.obsp[conns_key] = connectivities
     mdata.obsp[dists_key] = neighbordistances
@@ -948,19 +935,12 @@ def _cluster(
     else:
         parts = [partition_type(gs[mod], **partition_kwargs) for mod in mdata.mod]
 
-    improv = optimiser.optimise_partition_multiplex(
-        partitions=parts,
-        layer_weights=layer_weights,
-        **kwargs,
-    )
+    improv = optimiser.optimise_partition_multiplex(partitions=parts, layer_weights=layer_weights, **kwargs)
 
     # All partitions are the same
     groups = np.array(parts[0].membership)
 
-    mdata.obs[key_added] = pd.Categorical(
-        values=groups.astype("U"),
-        categories=natsorted(map(str, np.unique(groups))),
-    )
+    mdata.obs[key_added] = pd.Categorical(values=groups.astype("U"), categories=natsorted(map(str, np.unique(groups))))
     mdata.uns[algorithm] = {}
     mdata.uns[algorithm]["params"] = {
         "resolution": resolution,
@@ -1264,14 +1244,7 @@ def umap(
 
 
 def ica(
-    data: AnnData | MuData,
-    basis="X_pca",
-    n_components=None,
-    *,
-    random_state=None,
-    scale=False,
-    copy=False,
-    **kwargs,
+    data: AnnData | MuData, basis="X_pca", n_components=None, *, random_state=None, scale=False, copy=False, **kwargs
 ) -> AnnData | MuData | None:
     """Run Independent component analysis."""
     from sklearn.decomposition import FastICA
