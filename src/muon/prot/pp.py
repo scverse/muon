@@ -27,13 +27,10 @@ def dsb(
     add_layer: bool = False,
     random_state: int | np.random.RandomState | None | None = None,
 ) -> None | MuData:
-    """Normalize protein expression with DSB (Denoised and Scaled by Background).
+    """Normalize protein expression with DSB (Denoised and Scaled by Background) :cite:p:`pmid35440536`.
 
     Normalized data will be written to ``data`` (if it is an AnnData object) or ``data.mod['prot']``
     (if it is a MuData object) as an X matrix or as a new layer named ``dsb``.
-
-    References:
-        Mulè et al, 2020 (`doi:10.1101/2020.02.24.963603 <https://dx.doi.org/10.1101/2020.02.24.963603>`_)
 
     Args:
         data: AnnData object with protein expression counts or MuData object with ``prot`` modality.
@@ -206,7 +203,7 @@ def clr(
     axis: Literal[0, 1] = 0,
     flavor: Literal["seurat", "stoeckius", "standard"] = "seurat",
 ) -> AnnData | None:
-    """Apply the centered log ratio (CLR) transformation to normalize counts in adata.X.
+    """Apply the centered log ratio (CLR) transformation :cite:p:`pmid28759029` to normalize counts in adata.X.
 
     Args:
         adata: AnnData object with protein expression counts.
@@ -222,9 +219,6 @@ def clr(
                 preserve sparse matrices (the result is always a dense matrix.)
             - standard: The standard CLR transform without any pseudocounts. Does not preserve sparse matrices
                 and may yield infinite values if the input contains zeros.
-
-    References:
-        Stoeckius et al, 2017 (`doi:10.1038/nmeth.4380 <https://dx.doi.org/10.1038/nmeth.4380>`_)
     """
     if axis not in [0, 1]:
         raise ValueError("Invalid value for `axis` provided. Admissible options are `0` and `1`.")

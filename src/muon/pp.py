@@ -296,15 +296,11 @@ def neighbors(
 ) -> MuData | None:
     """Multimodal nearest neighbor search.
 
-    This implements the multimodal nearest neighbor method of Hao et al. and Swanson et al. The neighbor search
+    This implements the multimodal nearest neighbor method of :cite:t:`pmid34062119` and :cite:t:`pmid33835024`. The neighbor search
     efficiency on this heavily relies on UMAP. In particular, you may want to decrease n_multineighbors for large
     data set to avoid excessive peak memory use. Note that to achieve results as close as possible to the Seurat
     implementation, observations must be normalized to unit L2 norm (see :func:`l2norm`) prior to running per-modality
     nearest-neighbor search.
-
-    References:
-        Hao et al, 2020 (`doi:10.1101/2020.10.12.335331 <https://dx.doi.org/10.1101/2020.10.12.335331>`_),
-        Swanson et al, 2020 (`doi:10.1101/2020.09.04.283887 <https://dx.doi.org/10.1101/2020.09.04.283887>`_)
 
     Args:
         mdata: MuData object. Per-modality nearest neighbor search must have already been performed for all modalities

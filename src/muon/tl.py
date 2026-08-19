@@ -1091,14 +1091,11 @@ def umap(
     method: Literal["umap", "rapids"] = "umap",
     neighbors_key: str | None = None,
 ) -> MuData | None:
-    """Embed the multimodal neighborhood graph using UMAP (McInnes et al, 2018).
+    """Embed the multimodal neighborhood graph using UMAP :cite:p:`1802.03426v3`.
 
     UMAP (Uniform Manifold Approximation and Projection) is a manifold learning
     technique suitable for visualizing high-dimensional data. We use ScanPy's
     implementation.
-
-    References:
-        McInnes et al, 2018 (`arXiv:1802.03426` <https://arxiv.org/abs/1802.03426>`_)
 
     Args:
         mdata: MuData object. Multimodal nearest neighbor search must have already
