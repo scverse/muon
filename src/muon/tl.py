@@ -21,6 +21,7 @@ from natsort import natsorted
 from scanpy import logging
 from scanpy.tools._utils import _choose_representation
 from scipy.sparse import csr_matrix, issparse
+from scverse_misc import Deprecation, deprecated
 
 from .pp import _sparse_csr_fast_knn
 
@@ -851,11 +852,6 @@ def _cluster(
     from scanpy.tools._utils import _choose_graph
 
     if algorithm == "louvain":
-        warn(
-            "The 'louvain' algorithm is deprecated and will be removed in a future release; use 'leiden' instead.",
-            DeprecationWarning,
-            stacklevel=3,
-        )
         import louvain
 
         alg = louvain
@@ -1014,6 +1010,7 @@ def leiden(
     )
 
 
+@deprecated(Deprecation("0.2.0", "Use 'leiden' instead."))
 def louvain(
     data: MuData | AnnData,
     resolution: float | Sequence[float] | Mapping[str, float] | None = None,
@@ -1027,9 +1024,6 @@ def louvain(
     **kwargs,
 ) -> AnnData | None:
     """Cluster cells using the Louvain algorithm.
-
-    .. deprecated::
-        Use :func:`muon.tl.leiden` instead. This function will be removed in a future release.
 
     This runs only the multiplex Louvain algorithm on the MuData object
     using connectivities of individual modalities
@@ -1065,11 +1059,6 @@ def louvain(
         partition_kwargs: Arguments to be passed to the ``partition_type``.
         **kwargs: Arguments to be passed to ``optimizer.optimise_partition_multiplex()``.
     """
-    warn(
-        "muon.tl.louvain is deprecated and will be removed in a future release; use muon.tl.leiden instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
     return _cluster(
         data=data,
         resolution=resolution,

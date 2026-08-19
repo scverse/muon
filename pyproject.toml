@@ -38,6 +38,7 @@ dependencies = [
   "protobuf",
   "scanpy",
   "scikit-learn",
+  "scverse-misc>=0.1.1",
   "seaborn",
   # for debug logging (referenced from the issue template)
   "session-info2",
