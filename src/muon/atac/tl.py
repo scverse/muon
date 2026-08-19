@@ -922,10 +922,11 @@ def _tss_pileup(
     n_features = extend_downstream + extend_upstream + 1
 
     # Dictionary with matrix positions
+    obs: pd.DataFrame = adata.obs
     if barcodes and barcodes in adata.obs.columns:
-        d = dict(zip(adata.obs.loc[:, barcodes], range(n), strict=True))  # type: ignore[union-attr]
+        d = dict(zip(obs.loc[:, barcodes], range(n), strict=True))
     else:
-        d = dict(zip(adata.obs.index, range(n), strict=True))
+        d = dict(zip(obs.index, range(n), strict=True))
 
     # Not sparse since we expect most positions to be filled
     mx = np.zeros((n, n_features), dtype=int)
@@ -996,7 +997,7 @@ def _calculate_tss_score(data: AnnData, flank_size: int = 100, center_size: int 
 
 def nucleosome_signal(
     data: AnnData | MuData,
-    n: int | float | None = None,
+    n: float | None = None,
     nucleosome_free_upper_bound: int = 147,
     mononuleosomal_upper_bound: int = 294,
     barcodes: str | None = None,
@@ -1034,10 +1035,11 @@ def nucleosome_signal(
     fragments = pysam.TabixFile(adata.uns["files"]["fragments"], parser=pysam.asBed())
 
     # Dictionary with matrix row indices
+    obs: pd.DataFrame = adata.obs
     if barcodes and barcodes in adata.obs.columns:
-        d = dict(zip(adata.obs.loc[:, barcodes], range(adata.n_obs), strict=True))  # type: ignore[union-attr]
+        d = dict(zip(obs.loc[:, barcodes], range(adata.n_obs), strict=True))
     else:
-        d = dict(zip(adata.obs.index, range(adata.n_obs), strict=True))
+        d = dict(zip(obs.index, range(adata.n_obs), strict=True))
     mat = np.zeros(shape=(adata.n_obs, 2), dtype=int)
 
     if n is None:

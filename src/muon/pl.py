@@ -8,7 +8,7 @@ import seaborn as sns
 from anndata import AnnData
 from matplotlib.axes import Axes
 from mudata import MuData
-from scipy.sparse import issparse
+from scipy.sparse import sparray, spmatrix
 
 from .utils import _get_values
 
@@ -215,13 +215,13 @@ def embedding(
                     if isinstance(layer, Mapping):
                         m_layer = layer.get(m, None)
                         if m_layer is not None:
-                            x = data.mod[m][:, mod_keys].layers[m_layer]
-                            fmod_adata.X = x.todense() if issparse(x) else x
+                            xlayer = data.mod[m][:, mod_keys].layers[m_layer]
+                            fmod_adata.X = xlayer.toarray() if isinstance(layer, spmatrix | sparray) else xlayer
                             if use_raw:
                                 warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}", stacklevel=2)
                     elif layer in data.mod[m].layers:
-                        x = data.mod[m][:, mod_keys].layers[layer]
-                        fmod_adata.X = x.todense() if issparse(x) else x
+                        xlayer = data.mod[m][:, mod_keys].layers[layer]
+                        fmod_adata.X = xlayer.toarray() if isinstance(xlayer, spmatrix | sparray) else xlayer
                         if use_raw:
                             warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}", stacklevel=2)
                     else:
@@ -229,8 +229,9 @@ def embedding(
                             f"Layer {layer} is not present for the modality {m}, using count matrix instead",
                             stacklevel=2,
                         )
-                to_array = getattr(fmod_adata.X, "toarray", None)
-                x = to_array() if callable(to_array) else fmod_adata.X
+                x: np.ndarray | spmatrix | sparray = fmod_adata.X
+                if isinstance(x, spmatrix | sparray):
+                    x = x.toarray()
                 obs = obs.join(pd.DataFrame(x, columns=mod_keys, index=fmod_adata.obs_names), how="left")
 
         color = [mod_key_modifier[k] for k in keys]

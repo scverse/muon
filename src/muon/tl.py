@@ -484,7 +484,7 @@ def mofa(
     # warping_ref has to be an integer
     if "warping_ref" in smooth_kwargs:
         warping_ref = smooth_kwargs["warping_ref"]
-        if not (isinstance("warping_ref", int)):
+        if not (isinstance(warping_ref, int)):
             warping_ref = np.where(np.array(ent.data_opts["groups_names"]) == warping_ref)[0]
             if len(warping_ref) == 0:
                 raise KeyError(f"Expected 'warping_ref' for be a group name but there is no group {warping_ref}")

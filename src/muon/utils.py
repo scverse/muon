@@ -95,8 +95,8 @@ def _get_values(
     # .obsm
     if obsm_key:
         values = data.obsm[obsm_key][:, obsm_index - 1]
-        if isinstance(values, sparray | spmatrix):
-            values = np.array(values.todense()).squeeze()
+        if isinstance(values, spmatrix | sparray):
+            values = values.toarray().squeeze()
         return _maybe_apply_obsmap(values, obsmap)
 
     # .var_names
@@ -182,7 +182,7 @@ def _get_values(
                 warnings.warn(f"Key {key} is not unique in the index, using the first value...", stacklevel=2)
 
         if isinstance(values, sparray | spmatrix):
-            values = np.array(values.todense()).squeeze()
+            values = values.toarray().squeeze()
         values = _maybe_apply_obsmap(values, obsmap)
 
         return values

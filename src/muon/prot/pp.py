@@ -190,7 +190,7 @@ def dsb(
         cells_scaled -= reg.predict(covar) - reg.intercept_
 
     if quantile_clipping:
-        quantiles = np.quantile(cells_scaled, quantile_clip)
+        quantiles = np.quantile(cells_scaled, quantile_clip_values)
         np.clip(cells_scaled, a_min=quantiles.min(), a_max=quantiles.max(), out=cells_scaled)
 
     if add_layer:
@@ -232,9 +232,7 @@ def clr(
     if not inplace:
         adata = adata.copy()
 
-    x = adata.X
-    if x is None:
-        raise ValueError("Cannot apply the CLR transformation: .X is None.")
+    x: np.ndarray | spmatrix | sparray = adata.X
 
     if flavor == "seurat":
         if isinstance(x, sparray | spmatrix):
@@ -261,10 +259,10 @@ def clr(
             x.data /= np.repeat(np.exp(logmean), nnz)
             np.log1p(x.data, out=x.data)
         else:
-            x = np.asarray(x)
             np.log1p(x / np.exp(np.log1p(x).mean(axis=axis, keepdims=True)), out=x)
     elif flavor in ("stoeckius", "standard"):
-        x = x.toarray() if isinstance(x, sparray | spmatrix) else np.asarray(x)
+        if isinstance(x, sparray | spmatrix):
+            x = x.toarray()
         if flavor == "stoeckius":
             x += 1
         np.log(x / gmean(x, axis=axis, keepdims=True), out=x)

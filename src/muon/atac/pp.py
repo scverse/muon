@@ -4,7 +4,7 @@ import numpy as np
 from anndata import AnnData
 from mudata import MuData
 from scanpy._utils import view_to_actual
-from scipy.sparse import csr_matrix, dia_matrix, issparse, spmatrix
+from scipy.sparse import csr_array, dia_array, issparse, sparray, spmatrix
 
 # Computational methods for preprocessing
 
@@ -77,10 +77,10 @@ def tfidf(
         warn(f"Existing layer '{str(to_layer)}' will be overwritten", stacklevel=2)
 
     if issparse(counts):
-        n_peaks: np.ndarray | dia_matrix = np.asarray(counts.sum(axis=1)).reshape(-1)
-        n_peaks = dia_matrix((1.0 / n_peaks, 0), shape=(n_peaks.size, n_peaks.size))
+        n_peaks: np.ndarray | dia_array = np.asarray(counts.sum(axis=1)).reshape(-1)
         # This prevents making TF dense
-        tf = np.dot(n_peaks, counts)
+        n_peaks = dia_array((1.0 / n_peaks, 0), shape=(n_peaks.size, n_peaks.size))
+        tf = n_peaks @ counts
     else:
         n_peaks = np.asarray(counts.sum(axis=1)).reshape(-1, 1)
         tf = counts / n_peaks
@@ -95,10 +95,10 @@ def tfidf(
         idf = np.log1p(idf)
 
     if issparse(tf):
-        idf = dia_matrix((idf, 0), shape=(idf.size, idf.size))
-        tf_idf = np.dot(tf, idf)
+        idf = dia_array((idf, 0), shape=(idf.size, idf.size))
+        tf_idf = tf @ idf
     else:
-        tf_idf = np.dot(csr_matrix(tf), csr_matrix(np.diag(idf)))
+        tf_idf = csr_array(tf) @ csr_array(np.diag(idf))
 
     if log_tfidf:
         tf_idf = np.log1p(tf_idf)
@@ -190,8 +190,8 @@ def scopen(
         raise ValueError("Expected a count matrix, but none was found")
 
     # Make a dense matrix if it's sparse
-    toarray = getattr(x, "toarray", None)
-    counts = np.greater(toarray() if callable(toarray) else x, 0).T
+    counts = x.toarray() if isinstance(x, spmatrix | sparray) else x
+    counts = np.greater(counts, 0).T
 
     (m, n) = counts.shape
 

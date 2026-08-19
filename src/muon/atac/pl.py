@@ -10,7 +10,7 @@ import seaborn as sns
 from anndata import AnnData
 from matplotlib.axes import Axes
 from mudata import MuData
-from scipy.sparse import issparse
+from scipy.sparse import issparse, sparray, spmatrix
 
 from . import tl
 
@@ -248,11 +248,11 @@ def tss_enrichment(
 
 def _tss_enrichment_single(data: AnnData, ax: Axes, sd: bool = False, *args, **kwargs):
     x = data.var["TSS_position"]
-    pileup = _to_dense(data.X)
-    means = pileup.mean(axis=0)
+    X: np.ndarray | spmatrix | sparray = data.X
+    means = X.mean(axis=0)
     ax.plot(x, means, **kwargs)
     if sd:
-        stddev = np.sqrt(pileup.var(axis=0))
+        stddev = np.sqrt(X.var(axis=0))
         plt.fill_between(x, means - stddev, means + stddev, alpha=0.2)
 
 

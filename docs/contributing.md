@@ -250,10 +250,9 @@ Please adhere to [Semantic Versioning][semver], in brief
 >
 > Additional labels for pre-release and build metadata are available as extensions to the MAJOR.MINOR.PATCH format.
 
-Once you are done, commit and push your changes and navigate to the "Releases" page of this project on GitHub.
-Specify `vX.X.X` as a tag name and create a release.
-For more information, see [managing GitHub releases][].
-This will automatically create a git tag and trigger a Github workflow that creates a release on [PyPI][].
+Once you are done, commit your changes and tag the commit as `vX.X.X`.
+Push the tag.
+This will trigger a Github workflow that creates a release on [PyPI][].
 
 [semver]: https://semver.org/
 [managing GitHub releases]: https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository
@@ -265,7 +264,7 @@ Please write documentation for new or changed features and use-cases.
 This project uses [sphinx][] with the following features:
 
 - The [myst][] extension allows to write documentation in markdown/Markedly Structured Text
-- [Numpy-style docstrings][numpydoc] (through the [napoloen][numpydoc-napoleon] extension).
+- [Google-style docstrings][google-python-style] (through the [napoloen][numpydoc-napoleon] extension).
 - Jupyter notebooks as tutorials through [myst-nb][] (See [Tutorials with myst-nb](#tutorials-with-myst-nb-and-jupyter-notebooks))
 - [sphinx-autodoc-typehints][], to automatically reference annotated input and output types
 - Citations (like {cite:p}`Virshup_2023`) can be included with [sphinxcontrib-bibtex](https://sphinxcontrib-bibtex.readthedocs.io/)
@@ -276,6 +275,7 @@ See scanpy’s {doc}`scanpy:dev/documentation` for more information on how to wr
 [myst]: https://myst-parser.readthedocs.io/page/intro.html
 [myst-nb]: https://myst-nb.readthedocs.io/
 [numpydoc-napoleon]: https://www.sphinx-doc.org/page/usage/extensions/napoleon.html
+[google-python-style]: https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings
 [numpydoc]: https://numpydoc.readthedocs.io/page/format.html
 [sphinx-autodoc-typehints]: https://github.com/tox-dev/sphinx-autodoc-typehints
 

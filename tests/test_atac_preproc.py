@@ -42,7 +42,7 @@ class TestTFIDF(unittest.TestCase):
         orig_value = adata.X[0, 0]
         ac.pp.tfidf(adata, log_tf=True, log_idf=True, to_layer="new")
         self.assertEqual(adata.X[0, 0], orig_value)
-        self.assertEqual(str("{:.3f}".format(adata.layers["new"][0, 0])), "4.659")
+        self.assertEqual(str(f"{adata.layers['new'][0, 0]:.3f}"), "4.659")
 
     def test_tfidf_from_layer(self):
         adata = self.adata.copy()

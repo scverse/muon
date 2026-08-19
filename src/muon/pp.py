@@ -2,7 +2,7 @@ import warnings
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from functools import reduce
 from importlib.metadata import version
-from typing import Any, Literal
+from typing import Literal
 
 import numpy as np
 from anndata import AnnData
@@ -218,7 +218,7 @@ def l2norm(
     """
     if isinstance(mdata, AnnData):
         if rep is not None and not isinstance(rep, str):
-            it: Iterator[Any] = iter(rep)
+            it: Iterator[str] = iter(rep)
             rep = next(it)
             try:
                 next(it)
@@ -226,8 +226,15 @@ def l2norm(
                 pass
             else:
                 raise RuntimeError("If 'rep' is an Iterable, it must have length 1")
-        if isinstance(n_pcs, Iterable):
-            raise ValueError("`n_pcs` cannot be a sequence if `mdata` is an AnnData object`.")
+        if n_pcs is not None and isinstance(n_pcs, Iterable):
+            pit: Iterator[int] = iter(n_pcs)
+            n_pcs = next(pit)
+            try:
+                next(pit)
+            except StopIteration:
+                pass
+            else:
+                raise RuntimeError("If 'n_pcs' is an Iterable, it must have length 1")
         if copy:
             mdata = mdata.copy()
         _l2norm(mdata, rep, n_pcs)
@@ -535,10 +542,10 @@ def neighbors(
                 )
 
                 for fullidxstart1, fullidxstop1, modidxstart1, modidxstop1 in zip(
-                    fullstarts, fullstops, modstarts, modstops, strict=False
+                    fullstarts, fullstops, modstarts, modstops, strict=True
                 ):
                     for fullidxstart2, fullidxstop2, modidxstart2, modidxstop2 in zip(
-                        fullstarts, fullstops, modstarts, modstops, strict=False
+                        fullstarts, fullstops, modstarts, modstops, strict=True
                     ):
                         neighbordistances[fullidxstart1:fullidxstop1, fullidxstart2:fullidxstop2] += graph[
                             modidxstart1:modidxstop1, modidxstart2:modidxstop2
