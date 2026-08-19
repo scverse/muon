@@ -20,8 +20,6 @@ from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import svds
 from tqdm import tqdm
 
-from muon.rna.utils import get_gene_annotation_from_rna
-
 from . import utils
 
 #
@@ -76,11 +74,36 @@ def lsi(data: AnnData | MuData, scale_embeddings=True, n_comps=50) -> None:
 #
 
 
+def get_gene_annotation_from_rna(data: AnnData | MuData) -> pd.DataFrame:
+    """Get a data frame with start and end positions from the ``interval`` column of the 'rna' modality ``.var``.
+
+    Args:
+        data: AnnData or MuData object with an 'rna' modality.
+    """
+    if isinstance(data, AnnData):
+        adata = data
+    elif isinstance(data, MuData) and "rna" in data.mod:
+        adata = data.mod["rna"]
+    else:
+        raise TypeError("Expected AnnData or MuData object with 'rna' modality")
+
+    if "interval" in adata.var.columns:
+        features = pd.DataFrame([s.replace(":", "-", 1).split("-") for s in adata.var["interval"]])
+        features.columns = ["Chromosome", "Start", "End"]
+        features["gene_id"] = adata.var["gene_ids"].values
+        features["gene_name"] = adata.var.index.values
+        features.index = adata.var.index
+        # Remove genes with no coordinates indicated
+        features = features.loc[~features.Start.isnull()]
+        features.Start = features.Start.astype(int)
+        features.End = features.End.astype(int)
+    else:
+        raise ValueError(".var object does not have a column named interval")
+    return features
+
+
 def add_peak_annotation(
-    data: AnnData | MuData,
-    annotation: str | Path | pd.DataFrame,
-    sep: str = "\t",
-    return_annotation: bool = False,
+    data: AnnData | MuData, annotation: str | Path | pd.DataFrame, sep: str = "\t", return_annotation: bool = False
 ) -> pd.DataFrame | None:
     """Parse peak annotation file and add it to the .uns["atac"]["peak_annotation"].
 
@@ -224,11 +247,7 @@ def add_peak_annotation_gene_names(
 
 
 # Gene names for peaks
-def add_genes_peaks_groups(
-    data: AnnData | MuData,
-    add_peak_type: bool = False,
-    add_distance: bool = False,
-) -> None:
+def add_genes_peaks_groups(data: AnnData | MuData, add_peak_type: bool = False, add_distance: bool = False) -> None:
     """Add gene names to peaks ranked by clustering group.
 
     To add gene names to ranked peaks, peaks have to be ranked first.
@@ -302,11 +321,7 @@ def add_genes_peaks_groups(
 
 
 def rank_peaks_groups(
-    data: AnnData | MuData,
-    groupby: str,
-    add_peak_type: bool = False,
-    add_distance: bool = False,
-    **kwargs,
+    data: AnnData | MuData, groupby: str, add_peak_type: bool = False, add_distance: bool = False, **kwargs
 ) -> None:
     """Rank peaks in clusters groups.
 
@@ -350,11 +365,7 @@ def _parse_motif_ids(filename: str | None = None):
     return motifs
 
 
-def _parse_motif_matrices(
-    files: list[str] | None = None,
-    background: int | Iterable = 4,
-    pseudocount: float = 0.0001,
-):
+def _parse_motif_matrices(files: list[str] | None = None, background: int | Iterable = 4, pseudocount: float = 0.0001):
     try:
         import MOODS.parsers
         import MOODS.tools
@@ -855,11 +866,7 @@ def tss_enrichment(
 
     # Pile up tss regions
     tss_pileup = _tss_pileup(
-        adata,
-        features,
-        extend_upstream=extend_upstream,
-        extend_downstream=extend_downstream,
-        barcodes=barcodes,
+        adata, features, extend_upstream=extend_upstream, extend_downstream=extend_downstream, barcodes=barcodes
     )
 
     flank_means, center_means = _calculate_tss_score(data=tss_pileup)
@@ -946,9 +953,7 @@ def _tss_pileup(
 
     fragments.close()
 
-    anno = pd.DataFrame(
-        {"TSS_position": range(-extend_upstream, extend_downstream + 1)},
-    )
+    anno = pd.DataFrame({"TSS_position": range(-extend_upstream, extend_downstream + 1)})
     anno.index = anno.index.astype(str)
 
     return AnnData(X=mx, obs=adata.obs, var=anno)

@@ -75,14 +75,7 @@ napoleon_include_init_with_doc = False
 napoleon_use_rtype = True  # having a separate entry generally helps readability
 napoleon_use_param = True
 myst_heading_anchors = 6  # create anchors for h1-h6
-myst_enable_extensions = [
-    "amsmath",
-    "colon_fence",
-    "deflist",
-    "dollarmath",
-    "html_image",
-    "html_admonition",
-]
+myst_enable_extensions = ["amsmath", "colon_fence", "deflist", "dollarmath", "html_image", "html_admonition"]
 myst_url_schemes = ("http", "https", "mailto")
 nb_output_stderr = "remove"
 nb_execution_mode = "off"
@@ -90,11 +83,7 @@ nb_merge_streams = True
 typehints_defaults = "braces"
 always_use_bars_union = True  # use `|` instead of `Union` in types even when building with Python ≤3.14
 
-source_suffix = {
-    ".rst": "restructuredtext",
-    ".ipynb": "myst-nb",
-    ".myst": "myst-nb",
-}
+source_suffix = {".rst": "restructuredtext", ".ipynb": "myst-nb", ".myst": "myst-nb"}
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
@@ -122,6 +111,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
 #
 html_theme = "sphinx_book_theme"
 html_static_path = ["_static"]
+html_logo = "_static/img/muon_logo.png"
 html_css_files = ["css/custom.css"]
 
 html_title = project
@@ -141,5 +131,5 @@ nitpick_ignore = [
     # you can add an exception to this list.
     #     ("py:class", "igraph.Graph"),
     # Placeholder muon defines when louvain-igraph is unavailable, so it has no documentation to link to.
-    ("py:class", "louvain.VertexPartition.LouvainMutableVertexPartition"),
+    ("py:class", "louvain.VertexPartition.LouvainMutableVertexPartition")
 ]

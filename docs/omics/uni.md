@@ -3,6 +3,16 @@
 `muon` enhances efficiency and user experience when analysing individual omics by offering general functions for processing and plotting count data as well as functionality crafted for individual omics such as chromatin accessibility or antibody-derived tags.
 Omic-specific functions are grouped into respective modules inside `muon`.
 
+```{contents}
+:local:
+:depth: 3
+```
+```{toctree}
+:maxdepth: 10
+atac
+citeseq
+```
+
 ## In-place filtering
 
 When subsetting `AnnData` objects with {func}`scanpy.pp.filter_cells` / {func}`scanpy.pp.filter_genes`, the `AnnData` object is being copied.

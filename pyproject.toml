@@ -113,16 +113,11 @@ envs.hatch-test.overrides.matrix.deps.env-vars = [
 ]
 envs.hatch-test.dependency-groups = [ "dev", "test" ]
 
-[tool.uv]
-# The .h5mu write fix and the relaxed scverse-misc pin are only on mudata's main
-# branch so far; use it until the next mudata release. Only affects dev/CI
-# resolution — the published wheel still depends on `mudata` from PyPI.
-sources.mudata = { git = "https://github.com/scverse/mudata" }
-
 [tool.ruff]
 line-length = 120
 src = [ "src" ]
 extend-include = [ "*.ipynb" ]
+format.skip-magic-trailing-comma = true
 format.docstring-code-format = true
 lint.select = [
   "B",      # flake8-bugbear

@@ -28,13 +28,9 @@ are provided by [mudata](https://mudata.readthedocs.io/) and re-exported here; s
 
 .. autosummary::
     :toctree: generated
+    :recursive:
 
-    pp.filter_obs
-    pp.filter_var
-    pp.intersect_obs
-    pp.sample_obs
-    pp.l2norm
-    pp.neighbors
+    pp
 ```
 
 ## Tools
@@ -44,13 +40,9 @@ are provided by [mudata](https://mudata.readthedocs.io/) and re-exported here; s
 
 .. autosummary::
     :toctree: generated
+    :recursive:
 
-    tl.mofa
-    tl.snf
-    tl.ica
-    tl.umap
-    tl.leiden
-    tl.louvain
+    tl
 ```
 
 ## Plotting
@@ -60,55 +52,29 @@ are provided by [mudata](https://mudata.readthedocs.io/) and re-exported here; s
 
 .. autosummary::
     :toctree: generated
+    :recursive:
 
-    pl.embedding
-    pl.histogram
-    pl.scatter
-    pl.umap
-    pl.mofa
-    pl.mofa_loadings
+    pl
 ```
 
 ## ATAC
 
 ```{eval-rst}
-.. currentmodule:: muon.atac
-
 .. autosummary::
     :toctree: generated
+    :recursive:
 
-    pp.tfidf
-    pp.binarize
-    pp.scopen
-    tl.lsi
-    tl.add_peak_annotation
-    tl.add_peak_annotation_gene_names
-    tl.add_genes_peaks_groups
-    tl.rank_peaks_groups
-    tl.count_fragments_features
-    tl.locate_fragments
-    tl.locate_genome
-    tl.get_gene_annotation_from_rna
-    tl.fetch_regions_to_df
-    tl.get_sequences
-    tl.scan_sequences
-    tl.nucleosome_signal
-    tl.tss_enrichment
-    pl.tss_enrichment
-    pl.fragment_histogram
-    pl.dotplot
-    pl.pca
-    pl.lsi
+    atac.pp
+    atac.tl
+    atac.pl
 ```
 
 ## Protein (CITE-seq)
 
 ```{eval-rst}
-.. currentmodule:: muon.prot
-
 .. autosummary::
     :toctree: generated
+    :recursive:
 
-    pp.clr
-    pp.dsb
+    prot.pp
 ```
