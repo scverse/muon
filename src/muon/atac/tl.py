@@ -113,7 +113,7 @@ def add_peak_annotation(
             Annotation has to contain columns: peak, gene, distance, peak_type.
         sep: Separator for the peak annotation file. Only used if the file name is provided.
             Tab by default.
-        return_annotation: If return adata.uns['atac']['peak_annotation']. False by default.
+        return_annotation: Whether to return adata.uns['atac']['peak_annotation']. False by default.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -187,7 +187,7 @@ def add_peak_annotation_gene_names(
         gene_names: A DataFrame indexed on the gene name
         join_on: Name of the column in the gene_names DataFrame corresponding to the peak annotation index.
             It is automatically set to "gene_ids" or "gene_name" if none is provided.
-        return_annotation: If return adata.uns['atac']['peak_annotation']. False by default.
+        return_annotation: Whether to return adata.uns['atac']['peak_annotation']. False by default.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -260,8 +260,8 @@ def add_genes_peaks_groups(data: AnnData | MuData, add_peak_type: bool = False, 
 
     Args:
         data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-        add_peak_type: If to add peak type to the ranked peaks per group.
-        add_distance: If to add distance to the ranked peaks per group.
+        add_peak_type: Whether to add peak type to the ranked peaks per group.
+        add_distance: Whether to add distance to the ranked peaks per group.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -333,9 +333,9 @@ def rank_peaks_groups(
     Args:
         data: AnnData object with peak counts or MuData object with 'atac' modality.
         groupby: The key of the observations grouping to consider.
-        add_peak_type: If to add peak type to the ranked peaks per group
-        add_distance: If to add distance to the ranked peaks per group
-        kwargs: Keyword arguments passed to :func:`scanpy.tl.rank_genes_groups`.
+        add_peak_type: Whether to add peak type to the ranked peaks per group
+        add_distance: Whether to add distance to the ranked peaks per group
+        **kwargs: Keyword arguments passed to :func:`scanpy.tl.rank_genes_groups`.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -588,7 +588,7 @@ def locate_fragments(data: AnnData | MuData, fragments: str, return_fragments: b
     Args:
         data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
         fragments: A path to the compressed tab-separated fragments file (e.g. atac_fragments.tsv.gz).
-        return_fragments: If return the Tabix connection the fragments file. False by default.
+        return_fragments: Whether to return the Tabix connection the fragments file. False by default.
     """
     frag = None
     try:

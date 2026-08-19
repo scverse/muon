@@ -43,7 +43,7 @@ def scatter(
             If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
         layers: Names of the layers where x, y, and color come from.
             No layer is used by default. A single layer value will be expanded to [layer, layer, layer].
-        kwargs: Additional keyword arguments passed to :func:`scanpy.pl.scatter`.
+        **kwargs: Additional keyword arguments passed to :func:`scanpy.pl.scatter`.
     """
     if isinstance(data, AnnData):
         return sc.pl.scatter(data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs)
@@ -116,7 +116,7 @@ def embedding(
             in order to use a different layer for each modality.
             No layer is used by default. If a valid `layer` is provided, this takes precedence
             over `use_raw=True`.
-        kwargs: Additional keyword arguments passed to :func:`scanpy.pl.embedding`.
+        **kwargs: Additional keyword arguments passed to :func:`scanpy.pl.embedding`.
     """
     if isinstance(data, AnnData):
         return sc.pl.embedding(data, basis=basis, color=color, use_raw=use_raw, layer=layer, **kwargs)
@@ -284,7 +284,7 @@ def histogram(
         save: If `True` or a `str`, save the figure.
             A string is appended to the default filename.
             Infer the filetype if ending on {`'.pdf'`, `'.png'`, `'.svg'`}.
-        kwargs: Additional keyword arguments passed to the seaborn histogram function.
+        **kwargs: Additional keyword arguments passed to the seaborn histogram function.
     """
     from scanpy.plotting._utils import savefig_or_show
 

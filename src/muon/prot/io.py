@@ -10,8 +10,8 @@ def read_10x_h5(filename: PathLike, prot_only: bool = True, *args, **kwargs) -> 
     Args:
         filename: Path to the 10x Genomics HDF5 file (``.h5``).
         prot_only: Only keep features of type ``Antibody Capture``, discarding e.g. gene expression features.
-        args: Positional arguments passed to :func:`scanpy.read_10x_h5`.
-        kwargs: Keyword arguments passed to :func:`scanpy.read_10x_h5`.
+        *args: Positional arguments passed to :func:`scanpy.read_10x_h5`.
+        **kwargs: Keyword arguments passed to :func:`scanpy.read_10x_h5`.
     """
     adata = sc.read_10x_h5(filename, *args, gex_only=False, **kwargs)
     if prot_only:
@@ -25,8 +25,8 @@ def read_10x_mtx(filename: PathLike, prot_only: bool = True, *args, **kwargs) ->
     Args:
         filename: Path to the directory with the ``mtx`` matrix and its features and barcodes files.
         prot_only: Only keep features of type ``Antibody Capture``, discarding e.g. gene expression features.
-        args: Positional arguments passed to :func:`scanpy.read_10x_mtx`.
-        kwargs: Keyword arguments passed to :func:`scanpy.read_10x_mtx`.
+        *args: Positional arguments passed to :func:`scanpy.read_10x_mtx`.
+        **kwargs: Keyword arguments passed to :func:`scanpy.read_10x_mtx`.
     """
     adata = sc.read_10x_mtx(filename, *args, gex_only=False, **kwargs)
     if prot_only:
