@@ -72,7 +72,6 @@ test = [
   "fast-array-utils>=1.2.3", # see https://github.com/scverse/muon/issues/174
   "mofapy2",
   "pytest",
-  "pytest-cov",              # For VS Code’s coverage functionality
 ]
 doc = [
   "ipykernel",
