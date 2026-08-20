@@ -564,13 +564,13 @@ def neighbors(
         csigmas = sigmas[m]
         if issparse(rep):
 
-            def neighdist(cell, nz, rep=rep):
-                return -cdist(rep[cell, :].toarray()[None, ...], rep[nz, :].toarray(), metric=metric)
+            def neighdist(cell, nz):
+                return -cdist(rep[cell, :].toarray()[None, ...], rep[nz, :].toarray(), metric=metric)  # noqa: B023
 
         else:
 
-            def neighdist(cell, nz, rep=rep):
-                return -cdist(rep[None, cell, :], rep[nz, :], metric=metric)
+            def neighdist(cell, nz):
+                return -cdist(rep[None, cell, :], rep[nz, :], metric=metric)  # noqa: B023
 
         for cell in range(len(fullidx)):
             row = slice(neighbordistances.indptr[cell], neighbordistances.indptr[cell + 1])
