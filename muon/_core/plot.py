@@ -222,7 +222,7 @@ def embedding(
                     if data.mod[m].raw is not None:
                         keysidx = data.mod[m].raw.var.index.get_indexer_for(mod_keys)
                         fmod_adata = AnnData(
-                            X=data.mod[m].raw.X[:, keysidx],
+                            X=data.mod[m].raw.X[:, keysidx].copy(),
                             var=pd.DataFrame(index=mod_keys),
                             obs=data.mod[m].obs,
                         )
@@ -231,9 +231,9 @@ def embedding(
                             warnings.warn(
                                 f"Attibute .raw is None for the modality {m}, using .X instead"
                             )
-                        fmod_adata = data.mod[m][:, mod_keys]
+                        fmod_adata = data.mod[m][:, mod_keys].copy()
                 else:
-                    fmod_adata = data.mod[m][:, mod_keys]
+                    fmod_adata = data.mod[m][:, mod_keys].copy()
 
                 if layer is not None:
                     if isinstance(layer, Dict):
