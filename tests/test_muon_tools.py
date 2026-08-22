@@ -152,6 +152,7 @@ class TestMOFA2D:
 def test_leiden_random_state_zero_seeds_rng():
     # Regression test for https://github.com/scverse/muon/issues/154
     # `random_state=0` is falsy, so it used to be skipped and the RNG left unseeded.
+    pytest.importorskip("leidenalg")
     rng = np.random.default_rng(0)
     ad1 = AnnData(rng.random((50, 20)))
     ad2 = AnnData(rng.random((50, 20)))
