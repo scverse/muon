@@ -166,5 +166,19 @@ def test_leiden_random_state_zero_seeds_rng():
         optimiser.set_rng_seed.assert_called_once_with(0)
 
 
+def test_leiden_mod_weights_length_raises():
+    # Regression test for https://github.com/scverse/muon/issues/220
+    pytest.importorskip("leidenalg")
+    rng = np.random.default_rng(0)
+    ad1 = AnnData(rng.random((30, 10)))
+    ad2 = AnnData(rng.random((30, 10)))
+    sc.pp.neighbors(ad1, random_state=0)
+    sc.pp.neighbors(ad2, random_state=0)
+    mdata = MuData({"m1": ad1, "m2": ad2})
+
+    with pytest.raises(ValueError, match="Length of layers_weights"):
+        mu.tl.leiden(mdata, mod_weights=[1, 2, 3], random_state=0)
+
+
 if __name__ == "__main__":
     unittest.main()

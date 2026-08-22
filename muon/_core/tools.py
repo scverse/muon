@@ -989,9 +989,10 @@ def _cluster(
         if isinstance(mod_weights, Mapping):
             layer_weights = [mod_weights.get(mod, 1) for mod in mdata.mod]
         elif isinstance(mod_weights, Sequence) and not isinstance(mod_weights, str):
-            assert len(mod_weights) == len(
-                mdata.mod
-            ), f"Length of layers_weights ({len(mod_weights)}) does not match the number of modalities ({len(mdata.mod)})"
+            if len(mod_weights) != len(mdata.mod):
+                raise ValueError(
+                    f"Length of layers_weights ({len(mod_weights)}) does not match the number of modalities ({len(mdata.mod)})"
+                )
             layer_weights = mod_weights
         else:
             layer_weights = [mod_weights for _ in mdata.mod]
@@ -1015,9 +1016,10 @@ def _cluster(
                 for mod in mdata.mod
             ]
         elif isinstance(resolution, Sequence) and not isinstance(resolution, str):
-            assert len(resolution) == len(
-                mdata.mod
-            ), f"Length of resolution ({len(resolution)}) does not match the number of modalities ({len(mdata.mod)})"
+            if len(resolution) != len(mdata.mod):
+                raise ValueError(
+                    f"Length of resolution ({len(resolution)}) does not match the number of modalities ({len(mdata.mod)})"
+                )
             parts = [
                 partition_type(gs[mod], resolution_parameter=resolution[i], **partition_kwargs)
                 for i, mod in enumerate(mdata.mod)
