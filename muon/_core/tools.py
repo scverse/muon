@@ -1002,7 +1002,7 @@ def _cluster(
         partition_type = alg.RBConfigurationVertexPartition
 
     optimiser = alg.Optimiser()
-    if random_state:
+    if random_state is not None:
         optimiser.set_rng_seed(random_state)
 
     # The same as leiden.find_partition_multiplex() (louvain.find_partition_multiplex())

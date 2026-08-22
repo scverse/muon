@@ -1,9 +1,11 @@
 import pytest
 import unittest
+from unittest import mock
 
 import numpy as np
 from scipy import sparse
 import pandas as pd
+import scanpy as sc
 from anndata import AnnData
 import muon as mu
 from muon import MuData
@@ -145,6 +147,22 @@ class TestMOFA2D:
         for sample, value in (("sample9_groupA", -1.719391), ("sample17_groupB", 2.057848)):
             si = np.where(mdata.obs.index == sample)[0]
             assert mdata.obsm["X_mofa"][si, 0].item() == pytest.approx(value)
+
+
+def test_leiden_random_state_zero_seeds_rng():
+    # Regression test for https://github.com/scverse/muon/issues/154
+    # `random_state=0` is falsy, so it used to be skipped and the RNG left unseeded.
+    rng = np.random.default_rng(0)
+    ad1 = AnnData(rng.random((50, 20)))
+    ad2 = AnnData(rng.random((50, 20)))
+    sc.pp.neighbors(ad1, random_state=0)
+    sc.pp.neighbors(ad2, random_state=0)
+    mdata = MuData({"m1": ad1, "m2": ad2})
+
+    with mock.patch("leidenalg.Optimiser") as optimiser_cls:
+        optimiser = optimiser_cls.return_value
+        mu.tl.leiden(mdata, random_state=0, key_added="leiden")
+        optimiser.set_rng_seed.assert_called_once_with(0)
 
 
 if __name__ == "__main__":
