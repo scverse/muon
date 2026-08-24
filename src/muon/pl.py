@@ -1,5 +1,6 @@
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
+from contextlib import suppress
 
 import numpy as np
 import pandas as pd
@@ -172,7 +173,7 @@ def embedding(
             else:
                 raise ValueError(f"Basis {basis_mod} is not present in the modality {mod} with no embeddings")
 
-    obs = data.obs.loc[adata.obs.index.values]
+    obs = data.obs.loc[adata.obs.index.values, :]
 
     if not isinstance(use_raw, Mapping):
         use_rawd = use_raw
@@ -235,10 +236,8 @@ def embedding(
     ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp, uns=adata.uns)
     retval = sc.pl.embedding(ad, basis=basis_mod, color=color, **kwargs)
     for key, col in zip(keys, color, strict=True):
-        try:
+        with suppress(KeyError):
             adata.uns[f"{key}_colors"] = ad.uns[f"{col}_colors"]
-        except KeyError:
-            pass
     return retval
 
 
