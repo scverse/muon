@@ -2,11 +2,11 @@
 
 `muon` is a multimodal omics Python framework.
 
-[Documentation](https://muon.readthedocs.io/) | [Tutorials](https://muon-tutorials.readthedocs.io/) | [Publication](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-021-02577-8)
+[Documentation][] | [Tutorials](https://muon-tutorials.readthedocs.io/) | [Publication][muon paper]
 
 [![PyPI][badge-pypi]][pypi]
-[![Tests][badge-tests]][tests]
-<!-- [![codecov][badge-codecov]][codecov] -->
+[![Tests][badge-tests]][tests]<!--
+[![codecov][badge-codecov]][codecov] -->
 [![Documentation][badge-docs]][documentation]
 [![Powered by scverse][badge-scverse]][scverse]
 [![Powered by NumFOCUS][badge-numfocus]][numfocus]
@@ -20,13 +20,13 @@
 
 ## Data structure
 
-`muon` is designed around `MuData` (multimodal data) objects — in the same vein as [scanpy](https://github.com/theislab/scanpy) and [AnnData](https://github.com/theislab/anndata) are designed to work primarily with scRNA-seq data in Python. Individual modalities in `MuData` are naturally represented with `AnnData` objects.
+`muon` is designed around `MuData` (multimodal data) objects — in the same vein as [scanpy][] and [AnnData][] are designed to work primarily with scRNA-seq data in Python. Individual modalities in `MuData` are naturally represented with `AnnData` objects.
 
-`MuData` class and `.h5mu` files I/O operations are part of [the standalone mudata library](https://github.com/scverse/mudata).
+`MuData` class and `.h5mu` files I/O operations are part of [the standalone mudata library][mudata].
 
 ### Input
 
-`MuData` class is implemented in the [mudata](https://github.com/scverse/mudata) library and is exposed in `muon`:
+`MuData` class is implemented in the [mudata][] library and is exposed in `muon`:
 
 ```py
 from muon import MuData
@@ -51,7 +51,7 @@ mu.read_10x_h5("filtered_feature_bc_matrix.h5")
 
 ### I/O with `.h5mu` files
 
-Basic `.h5mu` files I/O functionality is implemented in [mudata](https://github.com/scverse/mudata) and is exposed in `muon`. A `MuData` object represents modalities as collections of `AnnData` objects, and these collections can be saved on disk and retrieved using HDF5-based `.h5mu` files, which design is based on `.h5ad` file structure.
+Basic `.h5mu` files I/O functionality is implemented in [mudata][] and is exposed in `muon`. A `MuData` object represents modalities as collections of `AnnData` objects, and these collections can be saved on disk and retrieved using HDF5-based `.h5mu` files, which design is based on `.h5ad` file structure.
 
 ```py
 mdata.write("pbmc_10k.h5mu")
@@ -135,7 +135,7 @@ You can cite the scverse publication as follows:
 
 [//]: # "numfocus-fiscal-sponsor-attribution"
 
-`muon` is part of the scverse® project ([website](https://scverse.org), [governance](https://scverse.org/about/roles)) and is fiscally sponsored by [NumFOCUS](https://numfocus.org/).
+`muon` is part of the scverse® project ([website][scverse], [governance](https://scverse.org/about/roles)) and is fiscally sponsored by [NumFOCUS][].
 If you like scverse® and want to support our mission, please consider making a tax-deductible [donation](https://numfocus.org/donate-to-scverse) to help the project pay for developer time, professional services, travel, workshops, and a variety of other needs.
 
 <div align="center">
@@ -146,3 +146,16 @@ If you like scverse® and want to support our mission, please consider making a 
   >
 </a>
 </div>
+
+[tests]: https://github.com/scverse/muon/actions/workflows/test.yaml
+[codecov]: https://codecov.io/gh/scverse/muon
+[documentation]: https://muon.readthedocs.io
+[changelog]: https://muon.readthedocs.io/latest/changelog.html
+[pypi]: https://pypi.org/project/muon
+[numfocus]: https://numfocus.org
+[scverse]: https://scverse.org
+[muon]: https://github.com/scverse/muon
+[anndata]: https://github.com/scverse/anndata
+[mudata]: https://github.com/scverse/mudata
+[scanpy]: https://github.com/scverse/scanpy
+[muon paper]: https://doi.org/10.1186/s13059-021-02577-8
