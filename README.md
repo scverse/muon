@@ -1,22 +1,32 @@
-<img src="./docs/img/muon_header.png" data-canonical-src="./docs/img/muon_header.png" width="700"/>
+<img src="https://raw.githubusercontent.com/scverse/muon/main/docs/img/muon_header.png" data-canonical-src="https://raw.githubusercontent.com/scverse/muon/main/docs/img/muon_header.png" width="700"/>
 
-`muon` is a multimodal omics Python framework. 
+`muon` is a multimodal omics Python framework.
 
-[Documentation](https://muon.readthedocs.io/) | [Tutorials](https://muon-tutorials.readthedocs.io/) | [Publication](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-021-02577-8)
+[Documentation][] | [Tutorials](https://muon-tutorials.readthedocs.io/) | [Publication][muon paper]
 
-[![Documentation Status](https://readthedocs.org/projects/muon/badge/?version=latest)](http://muon.readthedocs.io/?badge=latest)
-[![PyPi version](https://img.shields.io/pypi/v/muon)](https://pypi.org/project/muon)
-[![Powered by NumFOCUS](https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A)](https://numfocus.org)
+[![PyPI][badge-pypi]][pypi]
+[![Tests][badge-tests]][tests]<!--
+[![codecov][badge-codecov]][codecov] -->
+[![Documentation][badge-docs]][documentation]
+[![Powered by scverse][badge-scverse]][scverse]
+[![Powered by NumFOCUS][badge-numfocus]][numfocus]
+
+[badge-pypi]: https://img.shields.io/pypi/v/muon
+[badge-tests]: https://github.com/scverse/muon/actions/workflows/test.yaml/badge.svg
+[badge-codecov]: https://codecov.io/gh/scverse/muon/graph/badge.svg?token=L0Gek3V26p
+[badge-docs]: https://app.readthedocs.org/projects/muon/badge/?version=latest
+[badge-numfocus]: https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A
+[badge-scverse]: https://img.shields.io/badge/scverse-core-black.svg?labelColor=white&logo=data:image/svg%2bxml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+PCFET0NUWVBFIHN2ZyBQVUJMSUMgIi0vL1czQy8vRFREIFNWRyAxLjEvL0VOIiAiaHR0cDovL3d3dy53My5vcmcvR3JhcGhpY3MvU1ZHLzEuMS9EVEQvc3ZnMTEuZHRkIj4KPHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB2aWV3Qm94PSIwIDAgOTEgOTEiIHZlcnNpb249IjEuMSIKICAgIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICAgIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB4bWw6c3BhY2U9InByZXNlcnZlIgogICAgeG1sbnM6c2VyaWY9Imh0dHA6Ly93d3cuc2VyaWYuY29tLyIgc3R5bGU9ImZpbGwtcnVsZTpldmVub2RkO2NsaXAtcnVsZTpldmVub2RkO3N0cm9rZS1saW5lam9pbjpyb3VuZDtzdHJva2UtbWl0ZXJsaW1pdDoyOyI+CiAgICA8ZyBpZD0iRWJlbmVfMyI+CiAgICAgICAgPGc+CiAgICAgICAgICAgIDxwYXRoIGQ9Ik0zNSw4OS42Yy0yMi4zLC0zLjQgLTMwLjYsLTE5LjggLTMwLjYsLTE5LjhjMTAuOCwxNi45IDQzLDkuMSA1Mi45LDIuNWMxMi40LC04LjMgOCwtMTUuMyA2LjgsLTE4LjFjNS40LDcuMiA1LjMsMjMuNSAtMS4xLDI5LjRjLTUuNiw1LjEgLTE1LjMsNy45IC0yOCw2WiIgc3R5bGU9ImZpbGw6I2ZmZjtmaWxsLXJ1bGU6bm9uemVybztzdHJva2U6IzAwMDtzdHJva2Utd2lkdGg6MXB4OyIvPgogICAgICAgICAgICA8cGF0aCBkPSJNODMuOSw0My41YzIuOSwtNy4xIDAuOCwtMTIuNSAwLjUsLTEzLjNjLTAuNywtMS4zIC0xLjUsLTIuMyAtMi40LC0zLjFjLTE2LjEsLTEyLjYgLTU1LjksMSAtNzAuOSwxNi44Yy0xMC45LDExLjUgLTEwLjEsMjAgLTYuNywyNS44YzMuMSw0LjggNy45LDcuNiAxMy40LDljLTExLjUsLTEyLjQgOS44LC0zMS4xIDI5LC0zOGMyMSwtNy41IDMyLjUsLTMgMzcuMSwyLjhaIiBzdHlsZT0iZmlsbDojMzQzNDM0O2ZpbGwtcnVsZTpub256ZXJvO3N0cm9rZTojMDAwO3N0cm9rZS13aWR0aDoxcHg7Ii8+CiAgICAgICAgICAgIDxwYXRoIGQ9Ik03OS42LDUwLjRjOSwtMTAuNSA1LC0xOS43IDQuOCwtMjAuNGMtMCwwIDQuNCw3LjEgMi4yLDIyLjZjLTEuMiw4LjUgLTUuNCwxNiAtMTAuMSwxMS44Yy0yLjEsLTEuOCAtMywtNi45IDMuMSwtMTRaIiBzdHlsZT0iZmlsbDojZmZmO2ZpbGwtcnVsZTpub256ZXJvO3N0cm9rZTojMDAwO3N0cm9rZS13aWR0aDoxcHg7Ii8+CiAgICAgICAgICAgIDxwYXRoIGQ9Ik02NCw1NC4yYy0zLjMsLTQuOCAtOC4xLC03LjQgLTEyLjMsLTEwLjhjLTIuMiwtMS43IC0xNi40LC0xMS4yIC0xOS4yLC0xNS4xYy02LjQsLTYuNCAtOS41LC0xNi45IC0zLjQsLTIzLjFjLTQuNCwtMC44IC04LjIsMC4yIC0xMC42LDEuNWMtMS4xLDAuNiAtMi4xLDEuMiAtMi44LDJjLTYuNyw2LjIgLTUuOCwxNyAtMS42LDI0LjNjNC41LDcuOCAxMy4yLDE1LjQgMjQuMywyMi44YzUuMSwzLjQgMTUuNiw4LjQgMTkuMywxNmMxMS43LC04LjEgNy42LC0xNC45IDYuMywtMTcuNloiIHN0eWxlPSJmaWxsOiNiNGI0YjQ7ZmlsbC1ydWxlOm5vbnplcm87c3Ryb2tlOiMwMDA7c3Ryb2tlLXdpZHRoOjFweDsiLz4KICAgICAgICAgICAgPHBhdGggZD0iTTM4LjcsOS44YzcuOSw2LjMgMTIuNCw5LjggMjAsOC41YzUuNywtMSA0LjksLTcuOSAtNCwtMTMuNmMtNC40LC0yLjggLTkuNCwtNC4yIC0xNS43LC00LjJjLTcuNSwtMCAtMTYuMywzLjkgLTIwLjYsNi40YzQsLTIuMyAxMS45LC0zLjggMjAuMywyLjlaIiBzdHlsZT0iZmlsbDojZmZmO2ZpbGwtcnVsZTpub256ZXJvO3N0cm9rZTojMDAwO3N0cm9rZS13aWR0aDoxcHg7Ii8+CiAgICAgICAgPC9nPgogICAgPC9nPgo8L3N2Zz4=
 
 ## Data structure
 
-`muon` is designed around `MuData` (multimodal data) objects — in the same vein as [scanpy](https://github.com/theislab/scanpy) and [AnnData](https://github.com/theislab/anndata) are designed to work primarily with scRNA-seq data in Python. Individual modalities in `MuData` are naturally represented with `AnnData` objects.
+`muon` is designed around `MuData` (multimodal data) objects — in the same vein as [scanpy][] and [AnnData][] are designed to work primarily with scRNA-seq data in Python. Individual modalities in `MuData` are naturally represented with `AnnData` objects.
 
-`MuData` class and `.h5mu` files I/O operations are part of [the standalone mudata library](https://github.com/scverse/mudata).
+`MuData` class and `.h5mu` files I/O operations are part of [the standalone mudata library][mudata].
 
 ### Input
 
-`MuData` class is implemented in the [mudata](https://github.com/scverse/mudata) library and is exposed in `muon`:
+`MuData` class is implemented in the [mudata][] library and is exposed in `muon`:
 
 ```py
 from muon import MuData
@@ -30,7 +40,7 @@ If [multimodal data from 10X Genomics](https://support.10xgenomics.com/single-ce
 import muon as mu
 
 mu.read_10x_h5("filtered_feature_bc_matrix.h5")
-# MuData object with n_obs × n_vars = 10000 × 80000 
+# MuData object with n_obs × n_vars = 10000 × 80000
 # 2 modalities
 #   rna:	10000 x 30000
 #     var:	'gene_ids', 'feature_types', 'genome', 'interval'
@@ -41,7 +51,7 @@ mu.read_10x_h5("filtered_feature_bc_matrix.h5")
 
 ### I/O with `.h5mu` files
 
-Basic `.h5mu` files I/O functionality is implemented in [mudata](https://github.com/scverse/mudata) and is exposed in `muon`. A `MuData` object represents modalities as collections of `AnnData` objects, and these collections can be saved on disk and retrieved using HDF5-based `.h5mu` files, which design is based on `.h5ad` file structure.
+Basic `.h5mu` files I/O functionality is implemented in [mudata][] and is exposed in `muon`. A `MuData` object represents modalities as collections of `AnnData` objects, and these collections can be saved on disk and retrieved using HDF5-based `.h5mu` files, which design is based on `.h5ad` file structure.
 
 ```py
 mdata.write("pbmc_10k.h5mu")
@@ -67,7 +77,7 @@ sc.tl.pca(adata)
 # Multimodal
 import muon as mu
 mu.tl.mofa(mdata)
-``` 
+```
 
 ## Individual assays
 
@@ -100,16 +110,16 @@ from muon import prot as pt
 
 ---
 
-Some implementation details are noted in [DESIGN.md](./DESIGN.md). 
+Some implementation details are noted in [DESIGN.md](https://github.com/scverse/muon/blob/main/DESIGN.md).
 
-[Contributions](./CONTRIBUTING.md) in the form of [issues](https://github.com/scverse/muon/issues), [pull requests](https://github.com/scverse/muon/pulls) or [discussions](https://github.com/scverse/muon/discussions) are welcome.
+[Contributions](https://muon.readthedocs.io/page/contributing.html) in the form of [issues](https://github.com/scverse/muon/issues), [pull requests](https://github.com/scverse/muon/pulls) or [discussions](https://discourse.scverse.org/) are welcome.
 
 ## Citation
 
 If you use `muon` in your work, please cite the `muon` publication as follows:
 
 > **MUON: multimodal omics analysis framework**
-> 
+>
 > Danila Bredikhin, Ilia Kats, Oliver Stegle
 >
 > _Genome Biology_ 2022 Feb 01. doi: [10.1186/s13059-021-02577-8](https://doi.org/10.1186/s13059-021-02577-8).
@@ -125,7 +135,7 @@ You can cite the scverse publication as follows:
 
 [//]: # "numfocus-fiscal-sponsor-attribution"
 
-`muon` is part of the scverse® project ([website](https://scverse.org), [governance](https://scverse.org/about/roles)) and is fiscally sponsored by [NumFOCUS](https://numfocus.org/).
+`muon` is part of the scverse® project ([website][scverse], [governance](https://scverse.org/about/roles)) and is fiscally sponsored by [NumFOCUS][].
 If you like scverse® and want to support our mission, please consider making a tax-deductible [donation](https://numfocus.org/donate-to-scverse) to help the project pay for developer time, professional services, travel, workshops, and a variety of other needs.
 
 <div align="center">
@@ -137,3 +147,15 @@ If you like scverse® and want to support our mission, please consider making a 
 </a>
 </div>
 
+[tests]: https://github.com/scverse/muon/actions/workflows/test.yaml
+[codecov]: https://codecov.io/gh/scverse/muon
+[documentation]: https://muon.readthedocs.io
+[changelog]: https://muon.readthedocs.io/latest/changelog.html
+[pypi]: https://pypi.org/project/muon
+[numfocus]: https://numfocus.org
+[scverse]: https://scverse.org
+[muon]: https://github.com/scverse/muon
+[anndata]: https://github.com/scverse/anndata
+[mudata]: https://github.com/scverse/mudata
+[scanpy]: https://github.com/scverse/scanpy
+[muon paper]: https://doi.org/10.1186/s13059-021-02577-8

@@ -4,6 +4,7 @@ from io import StringIO
 import numpy as np
 import pandas as pd
 from anndata import AnnData
+
 import muon
 
 
@@ -34,7 +35,7 @@ class TestAddPeakAnnotation(unittest.TestCase):
         tsv = StringIO(
             "chrom\tstart\tend\tgene\tdistance\tpeak_type\n"
             "chr1\t100\t200\tGeneA;GeneB\t-100;200\tpromoter;distal\n"
-        )
+        )  # fmt: skip
         pa = pd.read_csv(tsv, sep="\t")
         adata = AnnData(np.zeros((1, 1)))
         adata.var_names = ["chr1:100-200"]

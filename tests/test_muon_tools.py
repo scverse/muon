@@ -1,16 +1,23 @@
-import pytest
+import os
+import tempfile
 import unittest
 
 import numpy as np
-from scipy import sparse
 import pandas as pd
+import pytest
 from anndata import AnnData
+from scipy import sparse
+
 import muon as mu
 from muon import MuData
 
 
 class TestMOFASimple(unittest.TestCase):
     def setUp(self):
+        tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tmpdir.cleanup)
+        self.outfile = os.path.join(tmpdir.name, "mofa.hdf5")
+
         # Create a dataset using 5 factors
         np.random.seed(1000)
         z = np.random.normal(size=(100, 5))
@@ -24,13 +31,7 @@ class TestMOFASimple(unittest.TestCase):
 
     def test_mofa_nfactors(self):
         n_factors = 10
-        mu.tl.mofa(
-            self.mdata,
-            n_factors=n_factors,
-            quiet=True,
-            verbose=False,
-            outfile="/tmp/test_mofa_muon_tools.hdf5",
-        )
+        mu.tl.mofa(self.mdata, n_factors=n_factors, quiet=True, verbose=False, outfile=self.outfile)
         y = np.concatenate([self.mdata.mod["y1"].X, self.mdata.mod["y2"].X], axis=1)
         yhat = np.dot(self.mdata.obsm["X_mofa"], self.mdata.varm["LFs"].T)
 
@@ -40,16 +41,11 @@ class TestMOFASimple(unittest.TestCase):
             r2.append(1 - np.sum((y - yhat) ** 2) / np.sum(y**2))
 
         # Only first 5 factors should have high R2
-        self.assertTrue(all([i > 0.1 for i in r2[:5]]))
-        self.assertFalse(any([i > 0.1 for i in r2[5:]]))
+        self.assertTrue(all(i > 0.1 for i in r2[:5]))
+        self.assertFalse(any(i > 0.1 for i in r2[5:]))
 
     def test_mofa_anndata(self):
-        mu.tl.mofa(
-            self.mdata["y1"],
-            n_factors=10,
-            quiet=True,
-            verbose=False,
-        )
+        mu.tl.mofa(self.mdata["y1"], n_factors=10, quiet=True, verbose=False)
         self.assertTrue("X_mofa" in self.mdata["y1"].obsm)
         self.assertTrue("LFs" in self.mdata["y1"].varm)
 
@@ -57,13 +53,7 @@ class TestMOFASimple(unittest.TestCase):
         adata = self.mdata["y1"].copy()
         adata.obs["ab"] = np.random.choice(["a", "b"], adata.n_obs)
         adata.obs["ab"] = adata.obs.ab.astype("category")
-        mu.tl.mofa(
-            adata,
-            groups_label="ab",
-            n_factors=10,
-            quiet=True,
-            verbose=False,
-        )
+        mu.tl.mofa(adata, groups_label="ab", n_factors=10, quiet=True, verbose=False)
         self.assertTrue("X_mofa" in adata.obsm)
         self.assertTrue("LFs" in adata.varm)
 
@@ -76,13 +66,7 @@ class TestMOFASimple(unittest.TestCase):
             if sparsity == 1 or sparsity == 2:
                 y2.X = sparse.csr_matrix(y2.X)
             mdata = MuData({"y1": y1[:-10], "y2": y2[10:]})
-            mu.tl.mofa(
-                mdata,
-                n_factors=10,
-                quiet=True,
-                verbose=False,
-                use_obs="union",
-            )
+            mu.tl.mofa(mdata, n_factors=10, quiet=True, verbose=False, use_obs="union")
             self.assertTrue("X_mofa" in mdata.obsm)
             self.assertTrue("LFs" in mdata.varm)
 
@@ -93,13 +77,11 @@ class TestMOFA2D:
         pytest.importorskip("mofapy2")
 
         views_names = ["view1", "view2"]
-        groups_names = ["groupA", "groupB"]
 
         # Set dimensions
         n_g1, n_g2 = 10, 20
         d_m1, d_m2 = 30, 40
         k = 5
-        n = n_g1 + n_g2
 
         # Generate data
         np.random.seed(42)
@@ -121,11 +103,7 @@ class TestMOFA2D:
         y2 = np.dot(z, w2.T) + e2
 
         # Make sample names
-        samples_names = [
-            f"sample{i}_group{g}"
-            for g, g_size in {"A": n_g1, "B": n_g2}.items()
-            for i in range(g_size)
-        ]
+        samples_names = [f"sample{i}_group{g}" for g, g_size in {"A": n_g1, "B": n_g2}.items() for i in range(g_size)]
         np.random.shuffle(samples_names)
         samples_groups = [s.split("_")[1] for s in samples_names]
 
