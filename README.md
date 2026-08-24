@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/scverse/muon/main/docs/img/muon_header.png" data-canonical-src="https://raw.githubusercontent.com/scverse/muon/main/docs/img/muon_header.png" width="700"/>
+<img src="https://raw.githubusercontent.com/scverse/muon/main/docs/_static/img/muon_header.png" data-canonical-src="https://raw.githubusercontent.com/scverse/muon/main/docs/_static/img/muon_header.png" width="700"/>
 
 `muon` is a multimodal omics Python framework.
 
