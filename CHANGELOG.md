@@ -10,11 +10,18 @@ and this project adheres to [Semantic Versioning][].
 
 ## [0.2.0] (Unreleased)
 
+### Added
+
+- `pl.scatter` and `pl.embedding` have a new `gene_symbols` argument with the same functionality as in scanpy.
+
 ### Changed
 
 - muon now requires Python 3.12 or newer.
 - `pp`, `tl`, `pl`, `atac.pp`, `atac.tl`, `atac.pl` and `prot.pp` are now regular submodules,
   so they can be imported directly (e.g. `from muon.pp import neighbors`).
+- The `use_raw` argument of `muon.pl.scatter` and `muon.pl.embedding` can no longer be `None`, it must be either `True` or `False`.
+  This leads to more predictable plotting behavior.
+- The arguments `layer` and `use_raw` of `muon.pl.scatter` and `muon.pl.embedding` can be specified individually for each modality by passing dictionaries.
 
 ### Deprecated
 
@@ -29,7 +36,8 @@ and this project adheres to [Semantic Versioning][].
 - Selecting an `.obsm` component with a non-integer index (e.g. `X_umap:abc`) now raises a clear error.
 - Avoid a `FutureWarning` on import by querying the scanpy version via `importlib.metadata.version`
   instead of the deprecated `scanpy.__version__`.
-- `tl.leiden` now correctly sets the seed with `random_state=0`.
+- `muon.tl.leiden` now correctly sets the seed with `random_state=0`.
+- `muon.pl.embedding` no longer mutates its input when a layer is used.
 
 ## [0.1.9]
 
