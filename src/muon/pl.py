@@ -127,9 +127,8 @@ def embedding(
             If a mapping is given, it must have one entry for each modality.
         layer: Name of the layer in the modality where a feature (from `color`) is derived from.
             A mapping from modality names to layer names can be provided in order to use a different
-            layer for each modality. No layer is used by default. If a valid `layer` is provided, this
-            takes precedence over `use_raw=True`. If a mapping is given, it must have one entry for each
-            modality.
+            layer for each modality. No layer is used by default. If a mapping is given, it must have one
+            entry for each modality.
         gene_symbols: Column of `.var` to search for `color` in. If a mapping is given, it must have one entry
             for each modality.
         **kwargs: Additional keyword arguments passed to :func:`scanpy.pl.embedding`.

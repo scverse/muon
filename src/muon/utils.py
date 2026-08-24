@@ -36,9 +36,8 @@ def _get_values(
         use_raw: Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
             If a mapping is given, it must have one entry for each modality.
         layer: Name of the layer in the modality where a feature (from `color`) is derived from.
-            No layer is used by default. If a valid `layer` is provided, this takes precedence
-            over `use_raw=True`. If a mapping is given, it must have one entry for each modality.
-        gene_symbols: Column of `.var` to search for `color` in. If a mapping is given, it must have
+            No layer is used by default. If a mapping is given, it must have one entry for each modality.
+        gene_symbols: Column of `.var` to search for `key` in. If a mapping is given, it must have
             one entry for each modality.
         obsmap: Provide a vector of the desired size were 0 are missing values and non-zero values
             correspond to the 1-based index of the value.
@@ -52,7 +51,9 @@ def _get_values(
         if m is not None:
             # Avoid numpy conversion of uint indices to float
             m = m.astype(int)
-            return pd.Series([vec[i - 1] if i != 0 else np.nan for i in m]).values
+            values = pd.Series(dtype=pd.core.dtypes.cast.convert_dtypes(vec), index=pd.RangeIndex(len(m)))
+            values.iloc[m[m > 0] - 1] = vec
+            return values.array
         return vec
 
     # Handle multiple keys
@@ -79,7 +80,8 @@ def _get_values(
         and (
             gene_symbols is None
             and key not in data.var_names
-            or gene_symbols is not None
+            or isinstance(gene_symbols, str)
+            and gene_symbols in data.var.columns
             and key not in data.var[gene_symbols]
         )
         and key not in data.obsm
@@ -118,6 +120,14 @@ def _get_values(
         if key_mod and mod_key:
             if not data.obs_names.equals(data.mod[key_mod].obs_names) and obsmap is None:
                 obsmap = data.obsmap[key_mod]
+            if isinstance(gene_symbols, Mapping):
+                gene_symbols = gene_symbols[key_mod]
+            elif gene_symbols is not None and gene_symbols.startswith(f"{key_mod}:"):
+                gene_symbols = gene_symbols[len(key_mod) + 1 :]
+            if isinstance(layer, Mapping):
+                layer = layer[key_mod]
+            elif layer is not None and layer.startswith(f"{key_mod}:"):
+                layer = layer[len(key_mod) + 1]
             return _get_values(
                 data.mod[key_mod], key=mod_key, use_raw=use_raw, layer=layer, gene_symbols=gene_symbols, obsmap=obsmap
             )
@@ -156,18 +166,7 @@ def _get_values(
         if use_raw and layer is not None:
             raise ValueError("use_raw cannot be True when a layer is specified.")
 
-        if use_raw:
-            keysidx = (
-                data.raw.var.index.get_indexer_for([key])
-                if gene_symbols is None
-                else np.nonzero(data.raw.var[gene_symbols] == key)[0]
-            )
-            if len(keysidx) == 0 or keysidx == -1:
-                raise ValueError(f"Key {key} could not be found.")
-            values = data.raw.X[:, keysidx[0]]
-            if len(keysidx) > 1:
-                warnings.warn(f"Key {key} is not unique in the index, using the first value...", stacklevel=2)
-        elif layer is not None:
+        if layer is not None:
             keysidx = (
                 data.var.index.get_indexer_for([key])
                 if gene_symbols is None
@@ -176,6 +175,17 @@ def _get_values(
             if len(keysidx) == 0 or keysidx == -1:
                 raise ValueError(f"Key {key} could not be found.")
             values = data.layers[layer][:, keysidx[0]]  # type: ignore[index]
+            if len(keysidx) > 1:
+                warnings.warn(f"Key {key} is not unique in the index, using the first value...", stacklevel=2)
+        elif use_raw:
+            keysidx = (
+                data.raw.var.index.get_indexer_for([key])
+                if gene_symbols is None
+                else np.nonzero(data.raw.var[gene_symbols] == key)[0]
+            )
+            if len(keysidx) == 0 or keysidx == -1:
+                raise ValueError(f"Key {key} could not be found.")
+            values = data.raw.X[:, keysidx[0]]
             if len(keysidx) > 1:
                 warnings.warn(f"Key {key} is not unique in the index, using the first value...", stacklevel=2)
         else:
