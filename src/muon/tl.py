@@ -835,7 +835,7 @@ def _cluster(
     data: MuData | AnnData,
     resolution: float | Sequence[float] | Mapping[str, float] | None = None,
     mod_weights: Sequence[float] | Mapping[str, float] | None = None,
-    random_state: int = 0,
+    random_state: int | None = 0,
     key_added: str = "leiden",
     neighbors_key: str | None = None,
     directed: bool = True,
@@ -905,7 +905,7 @@ def _cluster(
         partition_type = alg.RBConfigurationVertexPartition
 
     optimiser = alg.Optimiser()
-    if random_state:
+    if random_state is not None:
         optimiser.set_rng_seed(random_state)
 
     # The same as leiden.find_partition_multiplex() (louvain.find_partition_multiplex())
@@ -951,7 +951,7 @@ def leiden(
     data: MuData | AnnData,
     resolution: float | Sequence[float] | Mapping[str, float] | None = None,
     mod_weights: Sequence[float] | Mapping[str, float] | None = None,
-    random_state: int = 0,
+    random_state: int | None = 0,
     key_added: str = "leiden",
     neighbors_key: str | None = None,
     directed: bool = True,
@@ -1015,7 +1015,7 @@ def louvain(
     data: MuData | AnnData,
     resolution: float | Sequence[float] | Mapping[str, float] | None = None,
     mod_weights: Sequence[float] | Mapping[str, float] | None = None,
-    random_state: int = 0,
+    random_state: int | None = 0,
     key_added: str = "louvain",
     neighbors_key: str | None = None,
     directed: bool = True,
@@ -1230,7 +1230,14 @@ def umap(
 
 
 def ica(
-    data: AnnData | MuData, basis="X_pca", n_components=None, *, random_state=None, scale=False, copy=False, **kwargs
+    data: AnnData | MuData,
+    basis: str = "X_pca",
+    n_components: int | None = None,
+    *,
+    random_state: int | None = 0,
+    scale: bool = False,
+    copy: bool = False,
+    **kwargs,
 ) -> AnnData | MuData | None:
     """Run Independent component analysis."""
     from sklearn.decomposition import FastICA
