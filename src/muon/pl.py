@@ -1,5 +1,6 @@
-import warnings
+from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
+from contextlib import suppress
 
 import numpy as np
 import pandas as pd
@@ -8,7 +9,6 @@ import seaborn as sns
 from anndata import AnnData
 from matplotlib.axes import Axes
 from mudata import MuData
-from scipy.sparse import sparray, spmatrix
 
 from .utils import _get_values
 
@@ -22,14 +22,18 @@ def scatter(
     x: str | None = None,
     y: str | None = None,
     color: str | Sequence[str] | None = None,
-    use_raw: bool | None = None,
-    layers: str | Sequence[str | None] | None = None,
+    use_raw: bool | Mapping[str, bool] = False,
+    layers: str
+    | tuple[str, str, str]
+    | Mapping[str, str]
+    | tuple[Mapping[str, str], Mapping[str, str], Mapping[str, str]]
+    | None = None,
+    gene_symbols: str | Mapping[str, str | None] | None = None,
     **kwargs,
 ) -> Axes | list[Axes] | None:
     """Scatter plot along observations or variables axes.
 
-    Variables in each modality can be referenced,
-    e.g. ``"rna:X_pca"``.
+    Variables in each modality can be referenced, e.g. ``"rna:X_pca"``.
 
     See :func:`scanpy.pl.scatter` for details.
 
@@ -40,21 +44,30 @@ def scatter(
         color: Keys or a single key for variables or annotations of observations (.obs columns),
             or a hex colour specification.
         use_raw: Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
-            If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
-        layers: Names of the layers where x, y, and color come from.
-            No layer is used by default. A single layer value will be expanded to [layer, layer, layer].
+            If a mapping is given, it must have one netry for each modality.
+        layers: Names of the layers where x, y, and color come from. No layer is used by default.
+            A single layer value will be expanded to [layer, layer, layer]. If a mapping is given, it must
+            have one entry for each modality.
+        gene_symbols: Column of `.var` to search for `color` in. If a mapping is given, it must have one
+            entry for each modality.
         **kwargs: Additional keyword arguments passed to :func:`scanpy.pl.scatter`.
     """
     if isinstance(data, AnnData):
+        localvars = locals()
+        for arg in ("use_raw", "layers", "gene_symbols"):
+            if isinstance(localvars[arg], Mapping):
+                raise ValueError(f"`{arg}` can only be a dictionary if `data` is a `MuData` object.")
         return sc.pl.scatter(data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs)
 
-    if isinstance(layers, str) or layers is None:
-        layers = [layers, layers, layers]
+    if isinstance(layers, str | Mapping) or layers is None:
+        clayers = (layers, layers, layers)
+    else:
+        clayers = layers
 
     obs = pd.DataFrame(
         {
-            x: _get_values(data, x, use_raw=use_raw, layer=layers[0]),
-            y: _get_values(data, y, use_raw=use_raw, layer=layers[1]),
+            x: _get_values(data, x, use_raw=use_raw, layer=clayers[0], gene_symbols=gene_symbols),
+            y: _get_values(data, y, use_raw=use_raw, layer=clayers[1], gene_symbols=gene_symbols),
         }
     )
     obs.index = data.obs_names
@@ -62,9 +75,11 @@ def scatter(
         # Workaround for scanpy#311, scanpy#1497
         color_obs: pd.DataFrame
         if isinstance(color, str):
-            color_obs = pd.DataFrame({color: _get_values(data, color, use_raw=use_raw, layer=layers[2])})
+            color_obs = pd.DataFrame(
+                {color: _get_values(data, color, use_raw=use_raw, layer=clayers[2], gene_symbols=gene_symbols)}
+            )
         else:
-            color_obs = _get_values(data, color, use_raw=use_raw, layer=layers[2])
+            color_obs = _get_values(data, color, use_raw=use_raw, layer=clayers[2], gene_symbols=gene_symbols)
 
         color_obs.index = data.obs_names
         obs = pd.concat([obs, color_obs], axis=1, ignore_index=False)
@@ -92,15 +107,14 @@ def embedding(
     data: AnnData | MuData,
     basis: str,
     color: str | Sequence[str] | None = None,
-    use_raw: bool | None = None,
+    use_raw: bool | Mapping[str, bool] = False,
     layer: str | Mapping[str, str | None] | None = None,
+    gene_symbols: str | Mapping[str, str | None] | None = None,
     **kwargs,
 ) -> Axes | list[Axes] | None:
     """Scatter plot for .obs.
 
-    Produce a scatter plot in the define basis,
-    which can also be a basis inside any modality,
-    e.g. ``"rna:X_pca"``.
+    Produce a scatter plot in the define basis, which can also be a basis inside any modality, e.g. ``"rna:X_pca"``.
 
     See :func:`scanpy.pl.embedding` for details.
 
@@ -111,15 +125,23 @@ def embedding(
             Can be from any modality.
         use_raw: Use `.raw` attribute of the modality where a feature (from `color`) is derived from.
             If `None`, defaults to `True` if `.raw` is present and a valid `layer` is not provided.
+            If a mapping is given, it must have one entry for each modality.
         layer: Name of the layer in the modality where a feature (from `color`) is derived from.
-            A mapping from modality names to layer names can be provided
-            in order to use a different layer for each modality.
-            No layer is used by default. If a valid `layer` is provided, this takes precedence
-            over `use_raw=True`.
+            A mapping from modality names to layer names can be provided in order to use a different
+            layer for each modality. No layer is used by default. If a mapping is given, it must have one
+            entry for each modality.
+        gene_symbols: Column of `.var` to search for `color` in. If a mapping is given, it must have one entry
+            for each modality.
         **kwargs: Additional keyword arguments passed to :func:`scanpy.pl.embedding`.
     """
     if isinstance(data, AnnData):
-        return sc.pl.embedding(data, basis=basis, color=color, use_raw=use_raw, layer=layer, **kwargs)
+        localvars = locals()
+        for arg in ("use_raw", "layer", "gene_symbols"):
+            if isinstance(localvars[arg], Mapping):
+                raise ValueError(f"`{arg}` can only be a dictionary if `data` is a `MuData` object.")
+        return sc.pl.embedding(
+            data, basis=basis, color=color, use_raw=use_raw, layer=layer, gene_symbols=gene_symbols, **kwargs
+        )
 
     # `data` is MuData
     if basis not in data.obsm and "X_" + basis in data.obsm:
@@ -151,7 +173,17 @@ def embedding(
             else:
                 raise ValueError(f"Basis {basis_mod} is not present in the modality {mod} with no embeddings")
 
-    obs = data.obs.loc[adata.obs.index.values]
+    obs = data.obs.loc[adata.obs.index.values, :]
+
+    if not isinstance(use_raw, Mapping):
+        use_rawd = use_raw
+        use_raw = defaultdict(lambda: use_rawd)
+    if not isinstance(layer, Mapping):
+        layerd = layer
+        layer = defaultdict(lambda: layerd)
+    if not isinstance(gene_symbols, Mapping):
+        gene_symbolsd = gene_symbols
+        gene_symbols = defaultdict(lambda: gene_symbolsd)
 
     if color is None:
         ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp)
@@ -164,85 +196,48 @@ def embedding(
         raise TypeError("Expected color to be a string or an iterable.")
     keys = color
 
+    varidx = {}
+    for m, mod in data.mod.items():
+        if layer[m] is not None and use_raw[m]:
+            raise ValueError("use_raw cannot be True when a layer is specified.")
+
+        var = mod.var if not use_raw[m] else mod.raw.var
+        varidx[m] = var.index if gene_symbols[m] is None else pd.Index(var[gene_symbols[m]])
+
     # Fetch respective features
     if not all(key in obs for key in keys):
         # {'rna': [True, False], 'prot': [False, True]}
-        keys_in_mod = {m: [key in data.mod[m].var_names for key in keys] for m in data.mod}
-
-        # .raw slots might have exclusive var_names
-        if use_raw is None or use_raw:
-            for i, k in enumerate(keys):
-                for m in data.mod:
-                    if not keys_in_mod[m][i] and data.mod[m].raw is not None:
-                        keys_in_mod[m][i] = k in data.mod[m].raw.var_names
+        keys_in_mod = {m: [key in varidx[m] for key in keys] for m in data.mod}
 
         # e.g. color="rna:CD8A" - especially relevant for mdata.axis == -1
         mod_key_modifier: dict[str, str] = {}
         for i, k in enumerate(keys):
             mod_key_modifier[k] = k
-            for m in data.mod:
+            for m in data.mod.keys():
                 if not keys_in_mod[m][i]:
                     k_clean = k
                     if k.startswith(f"{m}:"):
                         k_clean = k.split(":", 1)[1]
 
-                    keys_in_mod[m][i] = k_clean in data.mod[m].var_names
+                    keys_in_mod[m][i] = k_clean in varidx[m]
                     if keys_in_mod[m][i]:
                         mod_key_modifier[k] = k_clean
-                    if use_raw is None or use_raw:
-                        if not keys_in_mod[m][i] and data.mod[m].raw is not None:
-                            keys_in_mod[m][i] = k_clean in data.mod[m].raw.var_names
 
-        for m in data.mod:
+        for m, mod in data.mod.items():
             if np.sum(keys_in_mod[m]) > 0:
-                mod_keys = np.array(keys)[keys_in_mod[m]]
-                mod_keys = np.array([mod_key_modifier[k] for k in mod_keys])
-
-                if use_raw is None or use_raw:
-                    if data.mod[m].raw is not None:
-                        keysidx = data.mod[m].raw.var.index.get_indexer_for(mod_keys)
-                        fmod_adata = AnnData(
-                            X=data.mod[m].raw.X[:, keysidx], var=pd.DataFrame(index=mod_keys), obs=data.mod[m].obs
-                        )
-                    else:
-                        if use_raw:
-                            warnings.warn(f"Attibute .raw is None for the modality {m}, using .X instead", stacklevel=2)
-                        fmod_adata = data.mod[m][:, mod_keys]
-                else:
-                    fmod_adata = data.mod[m][:, mod_keys]
-
-                if layer is not None:
-                    if isinstance(layer, Mapping):
-                        m_layer = layer.get(m, None)
-                        if m_layer is not None:
-                            xlayer = data.mod[m][:, mod_keys].layers[m_layer]
-                            fmod_adata.X = xlayer.toarray() if isinstance(layer, spmatrix | sparray) else xlayer
-                            if use_raw:
-                                warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}", stacklevel=2)
-                    elif layer in data.mod[m].layers:
-                        xlayer = data.mod[m][:, mod_keys].layers[layer]
-                        fmod_adata.X = xlayer.toarray() if isinstance(xlayer, spmatrix | sparray) else xlayer
-                        if use_raw:
-                            warnings.warn(f"Layer='{layer}' superseded use_raw={use_raw}", stacklevel=2)
-                    else:
-                        warnings.warn(
-                            f"Layer {layer} is not present for the modality {m}, using count matrix instead",
-                            stacklevel=2,
-                        )
-                x: np.ndarray | spmatrix | sparray = fmod_adata.X
-                if isinstance(x, spmatrix | sparray):
-                    x = x.toarray()
-                obs = obs.join(pd.DataFrame(x, columns=mod_keys, index=fmod_adata.obs_names), how="left")
+                mod_keys = [mod_key_modifier[k] for i, k in enumerate(keys) if keys_in_mod[m][i]]
+                obs = obs.join(
+                    sc.get.obs_df(mod, keys=mod_keys, layer=layer[m], use_raw=use_raw[m], gene_symbols=gene_symbols[m]),
+                    how="left",
+                )
 
         color = [mod_key_modifier[k] for k in keys]
 
     ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp, uns=adata.uns)
     retval = sc.pl.embedding(ad, basis=basis_mod, color=color, **kwargs)
     for key, col in zip(keys, color, strict=True):
-        try:
+        with suppress(KeyError):
             adata.uns[f"{key}_colors"] = ad.uns[f"{col}_colors"]
-        except KeyError:
-            pass
     return retval
 
 
