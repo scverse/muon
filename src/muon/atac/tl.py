@@ -820,7 +820,7 @@ def tss_enrichment(
     extend_downstream: int = 1000,
     n_tss: int = 2000,
     return_tss: bool = True,
-    random_state: int | None = 0,
+    random_state: int | np.random.RandomState | None = 0,
     barcodes: str | None = None,
 ) -> AnnData | None:
     """Calculate TSS enrichment according to ENCODE guidelines.

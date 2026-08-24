@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning][].
 - Selecting an `.obsm` component with a non-integer index (e.g. `X_umap:abc`) now raises a clear error.
 - Avoid a `FutureWarning` on import by querying the scanpy version via `importlib.metadata.version`
   instead of the deprecated `scanpy.__version__`.
+- `tl.leiden` now correctly sets the seed with `random_state=0`.
 
 ## [0.1.9]
 
