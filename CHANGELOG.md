@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning][].
 ### Added
 
 - `pl.scatter` and `pl.embedding` have a new `gene_symbols` argument with the same functionality as in scanpy.
+- `tl.mofa` has a new `train_kwargs` argument for more detailed control over training.
 
 ### Changed
 
