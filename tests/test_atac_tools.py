@@ -7,7 +7,7 @@ from anndata import AnnData
 import muon.atac as ac
 
 
-def test_empty_distance_values():
+def test_empty_distance_values() -> None:
     """Intergenic peaks with empty distance should not raise."""
     tsv = StringIO(
         "chrom\tstart\tend\tgene\tdistance\tpeak_type\n"
@@ -20,6 +20,7 @@ def test_empty_distance_values():
     adata.var_names = peaks
 
     result = ac.tl.add_peak_annotation(adata, pa, return_annotation=True)
+    assert result is not None
 
     assert result.distance.dtype == pd.Int64Dtype()
     assert result.distance.iloc[0] is pd.NA
@@ -27,7 +28,7 @@ def test_empty_distance_values():
     assert (result.peak == peaks).all()
 
 
-def test_semicolon_separated_distances():
+def test_semicolon_separated_distances() -> None:
     """Multi-gene peaks with semicolon-separated distances should work."""
     tsv = StringIO(
         "chrom\tstart\tend\tgene\tdistance\tpeak_type\n"
@@ -38,6 +39,7 @@ def test_semicolon_separated_distances():
     adata.var_names = ["chr1:100-200"]
 
     result = ac.tl.add_peak_annotation(adata, pa, return_annotation=True)
+    assert result is not None
 
     assert result.distance.dtype == np.int64
     assert result.distance.iloc[0] == -100

@@ -42,25 +42,27 @@ def mdata(request: pytest.FixtureRequest) -> MuData:
         mdata.mod["mod1"] = mdata["mod1"][np.random.choice(np.arange(n1), size=n1 // 2, replace=False)].copy()
         mdata.update()
 
-    yield mdata
+    return mdata
 
 
-def test_global_obs(mdata):
-    assert len(_get_values(mdata, "global_trait")) == mdata.n_obs
+def test_global_obs(mdata: MuData) -> None:
+    assert len(_get_values(mdata, "global_trait")) == mdata.n_obs  # type: ignore[arg-type]
 
 
-def test_common_obs(mdata):
+def test_common_obs(mdata: MuData) -> None:
     with pytest.raises(ValueError):
-        assert len(_get_values(mdata, "common_trait")) == mdata.n_obs
-    assert len(_get_values(mdata, "mod1:common_trait")) == mdata.n_obs
-    assert len(_get_values(mdata, "mod2:common_trait")) == mdata.n_obs
+        assert len(_get_values(mdata, "common_trait")) == mdata.n_obs  # type: ignore[arg-type]
+    assert len(_get_values(mdata, "mod1:common_trait")) == mdata.n_obs  # type: ignore[arg-type]
+    assert len(_get_values(mdata, "mod2:common_trait")) == mdata.n_obs  # type: ignore[arg-type]
 
 
-def test_mod_obs(mdata):
+def test_mod_obs(mdata: MuData) -> None:
     mod1_trait = _get_values(mdata, "mod1:mod1_trait")
+    assert mod1_trait is not None
     assert len(mod1_trait) == mdata.n_obs
 
     mod2_trait = _get_values(mdata, "mod2:mod2_trait")
+    assert mod2_trait is not None
     assert len(mod2_trait) == mdata.n_obs
 
     if mdata["mod1"].n_obs == mdata["mod2"].n_obs:
@@ -72,8 +74,8 @@ def test_mod_obs(mdata):
         assert all(mod2_trait[~pd.isnull(mod2_trait)] == "trait2")
 
 
-def test_var_name(mdata):
+def test_var_name(mdata: MuData) -> None:
     var1_0 = mdata["mod1"].var_names[0]
     var2_0 = mdata["mod2"].var_names[0]
-    assert len(_get_values(mdata, var1_0)) == mdata.n_obs
-    assert len(_get_values(mdata, var2_0)) == mdata.n_obs
+    assert len(_get_values(mdata, var1_0)) == mdata.n_obs  # type: ignore[arg-type]
+    assert len(_get_values(mdata, var2_0)) == mdata.n_obs  # type: ignore[arg-type]

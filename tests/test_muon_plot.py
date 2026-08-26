@@ -21,6 +21,6 @@ def mdata() -> MuData:
     return mdata
 
 
-def test_pl_scatter(mdata, rng):
+def test_pl_scatter(mdata: MuData, rng: np.random.Generator) -> None:
     mdata.obs["condition"] = rng.choice(["a", "b"], mdata.n_obs)
     mu.pl.scatter(mdata, x="mod1:0", y="mod2:0", color="condition")
