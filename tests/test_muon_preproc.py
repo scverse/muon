@@ -1,3 +1,5 @@
+from functools import reduce
+
 import mudata as md
 import numpy as np
 import pytest
@@ -185,3 +187,25 @@ def test_filter_var_with_varm_varp(pbmc3k_processed: AnnData, rng: np.random.Gen
     assert mdata.shape[1] == int(np.sum(A_var_sel) + np.sum(B_var_sel))
     assert_equal(mdata["A"], A_subset)
     assert_equal(mdata["B"], B_subset)
+
+
+@pytest.mark.parametrize("empty_X", [False, True])
+def test_filter_intersect_obs(mdata: MuData, rng: np.random.Generator, empty_X: bool) -> None:
+    modalities = {}
+    for mod, modality in mdata.mod.items():
+        mod_obs_names = [f"obs{i + 1}" for i in range(modality.n_obs)]
+        for obs in rng.choice(range(modality.n_obs), size=modality.n_obs // 10, replace=False):
+            mod_obs_names[obs] = f"{mod}_" + str(mod_obs_names[obs])
+
+        modalities[mod] = modality.copy()
+        if empty_X:
+            modalities[mod].X = None
+        modalities[mod].obs_names = mod_obs_names
+
+    mdata = MuData(modalities)
+
+    common_obs = reduce(lambda a, b: a.intersection(b), [adata.obs_names for adata in mdata.mod.values()])
+
+    mu.pp.intersect_obs(mdata)
+    assert mdata.n_obs == len(common_obs)
+    assert all(mdata.obs_names == common_obs)
