@@ -270,7 +270,7 @@ def _set_mofa_data_from_mudata(
 
 def mofa(
     data: AnnData | MuData,
-    groups_label: bool | None = None,
+    groups_label: str | None = None,
     use_raw: bool = False,
     use_layer: str | None = None,
     use_var: str | None = "highly_variable",
@@ -621,7 +621,7 @@ def mofa(
 
         groups = f["groups"]["groups"][:].astype(str)
         if len(groups) > 1:
-            for group in list(variance_per_group.keys()):
+            for group in variance_per_group.keys():
                 for i, view in enumerate(views):
                     variance[view][group] = variance_per_group[group][i, :]
         else:
