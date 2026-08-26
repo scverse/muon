@@ -1,5 +1,11 @@
+import numpy as np
 import pytest
 import scanpy as sc
+
+
+@pytest.fixture(scope="module")
+def rng():
+    return np.random.default_rng(42)
 
 
 @pytest.fixture(scope="module")

@@ -30,19 +30,19 @@ def tfidf(
 
     Args:
         data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-        log_idf: Log-transform IDF term (True by default).
-        log_tf: Log-transform TF term (True by default).
-        log_tfidf: Log-transform TF*IDF term (False by default).
-            Can only be used when log_tf and log_idf are False.
-        scale_factor: Scale factor to multiply the TF-IDF matrix by (1e4 by default).
-        inplace: If to modify counts in the AnnData object (True by default).
-        copy: If to return a copy of the AnnData object or the 'atac' modality (False by default).
-            Not compatible with inplace=False.
-        from_layer: Layer to use counts (AnnData.layers[from_layer])
-            instead of AnnData.X used by default.
-        to_layer: Layer to save transformed counts to (AnnData.layers[to_layer])
-            instead of AnnData.X used by default.
-            Not compatible with inplace=False.
+        log_idf: Log-transform IDF term.
+        log_tf: Log-transform TF term.
+        log_tfidf: Log-transform TF*IDF term. Can only be used when log_tf and log_idf are `False`.
+        scale_factor: Scale factor to multiply the TF-IDF matrix by.
+        inplace: Whether to modify counts in the AnnData object.
+        copy: Whether to return a copy of the AnnData object or the 'atac' modality. Not compatible
+            with `inplace=False`.
+        from_layer: Layer to use as input (`AnnData.layers[from_layer]`). Defaults to `AnnData.X`.
+        to_layer: Layer to save transformed counts to (`AnnData.layers[to_layer]`). Defaults to `AnnData.X`.
+            Not compatible with `inplace=False`.
+
+    Returns:
+        A matrix of transformed values if `inplace=False`, otherwise an AnnData object if `copy=True` or `None`.
     """
     if isinstance(data, AnnData):
         adata = data
