@@ -274,8 +274,10 @@ def mofa(
     use_raw: bool = False,
     use_layer: str | None = None,
     use_var: str | None = "highly_variable",
-    use_obs: str | None = None,
-    likelihoods: str | list[str] | None = None,
+    use_obs: Literal["union", "intersection"] | None = None,
+    likelihoods: Literal["gaussian", "bernoulli", "poisson"]
+    | list[Literal["gaussian", "bernoulli", "poisson"]]
+    | None = None,
     n_factors: int = 10,
     scale_views: bool = False,
     scale_groups: bool = False,
@@ -285,10 +287,11 @@ def mofa(
     spikeslab_weights: bool = True,
     spikeslab_factors: bool = False,
     n_iterations: int = 1000,
-    convergence_mode: str = "fast",
+    convergence_mode: Literal["fast", "medium", "slow"] = "fast",
     use_float32: bool = False,
     gpu_mode: bool = False,
     gpu_device: bool | None = None,
+    train_kwargs: Mapping[str, Any] | None = None,
     svi_mode: bool = False,
     svi_batch_size: float = 0.5,
     svi_learning_rate: float = 1.0,
@@ -302,58 +305,58 @@ def mofa(
     save_metadata: bool = True,
     seed: int = 1,
     outfile: str | None = None,
-    expectations: list[str] | None = None,
+    expectations: list[Literal["W", "Z", "Y", "Tau", "AlphaZ", "AlphaW", "ThetaW", "ThetaZ"]] | None = None,
     save_interrupted: bool = True,
     verbose: bool = False,
     quiet: bool = True,
     copy: bool = False,
 ) -> AnnData | MuData | None:
-    """Run Multi-Omics Factor Analysis.
+    """Run Multi-Omics Factor Analysis :cite:p:`pmid29925568,pmid32393329,pmid35027765`.
 
     Args:
-        data: an MuData object
-        groups_label: a column name in adata.obs for grouping the samples
-        use_raw: use raw slot of AnnData as input values
-        use_layer: use a specific layer of AnnData as input values (supersedes use_raw option)
-        use_var: .var column with a boolean value to select genes (e.g. "highly_variable"), None by default
-        use_obs: strategy to deal with samples (cells) not being the same across modalities ("union" or "intersection", throw error by default)
-        likelihoods: likelihoods to use, default is guessed from the data
-        n_factors: number of factors to train the model with
-        scale_views: scale views to unit variance
-        scale_groups: scale groups to unit variance
-        center_groups: center groups to zero mean (True by default)
-        ard_weights: use view-wise sparsity
-        ard_factors: use group-wise sparsity
-        spikeslab_weights: use feature-wise sparsity (e.g. gene-wise)
-        spikeslab_factors: use sample-wise sparsity (e.g. cell-wise)
-        n_iterations: upper limit on the number of iterations
-        convergence_mode: fast, medium, or slow convergence mode
-        use_float32: use reduced precision (float32)
-        gpu_mode: if to use GPU mode
-        gpu_device: which GPU device to use
-        svi_mode: if to use Stochastic Variational Inference (SVI)
-        svi_batch_size: batch size as a fraction (only applicable when svi_mode=True, 0.5 by default)
-        svi_learning_rate: learning rate (only applicable when svi_mode=True, 1.0 by default)
-        svi_forgetting_rate: forgetting_rate (only applicable when svi_mode=True, 0.5 by default)
-        svi_start_stochastic: first iteration to start SVI (only applicable when svi_mode=True, 1 by default)
-        smooth_covariate: use a covariate (column in .obs) to learn smooth factors (MEFISTO)
-        smooth_warping: if to learn the alignment of covariates (e.g. time points) from different groups;
+        data: A MuData object.
+        groups_label: Column name in `.obs` for grouping the samples.
+        use_raw: Whether to use the raw slot of AnnData as input values.
+        use_layer: Whether to use a specific layer of AnnData as input values (supersedes use_raw option).
+        use_var: `.var` column with a boolean value to select genes (e.g. "highly_variable").
+        use_obs: Strategy to deal with samples (cells) not being the same across modalities (raises an exception by default).
+        likelihoods: Likelihoods to use. Guessed from the data if `None`.
+        n_factors: Number of factors to train the model with.
+        scale_views: Whether to scale views to unit variance.
+        scale_groups: Whether to scale groups to unit variance.
+        center_groups: Whether to center groups to zero mean.
+        ard_weights: Whether to use view-wise sparsity.
+        ard_factors: Whether to use group-wise sparsity.
+        spikeslab_weights: Whether to use feature-wise sparsity (e.g. gene-wise).
+        spikeslab_factors: Whehter to use sample-wise sparsity (e.g. cell-wise).
+        n_iterations: Upper limit on the number of iterations.
+        convergence_mode: the convergence mode.
+        use_float32: whether to use reduced precision (float32).
+        gpu_mode: Whether to use GPU mode.
+        gpu_device: Which GPU device to use.
+        train_kwargs: Additional parameters for MOFA (`startELBO`, `freqELBO`, `startSparsity`, `tolerance`, `startDrop`, `freqDrop`,
+            `dropR2`, `nostop`, `schedule`, `weight_views`).
+        svi_mode: Whether to use Stochastic Variational Inference (SVI).
+        svi_batch_size: Batch size as a fraction (only applicable when `svi_mode=True`).
+        svi_learning_rate: Learning rate (only applicable when `svi_mode=True`).
+        svi_forgetting_rate: Forgetting_rate (only applicable when `svi_mode=True`)
+        svi_start_stochastic: First iteration to start SVI (only applicable when `svi_mode=True`)
+        smooth_covariate: Use a covariate (column in `.obs`) to learn smooth factors (MEFISTO).
+        smooth_warping: Whether to learn the alignment of covariates (e.g. time points) from different groups;
             by default, the first group is used as a reference, which can be adjusted by setting
-            the REF_GROUP in smooth_kwargs = { "warping_ref": REF_GROUP } (MEFISTO)
-        smooth_kwargs: additional arguments for MEFISTO (covariates_names, scale_cov, start_opt, n_grid, opt_freq,
-            warping_freq, warping_ref, warping_open_begin, warping_open_end,
-            sparseGP, frac_inducing, model_groups, new_values)
-        save_parameters: if to save training parameters
-        save_data: if to save training data
-        save_metadata: if to load metadata from the AnnData object (.obs and .var tables) and save it, False by default
-        seed: random seed
-        outfile: path to HDF5 file to store the model
-        expectations: which nodes should be used to save expectations for (will save only W and Z by default);
-            possible expectation names include Y, W, Z, Tau, AlphaZ, AlphaW, ThetaW, ThetaZ
-        save_interrupted: if to save partially trained model when the training is interrupted
-        verbose: print verbose information during traing
-        quiet: silence messages during training procedure
-        copy: return a copy of AnnData instead of writing to the provided object
+            the REF_GROUP in `smooth_kwargs = { "warping_ref": REF_GROUP }` (MEFISTO).
+        smooth_kwargs: Additional arguments for MEFISTO (`covariates_names`, `scale_cov`, `start_opt`, `n_grid`, `opt_freq`,
+            `warping_freq`, `warping_ref`, `warping_open_begin`, `warping_open_end`, `sparseGP`, `frac_inducing`, `model_groups`, `new_values`).
+        save_parameters: Whether to save the training parameters.
+        save_data: Whether to save the training data.
+        save_metadata: Whether to load metadata from the MuData object (`.obs` and `.var` tables) and save it.
+        seed: Random seed.
+        outfile: Path to the HDF5 file to store the model.
+        expectations: Which nodes should be used to save expectations for (will save only W and Z by default).
+        save_interrupted: Whether to save a partially trained model when the training is interrupted.
+        verbose: Whether to print verbose information during traing.
+        quiet: Whether to silence messages during the training procedure.
+        copy: Whether to return a copy of the MuData instead of writing to the provided object.
     """
     try:
         from mofapy2.run.entry_point import entry_point
@@ -423,6 +426,8 @@ def mofa(
     )
     logging.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Setting training options...")
 
+    if train_kwargs is None:
+        train_kwargs = {}
     try:
         ent.set_train_options(
             iter=n_iterations,
@@ -434,6 +439,7 @@ def mofa(
             quiet=quiet,
             outfile=outfile,
             save_interrupted=save_interrupted,
+            **train_kwargs,
         )
     except TypeError:
         # mofapy2 <0.7 does not have a gpu_device argument
@@ -450,6 +456,7 @@ def mofa(
             quiet=quiet,
             outfile=outfile,
             save_interrupted=save_interrupted,
+            **train_kwargs,
         )
 
     if svi_mode:
