@@ -17,7 +17,7 @@ def _get_values(
     layer: str | Mapping[str, str | None] | None = None,
     gene_symbols: str | Mapping[str, str | None] | None = None,
     obsmap: np.ndarray | None = None,
-) -> Iterable | None:
+) -> pd.DataFrame | np.ndarray | pd.api.extensions.ExtensionArray | None:
     """A helper function to get values for variables or annotations of observations (.obs columns).
 
     Strings like "rna:total_count", unless present in .var_names or .obs.columns,

@@ -660,7 +660,7 @@ def _filter_attr(
             the func argument can be omitted.
     """
     if data.is_view:
-        raise ValueError("The provided adata is a view. In-place filtering does not operate on views.")
+        raise ValueError("The provided data is a view. In-place filtering does not operate on views.")
     if data.isbacked:
         if isinstance(data, AnnData):
             warnings.warn(

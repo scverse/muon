@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -9,8 +7,8 @@ from mudata import MuData
 from muon.utils import _get_values
 
 
-@pytest.fixture(params=[{"same_obs": True}, {"same_obs": False}])
-def mdata(request):
+@pytest.fixture(params=[True, False])
+def mdata(request: pytest.FixtureRequest) -> MuData:
     mdata = MuData(
         {
             "mod1": AnnData(np.arange(0, 100, 0.1).reshape(-1, 10)),
@@ -22,12 +20,8 @@ def mdata(request):
     n1, d1 = mdata["mod1"].shape
     n2, d2 = mdata["mod2"].shape
 
-    # var
-
     mdata["mod1"].var_names = [f"var1_{i + 1}" for i in range(d1)]
     mdata["mod2"].var_names = [f"var2_{i + 1}" for i in range(d2)]
-
-    # obs
 
     mdata.obs["global_trait"] = "trait_g"
 
@@ -37,8 +31,6 @@ def mdata(request):
     mdata["mod1"].obs["common_trait"] = "trait_c1"
     mdata["mod2"].obs["common_trait"] = "trait_c2"
 
-    # obsm
-
     mdata.obsm["global_emb"] = np.random.normal(size=(n, 2))
 
     mdata["mod1"].obsm["mod1_emb"] = np.random.normal(size=(n1, 20))
@@ -46,48 +38,44 @@ def mdata(request):
 
     mdata.update()
 
-    if not request.param["same_obs"]:
+    if not request.param:
         mdata.mod["mod1"] = mdata["mod1"][np.random.choice(np.arange(n1), size=n1 // 2, replace=False)].copy()
         mdata.update()
 
-    yield mdata
+    return mdata
 
 
-class TestTraitParsing:
-    # Observations
-
-    def test_global_obs(self, mdata):
-        assert len(_get_values(mdata, "global_trait")) == mdata.n_obs
-
-    def test_common_obs(self, mdata):
-        with pytest.raises(ValueError):
-            assert len(_get_values(mdata, "common_trait")) == mdata.n_obs
-        assert len(_get_values(mdata, "mod1:common_trait")) == mdata.n_obs
-        assert len(_get_values(mdata, "mod2:common_trait")) == mdata.n_obs
-
-    def test_mod_obs(self, mdata):
-        mod1_trait = _get_values(mdata, "mod1:mod1_trait")
-        assert len(mod1_trait) == mdata.n_obs
-
-        mod2_trait = _get_values(mdata, "mod2:mod2_trait")
-        assert len(mod2_trait) == mdata.n_obs
-
-        if mdata["mod1"].n_obs == mdata["mod2"].n_obs:
-            assert all(mod1_trait == "trait1")
-            assert all(mod2_trait == "trait2")
-        else:
-            print(mod1_trait)
-            assert all(mod1_trait[~pd.isnull(mod1_trait)] == "trait1")
-            assert all(mod2_trait[~pd.isnull(mod2_trait)] == "trait2")
-
-    # Variables
-
-    def test_var_name(self, mdata):
-        var1_0 = mdata["mod1"].var_names[0]
-        var2_0 = mdata["mod2"].var_names[0]
-        assert len(_get_values(mdata, var1_0)) == mdata.n_obs
-        assert len(_get_values(mdata, var2_0)) == mdata.n_obs
+def test_global_obs(mdata: MuData) -> None:
+    assert len(_get_values(mdata, "global_trait")) == mdata.n_obs  # type: ignore[arg-type]
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_common_obs(mdata: MuData) -> None:
+    with pytest.raises(ValueError):
+        assert len(_get_values(mdata, "common_trait")) == mdata.n_obs  # type: ignore[arg-type]
+    assert len(_get_values(mdata, "mod1:common_trait")) == mdata.n_obs  # type: ignore[arg-type]
+    assert len(_get_values(mdata, "mod2:common_trait")) == mdata.n_obs  # type: ignore[arg-type]
+
+
+def test_mod_obs(mdata: MuData) -> None:
+    mod1_trait = _get_values(mdata, "mod1:mod1_trait")
+    assert mod1_trait is not None
+    assert len(mod1_trait) == mdata.n_obs
+
+    mod2_trait = _get_values(mdata, "mod2:mod2_trait")
+    assert mod2_trait is not None
+    assert len(mod2_trait) == mdata.n_obs
+
+    if mdata["mod1"].n_obs == mdata["mod2"].n_obs:
+        assert all(mod1_trait == "trait1")
+        assert all(mod2_trait == "trait2")
+    else:
+        print(mod1_trait)
+        assert all(mod1_trait[~pd.isnull(mod1_trait)] == "trait1")
+        assert all(mod2_trait[~pd.isnull(mod2_trait)] == "trait2")
+
+
+def test_var_name(mdata: MuData) -> None:
+    var1_0 = mdata["mod1"].var_names[0]
+    var2_0 = mdata["mod2"].var_names[0]
+    assert len(_get_values(mdata, var1_0)) == mdata.n_obs  # type: ignore[arg-type]
+    assert len(_get_values(mdata, var2_0)) == mdata.n_obs  # type: ignore[arg-type]

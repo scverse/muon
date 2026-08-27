@@ -1,129 +1,98 @@
-import os
-import tempfile
-import unittest
+from pathlib import Path
 
+import h5py
 import numpy as np
-import pandas as pd
 import pytest
 from anndata import AnnData
+from mudata import MuData
 from scipy import sparse
 
 import muon as mu
-from muon import MuData
 
 
-class TestMOFASimple(unittest.TestCase):
-    def setUp(self):
-        tmpdir = tempfile.TemporaryDirectory()
-        self.addCleanup(tmpdir.cleanup)
-        self.outfile = os.path.join(tmpdir.name, "mofa.hdf5")
-
-        # Create a dataset using 5 factors
-        np.random.seed(1000)
-        z = np.random.normal(size=(100, 5))
-        w1 = np.random.normal(size=(90, 5))
-        w2 = np.random.normal(size=(50, 5))
-        e1 = np.random.normal(size=(100, 90))
-        e2 = np.random.normal(size=(100, 50))
-        y1 = np.dot(z, w1.T) + e1
-        y2 = np.dot(z, w2.T) + e2
-        self.mdata = MuData({"y1": AnnData(y1), "y2": AnnData(y2)})
-
-    def test_mofa_nfactors(self):
-        n_factors = 10
-        mu.tl.mofa(self.mdata, n_factors=n_factors, quiet=True, verbose=False, outfile=self.outfile)
-        y = np.concatenate([self.mdata.mod["y1"].X, self.mdata.mod["y2"].X], axis=1)
-        yhat = np.dot(self.mdata.obsm["X_mofa"], self.mdata.varm["LFs"].T)
-
-        r2 = []
-        for i in range(n_factors):
-            yhat = np.dot(self.mdata.obsm["X_mofa"][:, [i]], self.mdata.varm["LFs"][:, [i]].T)
-            r2.append(1 - np.sum((y - yhat) ** 2) / np.sum(y**2))
-
-        # Only first 5 factors should have high R2
-        self.assertTrue(all(i > 0.1 for i in r2[:5]))
-        self.assertFalse(any(i > 0.1 for i in r2[5:]))
-
-    def test_mofa_anndata(self):
-        mu.tl.mofa(self.mdata["y1"], n_factors=10, quiet=True, verbose=False)
-        self.assertTrue("X_mofa" in self.mdata["y1"].obsm)
-        self.assertTrue("LFs" in self.mdata["y1"].varm)
-
-    def test_mofa_anndata_groups_cat(self):
-        adata = self.mdata["y1"].copy()
-        adata.obs["ab"] = np.random.choice(["a", "b"], adata.n_obs)
-        adata.obs["ab"] = adata.obs.ab.astype("category")
-        mu.tl.mofa(adata, groups_label="ab", n_factors=10, quiet=True, verbose=False)
-        self.assertTrue("X_mofa" in adata.obsm)
-        self.assertTrue("LFs" in adata.varm)
-
-    def test_mofa_obs_union(self):
-        y1 = self.mdata["y1"]
-        y2 = self.mdata["y2"]
-        for sparsity in (0, 1, 2):
-            if sparsity == 0 or sparsity == 2:
-                y1.X = sparse.csr_matrix(y1.X)
-            if sparsity == 1 or sparsity == 2:
-                y2.X = sparse.csr_matrix(y2.X)
-            mdata = MuData({"y1": y1[:-10], "y2": y2[10:]})
-            mu.tl.mofa(mdata, n_factors=10, quiet=True, verbose=False, use_obs="union")
-            self.assertTrue("X_mofa" in mdata.obsm)
-            self.assertTrue("LFs" in mdata.varm)
+@pytest.fixture
+def filepath_hdf5(tmp_path: Path) -> str:
+    return str(tmp_path / "mofa.hdf5")
 
 
-@pytest.mark.usefixtures("filepath_hdf5")
-class TestMOFA2D:
-    def test_multi_group(self, filepath_hdf5):
-        pytest.importorskip("mofapy2")
-
-        views_names = ["view1", "view2"]
-
-        # Set dimensions
-        n_g1, n_g2 = 10, 20
-        d_m1, d_m2 = 30, 40
-        k = 5
-
-        # Generate data
-        np.random.seed(42)
-        z1 = np.random.normal(size=(n_g1, k))
-        z2 = np.random.normal(size=(n_g2, k))
-        z = np.concatenate([z1, z2], axis=0)
-
-        w1 = np.random.normal(size=(d_m1, k))
-        w2 = np.random.normal(size=(d_m2, k))
-
-        e11 = np.random.normal(size=(n_g1, d_m1))
-        e12 = np.random.normal(size=(n_g2, d_m1))
-        e21 = np.random.normal(size=(n_g1, d_m2))
-        e22 = np.random.normal(size=(n_g2, d_m2))
-        e1 = np.concatenate([e11, e12], axis=0)
-        e2 = np.concatenate([e21, e22], axis=0)
-
-        y1 = np.dot(z, w1.T) + e1
-        y2 = np.dot(z, w2.T) + e2
-
-        # Make sample names
-        samples_names = [f"sample{i}_group{g}" for g, g_size in {"A": n_g1, "B": n_g2}.items() for i in range(g_size)]
-        np.random.shuffle(samples_names)
-        samples_groups = [s.split("_")[1] for s in samples_names]
-
-        ad1 = AnnData(X=y1, obs=pd.DataFrame(index=samples_names))
-        ad2 = AnnData(X=y2, obs=pd.DataFrame(index=samples_names))
-
-        mdata = MuData({views_names[0]: ad1, views_names[1]: ad2})
-        obs = pd.DataFrame({"sample": samples_names, "group": samples_groups}, index=samples_names)
-        mdata.obs = mdata.obs.join(obs)
-
-        mu.tl.mofa(mdata, groups_label="group", outfile=filepath_hdf5)
-
-        mdata.obs["true_group"] = [s.split("_")[1] for s in mdata.obs["sample"]]
-
-        assert all(mdata.obs.group.values == mdata.obs.true_group.values)
-
-        for sample, value in (("sample9_groupA", -1.719391), ("sample17_groupB", 2.057848)):
-            si = np.where(mdata.obs.index == sample)[0]
-            assert mdata.obsm["X_mofa"][si, 0].item() == pytest.approx(value)
+@pytest.fixture
+def mdata(rng: np.random.Generator) -> MuData:
+    z = rng.normal(size=(100, 5))
+    w1 = rng.normal(size=(90, 5))
+    w2 = rng.normal(size=(50, 5))
+    e1 = rng.normal(size=(100, 90))
+    e2 = rng.normal(size=(100, 50))
+    y1 = z @ w1.T + e1
+    y2 = z @ w2.T + e2
+    mdata = MuData({"y1": AnnData(y1), "y2": AnnData(y2)})
+    mdata.obs["group"] = rng.choice((0, 1), size=mdata.n_obs)
+    mdata.obs["group_cat"] = mdata.obs["group"].astype("category")
+    mdata["y1"].obs["group"] = rng.choice((0, 1), size=mdata["y1"].n_obs)
+    mdata["y1"].obs["group_cat"] = mdata["y1"].obs["group"].astype("category")
+    return mdata
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_mofa_nfactors(mdata: MuData, filepath_hdf5: str) -> None:
+    n_factors = 10
+    mu.tl.mofa(mdata, n_factors=n_factors, quiet=True, verbose=False, outfile=filepath_hdf5)
+
+    # Only first 5 factors should have high R2
+    for view_r2 in mdata.uns["mofa"]["variance"].values():
+        assert np.all(view_r2[:5] > 5)
+        assert np.all(view_r2[5:] <= 5)
+
+
+def test_mofa_anndata(mdata: MuData, filepath_hdf5: str) -> None:
+    mu.tl.mofa(mdata["y1"], n_factors=10, quiet=True, verbose=False, outfile=filepath_hdf5)
+    assert "X_mofa" in mdata["y1"].obsm
+    assert "LFs" in mdata["y1"].varm
+
+
+@pytest.mark.parametrize("group_col", ("group", "group_cat"))
+@pytest.mark.parametrize("use_adata", (False, True))
+def test_mofa_groups(
+    mdata: MuData, group_col: str, use_adata: bool, rng: np.random.Generator, filepath_hdf5: str
+) -> None:
+    if use_adata:
+        mdata = mdata["y1"]
+    mu.tl.mofa(
+        mdata,
+        groups_label=group_col,
+        n_factors=10,
+        scale_views=False,
+        scale_groups=False,
+        center_groups=False,
+        quiet=True,
+        verbose=False,
+        outfile=filepath_hdf5,
+    )
+    assert "X_mofa" in mdata.obsm
+    assert "LFs" in mdata.varm
+
+    groups = np.sort(mdata.obs[group_col].unique())
+    groups_str = groups.astype(str)
+    with h5py.File(filepath_hdf5) as mofa_out:
+        assert np.all(np.asarray(sorted(mofa_out["samples_metadata"].keys())) == groups_str)
+        for group, group_str in zip(groups, groups_str, strict=True):
+            submdata = mdata[mdata.obs[group_col] == group]
+            if use_adata:
+                assert np.all(mofa_out["data"]["data"][group_str][()] == submdata.X)
+            else:
+                for view_name, view in submdata.mod.items():
+                    assert np.all(mofa_out["data"][view_name][group_str][()] == view.X)
+            assert np.all(mofa_out["samples_metadata"][group_str][group_col][()] == group)
+            assert np.all(mofa_out["expectations"]["Z"][group_str][()].T == submdata.obsm["X_mofa"])
+
+
+@pytest.mark.parametrize("sparsity", (0, 1, 2))
+def test_mofa_obs_union(mdata, sparsity: int, filepath_hdf5: str) -> None:
+    y1 = mdata["y1"]
+    y2 = mdata["y2"]
+    if sparsity in (0, 2):
+        y1.X = sparse.csr_matrix(y1.X)
+    if sparsity in (1, 2):
+        y2.X = sparse.csr_matrix(y2.X)
+    mdata = MuData({"y1": y1[:-10], "y2": y2[10:]})
+    mu.tl.mofa(mdata, n_factors=10, quiet=True, verbose=False, use_obs="union", outfile=filepath_hdf5)
+    assert "X_mofa" in mdata.obsm
+    assert "LFs" in mdata.varm
