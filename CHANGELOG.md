@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning][].
 - The `use_raw` argument of `muon.pl.scatter` and `muon.pl.embedding` can no longer be `None`, it must be either `True` or `False`.
   This leads to more predictable plotting behavior.
 - The arguments `layer` and `use_raw` of `muon.pl.scatter` and `muon.pl.embedding` can be specified individually for each modality by passing dictionaries.
+- `muon.atac.tl.count_fragments_features` now defaults to counting fragments instead of reads.
 
 ### Deprecated
 
