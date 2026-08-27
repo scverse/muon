@@ -71,7 +71,7 @@ test = [
   "coverage>=7.10",
   "fast-array-utils>=1.2.3", # see https://github.com/scverse/muon/issues/174
   "mofapy2",
-  "pytest",
+  "muon[atac,mofa]",
 ]
 doc = [
   "ipykernel",
