@@ -16,7 +16,7 @@ import scanpy as sc
 from anndata import AnnData
 from mudata import MuData
 from scanpy import logging
-from scipy.sparse import lil_matrix
+from scipy.sparse import lil_array
 from scipy.sparse.linalg import svds
 from tqdm import tqdm
 
@@ -687,17 +687,14 @@ def count_fragments_features(
     extend_downstream: int = 0,
     count_reads: bool = False,
 ) -> AnnData:
-    """Count fragments overlapping given Features. Returns cells x features matrix.
+    """Count fragments overlapping given features. Returns a cells x features matrix.
 
     Args:
         data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-        features: A DataFrame with feature annotation, e.g. genes.
-            Annotation should contain columns (case-insensitive):
+        features: A DataFrame with feature annotation, e.g. genes. Annotation should contain columns (case-insensitive):
             chr/chrom/chromosome (longer takes precedence), start, end.
-        stranded: Use strand information for each feature.
-            Has to be encoded as a "strand" (case-insensitive) column in features.
-            When stranded=True, extend_upsteam and extend_downstream will be used
-            according to each feature's strand information.
+        stranded: Use strand information for each feature. Has to be encoded as a "strand" (case-insensitive) column in features.
+            When stranded=True, extend_upsteam and extend_downstream will be used according to each feature's strand information.
         extend_upstream: Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
         extend_downstream: Number of nucleotides to extend every gene downstream (0 by default)
         count_reads: Whether to count reads instead of fragments. If `True`, the number of reads (read support) per fragment will be used.
@@ -735,7 +732,7 @@ def count_fragments_features(
     # TODO: refactor and reuse this code
     # TODO: write tests (see #59, #68, #110)
 
-    f_cols = np.array([col.lower() for col in features.columns.values])
+    f_cols = features.columns.str.lower()
     for col in ("start", "end"):
         if col not in f_cols:
             raise ValueError(f"No column with feature {col}s could be found")
@@ -748,36 +745,34 @@ def count_fragments_features(
     if chrom_col is None:
         raise ValueError("No column with chromosome for features could be found")
 
-    start_col = features.columns.values[np.where(f_cols == "start")[0][0]]
-    end_col = features.columns.values[np.where(f_cols == "end")[0][0]]
-    chr_col = features.columns.values[np.where(f_cols == chrom_col)[0][0]]
+    start_col = np.nonzero(f_cols == "start")[0][0]
+    end_col = np.nonzero(f_cols == "end")[0][0]
+    chr_col = np.nonzero(f_cols == chrom_col)[0][0]
 
     strand_col: str | None = None
     if stranded:
         if "strand" not in f_cols:
             raise ValueError("No column with strand for features could be found")
-        strand_col = features.columns.values[np.where(f_cols == chrom_col)[0][0]]
+        strand_col = np.nonzero(f_cols == "strand")[0][0]
 
     fragments = pysam.TabixFile(adata.uns["files"]["fragments"], parser=pysam.asBed())
     try:
         # List of lists matrix is quick and convenient to fill by row
-        mx = lil_matrix((n_features, n), dtype=int)
+        mx = lil_array((n_features, n), dtype=int)
 
         logging.info(
             f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Counting fragments in {n} cells for {features.shape[0]} features..."
         )
 
-        stranded = "Strand" in features.columns
         for i in tqdm(range(n_features)):  # iterate over features (e.g. genes)
-            f = features.iloc[i]
-            if stranded and f[strand_col] == "-":
-                f_from = f[start_col] - extend_downstream
-                f_to = f[end_col] + extend_upstream
+            if stranded and features.iloc[i, strand_col] == "-":
+                f_from = features.iloc[i, start_col] - extend_downstream
+                f_to = features.iloc[i, end_col] + extend_upstream
             else:
-                f_from = f[start_col] - extend_upstream
-                f_to = f[end_col] + extend_downstream
+                f_from = features.iloc[i, start_col] - extend_upstream
+                f_to = features.iloc[i, end_col] + extend_downstream
 
-            for fr in fragments.fetch(f[chr_col], f_from, f_to):
+            for fr in fragments.fetch(features.iloc[i, chr_col], f_from, f_to):
                 try:
                     ind = adata.obs.index.get_loc(fr.name)  # cell barcode (e.g. GTCAGTCAGTCAGTCA-1)
                     mx.rows[i].append(ind)
@@ -789,15 +784,10 @@ def count_fragments_features(
                 except Exception:  # noqa: BLE001
                     pass
 
-        # Faster to convert to csr first and then transpose
-        mx = mx.tocsr().transpose()
+        # Faster to convert to csc first and then transpose
+        mx = mx.tocsc().transpose()
 
         return AnnData(X=mx, obs=adata.obs, var=features)
-
-    except Exception as e:
-        logging.error(e)
-        raise e
-
     finally:
         # The connection has to be closed
         fragments.close()

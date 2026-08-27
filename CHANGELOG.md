@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning][].
   instead of the deprecated `scanpy.__version__`.
 - `muon.tl.leiden` now correctly sets the seed with `random_state=0`.
 - `muon.pl.embedding` no longer mutates its input when a layer is used.
+- `muon.atac.tl.count_fragments_features` now correctly processes the `strand` column in the given features.
 
 ## [0.1.9]
 
