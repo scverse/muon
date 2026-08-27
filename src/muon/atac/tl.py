@@ -682,7 +682,7 @@ def initialise_default_files(data: AnnData | MuData, path: str | Path) -> None:
 def count_fragments_features(
     data: AnnData | MuData,
     features: pd.DataFrame | None = None,
-    stranded: bool = False,
+    stranded: bool | None = None,
     extend_upstream: float = 2e3,
     extend_downstream: int = 0,
     count_reads: bool = False,
@@ -694,7 +694,8 @@ def count_fragments_features(
         features: A DataFrame with feature annotation, e.g. genes. Annotation should contain columns (case-insensitive):
             chr/chrom/chromosome (longer takes precedence), start, end.
         stranded: Use strand information for each feature. Has to be encoded as a "strand" (case-insensitive) column in features.
-            When stranded=True, extend_upsteam and extend_downstream will be used according to each feature's strand information.
+            When `stranded=True`, extend_upsteam and extend_downstream will be used according to each feature's strand information.
+            If `None`, will use strand information if present and run unstranded otherwise.
         extend_upstream: Number of nucleotides to extend every gene upstream (2000 by default to extend gene coordinates to promoter regions)
         extend_downstream: Number of nucleotides to extend every gene downstream (0 by default)
         count_reads: Whether to count reads instead of fragments. If `True`, the number of reads (read support) per fragment will be used.
@@ -750,9 +751,12 @@ def count_fragments_features(
     chr_col = np.nonzero(f_cols == chrom_col)[0][0]
 
     strand_col: str | None = None
+    if stranded is None:
+        stranded = "strand" in f_cols
+    elif stranded and "strand" not in f_cols:
+        raise ValueError("No column with strand for features could be found")
+
     if stranded:
-        if "strand" not in f_cols:
-            raise ValueError("No column with strand for features could be found")
         strand_col = np.nonzero(f_cols == "strand")[0][0]
 
     fragments = pysam.TabixFile(adata.uns["files"]["fragments"], parser=pysam.asBed())
@@ -786,6 +790,7 @@ def count_fragments_features(
 
         # Faster to convert to csc first and then transpose
         mx = mx.tocsc().transpose()
+        mx.sum_duplicates()
 
         return AnnData(X=mx, obs=adata.obs, var=features)
     finally:

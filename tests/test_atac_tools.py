@@ -1,9 +1,12 @@
 from io import StringIO
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pysam
 import pytest
 from anndata import AnnData
+from scipy.sparse import csr_array
 
 import muon.atac as ac
 
@@ -34,3 +37,49 @@ def test_add_peak_annotation(empty_distance: bool) -> None:
     assert result.distance.iloc[2] == -100
     assert result.distance.iloc[3] == 200
     assert (result.peak == peaks).all()
+
+
+def test_count_fragments_features(tmp_path: Path) -> None:
+    fragments = (
+        "1\t63082\t63282\tcell1\t2\n"
+        "1\t65082\t65282\tcell1\t2\n"
+        "1\t67082\t67282\tcell1\t1\n"
+        "1\t69082\t69282\tcell1\t1\n"
+        "1\t71082\t71282\tcell1\t1\n"
+        "1\t83678\t83878\tcell1\t10\n"
+        "1\t85678\t85878\tcell1\t10\n"
+        "1\t87678\t87878\tcell1\t10\n"
+        "1\t89678\t89878\tcell1\t100\n"
+        "1\t91678\t91878\tcell1\t100\n"
+        "2\t131043\t131243\tcell2\t200\n"
+        "2\t133043\t133243\tcell2\t200\n"
+        "2\t135043\t135243\tcell2\t20\n"
+        "2\t137043\t137243\tcell2\t20\n"
+        "2\t139043\t139243\tcell2\t20\n"
+        "2\t215701\t215901\tcell2\t2\n"
+        "2\t217701\t217901\tcell2\t2\n"
+        "2\t219701\t219901\tcell2\t2\n"
+        "2\t221701\t221901\tcell2\t4\n"
+        "2\t223701\t223901\tcell2\t4\n"
+    )
+
+    fragments_path = str(tmp_path / "fragments.txt")
+    with open(fragments_path, mode="w") as f:
+        f.write(fragments)
+    fragments_path = pysam.tabix_index(fragments_path, preset="bed")
+
+    tsv = StringIO("chromosome\tstart\tend\tstrand\n1\t71582\t83178\t+\n2\t139543\t215201\t-\n")
+    annotation = pd.read_csv(tsv, sep="\t")
+
+    adata = AnnData(obs=pd.DataFrame(index=["cell1", "cell2"]))
+    ac.tl.locate_fragments(adata, fragments_path)
+
+    result: csr_array = ac.tl.count_fragments_features(
+        adata, annotation, extend_upstream=5000, extend_downstream=0, count_reads=True
+    ).X
+    assert np.all(result.toarray() == np.asarray([[3, 0], [0, 6]]))
+
+    result = ac.tl.count_fragments_features(
+        adata, annotation, extend_upstream=0, extend_downstream=5000, count_reads=True
+    ).X
+    assert np.all(result.toarray() == np.asarray([[30, 0], [0, 60]]))
