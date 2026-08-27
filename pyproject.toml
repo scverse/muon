@@ -50,12 +50,12 @@ optional-dependencies.atac = [
   "moods-python",
   "pybedtools",
   "pysam",
-  "scopen",
   "snaptools",
 ]
 optional-dependencies.mofa = [
   "mofapy2",
 ]
+optional-dependencies.scopen = [ "scopen" ]
 urls.Documentation = "https://muon.readthedocs.io/"
 urls.Homepage = "https://github.com/scverse/muon"
 urls.Source = "https://github.com/scverse/muon"
