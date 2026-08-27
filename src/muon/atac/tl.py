@@ -147,7 +147,7 @@ def add_peak_annotation(
     if pd.api.types.is_string_dtype(pa.distance):
         pa = pa.set_index("peak")
         pa_g = pa.gene.str.split(";").explode()
-        pa_d = pa.distance.str.split(";").explode().astype(int)
+        pa_d = pa.distance.str.split(";").explode().astype(pd.Int64Dtype())
         pa_p = pa.peak_type.str.split(";").explode()
 
         # Make a long dataframe indexed by gene

@@ -2,46 +2,35 @@ from io import StringIO
 
 import numpy as np
 import pandas as pd
+import pytest
 from anndata import AnnData
 
 import muon.atac as ac
 
 
-def test_empty_distance_values() -> None:
+@pytest.mark.parametrize("empty_distance", [True, False])
+def test_add_peak_annotation(empty_distance: bool) -> None:
     """Intergenic peaks with empty distance should not raise."""
     tsv = StringIO(
         "chrom\tstart\tend\tgene\tdistance\tpeak_type\n"
-        "chr1\t100\t200\t\t\tintergenic\n"
-        "chr1\t300\t400\tGeneA\t-173268\tdistal\n"
+        "chr1\t100\t200\tGeneA\t400\tintergenic\n"
+        "chr1\t300\t400\tGeneB\t-173268\tdistal\n"
+        "chr1\t500\t600\tGeneC;GeneD\t-100;200\tdistal;proximal\n"
     )  # fmt: skip
     pa = pd.read_csv(tsv, sep="\t")
-    peaks = ["chr1:100-200", "chr1:300-400"]
-    adata = AnnData(np.zeros((2, 2)))
-    adata.var_names = peaks
+    if empty_distance:
+        pa.iloc[0, 3:5] = pd.NA
+
+    peaks = ["chr1:100-200", "chr1:300-400", "chr1:500-600", "chr1:500-600"]
+    adata = AnnData(np.zeros((3, 3)))
+    adata.var_names = peaks[:3]
 
     result = ac.tl.add_peak_annotation(adata, pa, return_annotation=True)
     assert result is not None
 
-    assert result.distance.dtype == pd.Int64Dtype()
-    assert result.distance.iloc[0] is pd.NA
+    assert result.distance.dtype == pd.Int64Dtype() if empty_distance else np.int64
+    assert result.distance.iloc[0] is pd.NA if empty_distance else 400
     assert result.distance.iloc[1] == -173268
+    assert result.distance.iloc[2] == -100
+    assert result.distance.iloc[3] == 200
     assert (result.peak == peaks).all()
-
-
-def test_semicolon_separated_distances() -> None:
-    """Multi-gene peaks with semicolon-separated distances should work."""
-    tsv = StringIO(
-        "chrom\tstart\tend\tgene\tdistance\tpeak_type\n"
-        "chr1\t100\t200\tGeneA;GeneB\t-100;200\tpromoter;distal\n"
-    )  # fmt: skip
-    pa = pd.read_csv(tsv, sep="\t")
-    adata = AnnData(np.zeros((1, 1)))
-    adata.var_names = ["chr1:100-200"]
-
-    result = ac.tl.add_peak_annotation(adata, pa, return_annotation=True)
-    assert result is not None
-
-    assert result.distance.dtype == np.int64
-    assert result.distance.iloc[0] == -100
-    assert result.distance.iloc[1] == 200
-    assert (result.peak.iloc[0] == result.peak.iloc[1] == adata.var_names).all()
