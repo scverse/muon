@@ -1,10 +1,11 @@
+from typing import Literal
 from warnings import warn
 
 import numpy as np
 from anndata import AnnData
 from mudata import MuData
 from scanpy._utils import view_to_actual
-from scipy.sparse import csr_array, dia_array, issparse, sparray, spmatrix
+from scipy.sparse import csr_array, csr_matrix, dia_array, issparse, spmatrix
 
 # Computational methods for preprocessing
 
@@ -146,25 +147,33 @@ def scopen(
     data: AnnData | MuData,
     n_components: int = 30,
     max_iter: int = 500,
-    min_rho: float = 0.0,
-    max_rho: float = 0.5,
-    alpha: int = 1,
+    copy: bool = False,
+    from_layer: str | None = None,
+    to_layer: str | None = None,
+    impute: bool = True,
+    random_state: int | np.random.RandomState | None = 0,
+    alpha: float = 1,
+    init: Literal["random", "nndsvd", "nndsvda", "nndsvdar"] = "nndsvd",
     verbose: bool = False,
 ) -> None:
-    """Run scOpen (Li et al., 2019, https://doi.org/10.1101/865931) on the count matrix.
+    """Run scOpen :cite:p:`pmid34737275` on the count matrix.
 
     This function follows the original implementation of the main method
     (https://github.com/CostaLab/scopen/blob/master/scopen/Main.py)
-    adapting it for AnnDaata and MuData formats.
+    adapting it for AnnData and MuData formats.
 
     Args:
         data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
         n_components: Number of components of the matrix factorisation.
         max_iter: Number of iterations for the optimisation.
-        min_rho: Lower bound of the per-cell dropout rate that the number of open regions is scaled to.
-        max_rho: Upper bound of the per-cell dropout rate that the number of open regions is scaled to.
+        copy: Whether to return a copy of the AnnData object or the 'atac' modality.
+        from_layer: Layer to use as input. Defaults to the `.X` matrix.
+        to_layer: Layer to save imputed counts to. Defaults to the `.X` matrix. Ignored if `impute=False`.
+        impute: Whether to impute the data based on the NMF results. Setting this to `True` may cause excessive memory use.
+        random_state: Random number generator seed.
         alpha: Parameter for model regularisation to prevent from over-fitting.
-        verbose: If to print the progress of the matrix factorisation.
+        init: Method used to initialize the procedure.
+        verbose: Whether to print the progress of the matrix factorisation.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -176,7 +185,7 @@ def scopen(
     try:
         import time
 
-        from scopen.MF import non_negative_factorization
+        from scopen.Main import run_nmf, tf_idf_transform
     except ImportError:
         raise ImportError(
             "scOpen is not available. Install scOpen from PyPI (`pip install scopen`) \
@@ -184,45 +193,41 @@ def scopen(
         ) from None
 
     start = time.time()
+    if copy:
+        adata = adata.copy()
 
-    x: np.ndarray | spmatrix = adata.X
+    if to_layer is not None and to_layer in adata.layers:
+        warn(f"Existing layer '{str(to_layer)}' will be overwritten", stacklevel=2)
+
+    x: np.ndarray | spmatrix = adata.X if from_layer is None else adata.layers[from_layer]
     if x is None:
         raise ValueError("Expected a count matrix, but none was found")
 
-    # Make a dense matrix if it's sparse
-    counts = x.toarray() if isinstance(x, spmatrix | sparray) else x
-    counts = np.greater(counts, 0).T
+    x = csr_matrix((x > 0).T)  # scopen not compatible with sparray
 
-    (m, n) = counts.shape
-
-    n_open_regions = np.log10(counts.sum(axis=0))
-    max_n_open_regions = np.max(n_open_regions)
-    min_n_open_regions = np.min(n_open_regions)
+    (m, n) = x.shape
+    nnz = x.count_nonzero()
 
     print(f"Number of peaks: {m}\nNumber of cells: {n}")
-    print(f"Number of non-zeros before imputation: {np.count_nonzero(counts)}")
+    print(f"Number of non-zeros before imputation: {nnz}")
+    print(f"Sparsity: {1 - nnz / (m * n)}")
 
-    rho = min_rho + (max_rho - min_rho) * (max_n_open_regions - n_open_regions) / (
-        max_n_open_regions - min_n_open_regions
-    )
-
-    counts = counts[:, :] * (1 / (1 - rho))
-
-    # Run bounded non-negative matrix factorisation
-    w_hat, h_hat, _ = non_negative_factorization(
-        X=counts, n_components=n_components, alpha=alpha, max_iter=max_iter, verbose=int(verbose)
-    )
-
-    del counts
-
-    # Calculate imputed matrix
-    m_hat = np.dot(w_hat, h_hat)
-    np.clip(m_hat, 0, 1, out=m_hat)
+    x = tf_idf_transform(x)
+    w_hat, h_hat, _ = run_nmf((x, n_components, alpha, max_iter, int(verbose), random_state, init))
+    del x
 
     # Save results in the AnnData object
     adata.obsm["X_scopen"] = h_hat.T
     adata.varm["scopen"] = w_hat
-    adata.X = m_hat.T
+
+    if impute:
+        # Calculate imputed matrix
+        m_hat = np.dot(w_hat, h_hat).astype(np.float32).T
+        np.clip(m_hat, 0, 1, out=m_hat)
+        if to_layer is None:
+            adata.X = m_hat
+        else:
+            adata.layers[to_layer] = m_hat
 
     # Output time stats
     secs = time.time() - start

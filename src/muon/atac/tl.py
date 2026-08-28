@@ -839,7 +839,7 @@ def tss_enrichment(
         extend_downstream: Number of nucleotides to extend every gene downstream.
         n_tss: How many randomly chosen TSS sites to pile up. The fewer the faster.
         return_tss: Whether to return the TSS pileup matrix. Needed for enrichment plots.
-        random_state: Argument passed to :meth:`pandas.DataFrame.sample` for sampling features.
+        random_state: Random number generator seed.
         barcodes: Column name in the ``.obs`` of the AnnData with barcodes corresponding to
             the ones in the fragments file.
 

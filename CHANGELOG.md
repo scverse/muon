@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning][].
   This leads to more predictable plotting behavior.
 - The arguments `layer` and `use_raw` of `muon.pl.scatter` and `muon.pl.embedding` can be specified individually for each modality by passing dictionaries.
 - `muon.atac.tl.count_fragments_features` now defaults to counting fragments instead of reads.
+- `muon.atac.tl.scopen` gained arguments `random_state`, `init`, `impute`, `from_layer` and `to_layer` to control more aspects of the algorithm
+  and dropped arguments `min_rho` and `max_rho`, since those are no longer accepted by the latest scOpen.
 
 ### Deprecated
 
@@ -41,6 +43,7 @@ and this project adheres to [Semantic Versioning][].
 - `muon.tl.leiden` now correctly sets the seed with `random_state=0`.
 - `muon.pl.embedding` no longer mutates its input when a layer is used.
 - `muon.atac.tl.count_fragments_features` now correctly processes the `strand` column in the given features.
+- `muon.atac.pp.scopen` now works with the latest version of scOpen.
 
 ## [0.1.9]
 
