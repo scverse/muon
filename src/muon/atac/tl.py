@@ -27,13 +27,17 @@ from . import utils
 #
 
 
-def lsi(data: AnnData | MuData, scale_embeddings=True, n_comps=50) -> None:
+def lsi(data: AnnData | MuData, scale_embeddings: bool = True, n_comps: int = 50, layer: str | None = None) -> None:
     """Run Latent Semantic Indexing.
+
+    This function performs only the SVD dimensionality reduction. The canonical usage of LSI for ATAC-seq applies
+    :func:`TF-IDF <muon.atac.pp.tfidf>` beforehand.
 
     Args:
         data: AnnData object or MuData object with an 'atac' modality.
         scale_embeddings: Scale embeddings to zero mean and unit variance.
         n_comps: Number of components to calculate with SVD.
+        layer: Layer to use as input. Will use `.X` if set to `None`.
     """
     if isinstance(data, AnnData):
         adata = data
@@ -46,7 +50,7 @@ def lsi(data: AnnData | MuData, scale_embeddings=True, n_comps=50) -> None:
     n_comps = min(n_comps, adata.n_vars)
 
     logging.info("Performing SVD")
-    cell_embeddings, svalues, peaks_loadings = svds(adata.X, k=n_comps)
+    cell_embeddings, svalues, peaks_loadings = svds(adata.X if layer is None else adata.layers[layer], k=n_comps)
 
     # Re-order components in the descending order
     cell_embeddings = cell_embeddings[:, ::-1]

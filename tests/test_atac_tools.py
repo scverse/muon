@@ -61,14 +61,18 @@ def test_count_fragments_features(tmp_path: Path) -> None:
         "2\t219701\t219901\tcell2\t2\n"
         "2\t221701\t221901\tcell2\t4\n"
         "2\t223701\t223901\tcell2\t4\n"
-    )
+    )  # fmt: skip
 
     fragments_path = str(tmp_path / "fragments.txt")
     with open(fragments_path, mode="w") as f:
         f.write(fragments)
     fragments_path = pysam.tabix_index(fragments_path, preset="bed")
 
-    tsv = StringIO("chromosome\tstart\tend\tstrand\n1\t71582\t83178\t+\n2\t139543\t215201\t-\n")
+    tsv = StringIO(
+        "chromosome\tstart\tend\tstrand\n"
+        "1\t71582\t83178\t+\n"
+        "2\t139543\t215201\t-\n"
+    )  # fmt: skip
     annotation = pd.read_csv(tsv, sep="\t")
 
     adata = AnnData(obs=pd.DataFrame(index=["cell1", "cell2"]))

@@ -30,10 +30,10 @@ def tfidf(
 
     Args:
         data: AnnData object with peak counts or multimodal MuData object with 'atac' modality.
-        log_idf: Log-transform IDF term.
         log_tf: Log-transform TF term.
+        log_idf: Log-transform IDF term.
         log_tfidf: Log-transform TF*IDF term. Can only be used when log_tf and log_idf are `False`.
-        scale_factor: Scale factor to multiply the TF-IDF matrix by.
+        scale_factor: Scale factor to multiply the TF matrix by.
         inplace: Whether to modify counts in the AnnData object.
         copy: Whether to return a copy of the AnnData object or the 'atac' modality. Not compatible
             with `inplace=False`.
