@@ -392,7 +392,9 @@ def _parse_motif_matrices(files: list[str] | None = None, background: int | Iter
     return {"motifs": [os.path.basename(f).rstrip(".pfm") for f in files], "matrices": matrices}
 
 
-def _prepare_motif_scanner(matrices=None, background: int | Iterable = 4, pvalue: float = 0.0001, max_hits: int = 10):
+def _prepare_motif_scanner(
+    matrices=None, background: int | Iterable = 4, pvalue: float = 0.0001, window_size: int = 10
+):
     try:
         import MOODS.scan
         import MOODS.tools
@@ -411,26 +413,38 @@ def _prepare_motif_scanner(matrices=None, background: int | Iterable = 4, pvalue
         bg = background
     thresholds = [MOODS.tools.threshold_from_p(m, bg, pvalue) for m in matrices]
 
-    scanner = MOODS.scan.Scanner(max_hits)
+    scanner = MOODS.scan.Scanner(window_size)
     scanner.set_motifs(matrices, bg, thresholds)
 
     return scanner
 
 
 def scan_sequences(
-    sequences,
+    sequences: Iterable[str],
     motif_scanner=None,
     matrices=None,
-    motifs=None,
+    motifs: Iterable[str] | None = None,
     motif_meta: pd.DataFrame = None,
     background: int = 4,
     pvalue: float = 0.0001,
-    max_hits: int = 10,
+    window_size: int = 10,
 ) -> pd.DataFrame:
     """Scan sequences (e.g. peaks) searching for motifs (JASPAR by default).
 
+    Args:
+        sequences: The sequences to search.
+        motif_scanner: An instance of a motif scanner class. Must provide a `scan` method whose interface is identical to
+            `MOODS.scan.Scanner.scan <https://github.com/jhkorhonen/MOODS/wiki/Getting-Started#scanning>`__ :cite:p:`pmid28011774`.
+        matrices: Log-odds motif matrices that can be passed to to `MOODS.scan.Scanner`. Used only if `motif_scanner` is `None`.
+            Defaults to to the JASPAR database shipped with muon.
+        motifs: Motif IDs corresponding to the motifs in `matrices`.
+        motif_meta: Additional motif metadata. Will be part of the returned dataframe.
+        background: Background distribution for MOODS. Used only if `motif_scanner` is `None`.
+        pvalue: P-value threshold for MOODS. Used only if `motif_scanner` is `None`.
+        window_size: The window size for MOODS. Used only if `motif_scanner` is `None`.
+
     Returns:
-        Pandas dataframe with matched motifs and respective sequence IDs.
+        Matched motifs and respective sequence IDs.
     """
     if motifs is None and matrices is not None:
         raise ValueError(
@@ -444,7 +458,7 @@ def scan_sequences(
             raise ValueError("A list of motif IDs should be provided if building a scanner from matrices")
 
         motif_scanner = _prepare_motif_scanner(
-            matrices=matrices, background=background, pvalue=pvalue, max_hits=max_hits
+            matrices=matrices, background=background, pvalue=pvalue, window_size=window_size
         )
 
         if motif_meta is None:
@@ -460,9 +474,9 @@ def scan_sequences(
     matches = []
     for seq in sequences:
         results = motif_scanner.scan(seq)
-        for i, rs in enumerate(results):
+        for rs, motif in zip(results, motifs, strict=True):
             for r in rs:
-                matches.append((seq, motifs[i], r.pos, r.score))
+                matches.append((seq, motif, r.pos, r.score))
 
     matches = pd.DataFrame(matches)
     matches.columns = ["sequence", "motif_id", "position", "score"]
