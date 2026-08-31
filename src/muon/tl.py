@@ -1,5 +1,4 @@
 import os
-import sys
 import tempfile
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
@@ -86,8 +85,7 @@ def _set_mofa_data_from_mudata(
         model.set_data_options()
 
     # Use the union or the intersection of observations
-    obs_names = mdata.obs.index.values
-    if use_obs:
+    if mdata.axis == 0 and use_obs:
         if use_obs == "intersection":
             common_obs = reduce(np.intersect1d, [v.obs_names.values for k, v in mdata.mod.items()])
             mdata = mdata[common_obs]
@@ -100,44 +98,46 @@ def _set_mofa_data_from_mudata(
     n_groups = 1  # no grouping by default
     if groups_label is not None:
         if not isinstance(groups_label, str):
-            print("Error: groups_label should be a string present in the observations column names")
-            sys.stdout.flush()
-            sys.exit()
-        if groups_label not in mdata.obs.columns:
-            print(f"Error: {groups_label} is not in observations names")
-            sys.stdout.flush()
-            sys.exit()
-        n_groups = mdata.obs[groups_label].unique().shape[0]
+            raise ValueError("`groups_label` should be a string.")
+        if mdata.axis == 0:
+            if groups_label not in mdata.obs.columns:
+                raise ValueError(f"{groups_label} is not in the observation column names.")
+            n_groups = mdata.obs[groups_label].unique().shape[0]
+        elif mdata.axis == 1:
+            if groups_label not in mdata.var.columns:
+                raise ValueError(f"{groups_label} is not in the feature column names.")
+            n_groups = mdata.var[groups_label].unique().shape[0]
 
-    # Get the respective data slot
+    features_names = []
     data = []
-    if use_layer:
-        for m in mdata.mod.keys():
-            adata = mdata.mod[m]
-            if use_layer in adata.layers.keys():
-                if issparse(adata.layers[use_layer]):
-                    data.append(np.array(adata.layers[use_layer].todense()))
-                else:
-                    data.append(adata.layers[use_layer].copy())
-            else:
-                print(f"Error: Layer {use_layer} does not exist")
-                sys.stdout.flush()
-                sys.exit()
-    elif use_raw:
-        for m in mdata.mod.keys():
-            adata = mdata.mod[m]
-            adata_raw_dense = np.array(adata.raw[:, adata.var_names].X.todense())
-            data.append(adata_raw_dense)
-    else:
-        for m in mdata.mod.keys():
-            adata = mdata.mod[m]
-            if issparse(adata.X):
-                data.append(np.array(adata.X.todense()))
-            else:
-                data.append(adata.X.copy())
+    metadata = []
+    for m in mdata.mod.keys():
+        adata = mdata.mod[m]
+        cdata = []
+        if mdata.axis == 0:
+            if features_subset is not None:
+                adata = adata[:, adata.var[features_subset]]
+            features_names.append(adata.var_names.values)
+            if save_metadata:
+                metadata.append(adata.var)
+        else:
+            adata = adata[:, mdata.var_names]
+            if save_metadata:
+                metadata.append(adata.obs)
+
+        if use_layer:
+            x = adata.layers[use_layer]
+        elif use_raw:
+            x = adata.raw[:, adata.var_names].X
+        else:
+            x = adata.X
+
+        if issparse(x):
+            x = x.toarray()
+        data.append(x)
 
     # Expand samples (cells) if union is required
-    if use_obs == "union":
+    if mdata.axis == 0 and use_obs == "union":
         n = mdata.shape[0]
         mods = tuple(mdata.mod.keys())
         obs_names = mdata.obs.index.values
@@ -163,90 +163,79 @@ def _set_mofa_data_from_mudata(
             else:
                 x[ix, :] = mdata[m].X
             data[i] = x
+    elif mdata.axis == 1:
+        data = np.concat(data, axis=0)
+        if groups_label is None:
+            data = [data]
+            features_names = [mdata.var.index.values]
+        else:
+            cdata = []
+            for idx in mdata.var.groupby(groups_label, sort=False).indices.values():
+                cdata.append(data[:, idx])
+                features_names.append(mdata.var_names[idx])
+            data = cdata
 
-    # Subset features if required
-    if features_subset is not None:
-        for i, m in enumerate(mdata.mod.keys()):
-            if features_subset not in mdata.mod[m].var.columns:
-                raise KeyError(f"There is no column {features_subset} in .var for modality {m}")
-            data[i] = data[i][:, mdata.mod[m].var[features_subset].values]
+    model.data_opts["features_names"] = features_names
 
     # Save dimensionalities
-    M = model.dimensionalities["M"] = len(mdata.mod)
-    G = model.dimensionalities["G"] = n_groups
+    if mdata.axis == 0:
+        M = model.dimensionalities["M"] = len(mdata.mod)
+        G = model.dimensionalities["G"] = n_groups
+        D = model.dimensionalities["D"] = [data[m].shape[1] for m in range(M)]  # Feature may have been filtered
+        n_grouped = [mdata.shape[0]] if n_groups == 1 else mdata.obs.groupby(groups_label, sort=False).size().values
+    else:
+        M = model.dimensionalities["M"] = n_groups
+        G = model.dimensionalities["G"] = len(mdata.mod)
+        D = model.dimensionalities["D"] = (
+            [mdata.shape[1]] if n_groups == 1 else mdata.var.groupby(groups_label, sort=False).size().values
+        )
+        n_grouped = [mod.shape[0] for mod in mdata.mod.values()]
     N = model.dimensionalities["N"] = mdata.shape[0]
-    D = model.dimensionalities["D"] = [data[m].shape[1] for m in range(M)]  # Feature may have been filtered
-    n_grouped = [mdata.shape[0]] if n_groups == 1 else mdata.obs.groupby(groups_label).size().values
 
     # Define views names and features names and metadata
-    model.data_opts["views_names"] = list(mdata.mod.keys())
-
-    if features_subset is not None:
-        model.data_opts["features_names"] = [
-            adata.var_names[adata.var[features_subset].values] for adata in mdata.mod.values()
-        ]
-    else:
-        model.data_opts["features_names"] = [adata.var_names for adata in mdata.mod.values()]
-
-    if save_metadata and mdata.var.shape[1] > 0:
-        if features_subset is not None:
-            model.data_opts["features_metadata"] = [
-                adata.var[adata.var[features_subset].values] for adata in mdata.mod.values()
-            ]
+    if mdata.axis == 0:
+        model.data_opts["views_names"] = list(mdata.mod.keys())
+        if groups_label is None:
+            model.data_opts["groups_names"] = ["group1"]
+            model.data_opts["samples_names"] = [mdata.obs.index.values.tolist()]
+            model.data_opts["samples_groups"] = ["group1"] * N
+            if save_metadata and mdata.obs.shape[1] > 0:
+                model.data_opts["samples_metadata"] = [mdata.obs]
         else:
-            model.data_opts["features_metadata"] = [adata.var for adata in mdata.mod.values()]
-
-    # Define groups and samples names and metadata
-    if groups_label is None:
-        model.data_opts["groups_names"] = ["group1"]
-        model.data_opts["samples_names"] = [mdata.obs.index.values.tolist()]
-        model.data_opts["samples_groups"] = ["group1"] * N
-        if save_metadata and mdata.obs.shape[1] > 0:
-            model.data_opts["samples_metadata"] = [mdata.obs]
+            model.data_opts["groups_names"] = mdata.obs[groups_label].unique().astype(str)
+            model.data_opts["samples_names"] = (
+                mdata.obs.groupby(groups_label, sort=False).apply(lambda df: df.index.values).tolist()
+            )
+            model.data_opts["samples_groups"] = mdata.obs[groups_label].values.astype(str)
+            if save_metadata and mdata.obs.shape[1] > 0:
+                model.data_opts["samples_metadata"] = [g for _, g in mdata.obs.groupby(groups_label, sort=False)]
+        if save_metadata and any(m.shape[1] > 0 for m in metadata):
+            model.data_opts["features_metadata"] = metadata
     else:
-        # While grouping the pandas.DataFrame, the group_label would be sorted.
-        # Hence the naive implementation `mdata.obs[groups_label].unique()` to get group names
-        # wouldn't match samples_names if the samples are not ordered according to their group beforehand.
-        samples_groups = mdata.obs.reset_index(drop=False).groupby(groups_label, sort=False)[groups_label].apply(list)
-
-        # List of names of groups, i.e. [group1, group2, ...]
-        model.data_opts["groups_names"] = [str(g) for g in samples_groups.index.values]
-        # Nested list of names of samples, one inner list per group, i.e. [[group1_sample1, group1_sample2, ...], ...]
-        model.data_opts["samples_names"] = (
-            mdata.obs.reset_index(drop=False)
-            .rename(columns={mdata.obs.index.name: "index"})
-            .groupby(groups_label, sort=False)["index"]
-            .apply(list)
-            .tolist()
+        model.data_opts["groups_names"] = list(mdata.mod.keys())
+        model.data_opts["samples_names"] = [adata.obs_names.tolist() for adata in mdata.mod.values()]
+        model.data_opts["samples_groups"] = np.repeat(
+            list(mdata.mod.keys()), [adata.n_obs for adata in mdata.mod.values()]
         )
-        # List of names of groups for samples ordered as they are when split according to their group
-        model.data_opts["samples_groups"] = np.concatenate(samples_groups.values).astype(str)
-        if save_metadata:
-            # List of metadata tables for each group of samples
-            model.data_opts["samples_metadata"] = [g for _, g in mdata.obs.groupby(groups_label, sort=False)]
-
-    # Use the order of samples according to the groups in the model.data_opts["samples_groups"]
-    if groups_label:
-        for m in range(M):
-            data[m] = data[m][
-                np.concatenate(
-                    mdata.obs.reset_index(drop=True)
-                    .reset_index(drop=False)
-                    .groupby(groups_label, sort=False)["index"]
-                    .apply(np.array)
-                    .tolist()
-                ),
-                :,
-            ]
+        if save_metadata and mdata.var.shape[1] > 0:
+            if groups_label is None:
+                model.data_opts["features_metadata"] = [mdata.var]
+            else:
+                model.data_opts["features_metadata"] = [g for _, g in mdata.var.groupby(groups_label, sort=False)]
+        if save_metadata and any(m.shape[1] > 0 for m in metadata):
+            model.data_opts["samples_metadata"] = metadata
+        if groups_label is None:
+            model.data_opts["views_names"] = ["view1"]
+        else:
+            model.data_opts["views_names"] = mdata.var[groups_label].unique().astype(str)
 
     # If everything successful, print verbose message
     for m in range(M):
         for g in range(G):
-            print(
+            logging.info(
                 f"Loaded view='{model.data_opts['views_names'][m]}' group='{model.data_opts['groups_names'][g]}' "
                 f"with N={n_grouped[g]} samples and D={D[m]} features..."
             )
-    print("\n")
 
     # Store intercepts (it is for one view only)
     model.intercepts = [[] for _ in range(M)]
@@ -313,13 +302,17 @@ def mofa(
 ) -> AnnData | MuData | None:
     """Run Multi-Omics Factor Analysis :cite:p:`pmid29925568,pmid32393329,pmid35027765`.
 
+    If `data.axis == 1`, the individual `AnnData`s are treated as groups and each `AnnData` must have the same features.
+
     Args:
         data: A MuData object.
-        groups_label: Column name in `.obs` for grouping the samples.
+        groups_label: If `data.axis == 0`, column name in `.obs` for grouping the samples.
+            If `data.axis == 1`, column name in `.var` for grouping the features into views.
         use_raw: Whether to use the raw slot of AnnData as input values.
         use_layer: Whether to use a specific layer of AnnData as input values (supersedes use_raw option).
         use_var: `.var` column with a boolean value to select genes (e.g. "highly_variable").
         use_obs: Strategy to deal with samples (cells) not being the same across modalities (raises an exception by default).
+            Ignored if `data.axis == 1`.
         likelihoods: Likelihoods to use. Guessed from the data if `None`.
         n_factors: Number of factors to train the model with.
         scale_views: Whether to scale views to unit variance.
@@ -371,6 +364,8 @@ def mofa(
         # Modality name is used as a prefix by default
         mdata.obs = data.obs
     elif isinstance(data, MuData):
+        if data.axis == -1:
+            raise ValueError("MuData objects with `axis=-1` are not supported.")
         mdata = data
     else:
         raise TypeError("Expected an MuData object")
@@ -383,7 +378,7 @@ def mofa(
     if use_var and use_var not in data.var.columns:
         warn(f"There is no column {use_var} in the provided object", stacklevel=2)
         use_var = None
-    if isinstance(data, MuData):
+    if isinstance(data, MuData) and data.axis == 0:
         common_obs = reduce(np.intersect1d, [v.obs_names.values for k, v in mdata.mod.items()])
         if len(common_obs) != mdata.n_obs:
             if not use_obs:
@@ -539,32 +534,33 @@ def mofa(
         data = data.copy()
 
     # Factors
-    z = np.concatenate([v[:, :] for k, v in f["expectations"]["Z"].items()], axis=1).T
+    z = np.concatenate([v[()] for v in f["expectations"]["Z"].values()], axis=1).T
 
     # Samples are grouped per sample group
     # so the rows of the Z matrix have to be re-ordered
     if groups_label:
-        zs = np.concatenate([v[:] for k, v in f["samples"].items()], axis=0).astype(str)
+        zs = np.concatenate([v[:] for v in f["samples"].values()], axis=0).astype(str)
 
-    if use_obs and use_obs == "intersection":  # data is MuData and common_obs is available
-        if groups_label:
-            z = pd.DataFrame(z, index=zs).loc[common_obs].to_numpy()
-        # Set factor values outside of the obs intersection to nan
-        data.obsm["X_mofa"] = np.empty(shape=(data.n_obs, z.shape[1]))
-        data.obsm["X_mofa"][:] = np.nan
-        # Samples
-        data.obsm["X_mofa"][data.obs.index.isin(common_obs)] = z
-    else:
-        if groups_label:
-            z = pd.DataFrame(z, index=zs).loc[mdata.obs.index.values].to_numpy()
-        data.obsm["X_mofa"] = z
+    if mdata.axis == 0:
+        if use_obs and use_obs == "intersection":  # data is MuData and common_obs is available
+            if groups_label:
+                z = pd.DataFrame(z, index=zs).loc[common_obs].to_numpy()
+            # Set factor values outside of the obs intersection to nan
+            data.obsm["X_mofa"] = np.empty(shape=(data.n_obs, z.shape[1]))
+            data.obsm["X_mofa"][:] = np.nan
+            # Samples
+            data.obsm["X_mofa"][data.obs.index.isin(common_obs)] = z
+        else:
+            if groups_label:
+                z = pd.DataFrame(z, index=zs).loc[mdata.obs.index.values].to_numpy()
+    data.obsm["X_mofa"] = z
 
     # Weights
-    expectations_w = f["expectations"]["W"]
-    if hasattr(data, "mod"):
-        w = np.concatenate([expectations_w[m][:, :] for m in data.mod], axis=1).T
-    else:
-        w = expectations_w["data"][:, :].T
+    w = np.concatenate([v[()] for v in f["expectations"]["W"].values()], axis=1).T
+
+    if mdata.axis == 1 and groups_label:
+        ws = np.concatenate([v[:] for v in f["features"].values()], axis=0).astype(str)
+        w = pd.DataFrame(w, index=ws).loc[mdata.var.index.values].to_numpy()
 
     if use_var:
         # Set the weights of features that were not used to zero

@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning][].
 
 - `pl.scatter` and `pl.embedding` have a new `gene_symbols` argument with the same functionality as in scanpy.
 - `tl.mofa` has a new `train_kwargs` argument for more detailed control over training.
+- `tl.mofa` now accepts `MuData` objects with `axis=1`. In this case, the contained `AnnData`s are treated as groups
+  and `group_col` is used to group the features into views.
 
 ### Changed
 
