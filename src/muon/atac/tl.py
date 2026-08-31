@@ -629,6 +629,12 @@ def locate_fragments(data: AnnData | MuData, fragments: str, return_fragments: b
         # Here we make sure we can create a connection to the fragments file
         frag = pysam.TabixFile(fragments, parser=pysam.asBed())
 
+        if adata.is_view:
+            warn(
+                "`data` is a view. The fragments file path will only be added to the view, not the original object.",
+                stacklevel=1,
+            )
+
         if "files" not in adata.uns:
             adata.uns["files"] = {}
         adata.uns["files"]["fragments"] = fragments
