@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning][].
 - `muon.pl.embedding` no longer mutates its input when a layer is used.
 - `muon.atac.tl.count_fragments_features` now correctly processes the `strand` column in the given features.
 - `muon.atac.pp.scopen` now works with the latest version of scOpen.
+- `muon.pp.l2norm` now works when `rep` is explicitly set but `n_pcs` is left at default.
 
 ## [0.1.9]
 

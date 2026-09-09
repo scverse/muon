@@ -172,7 +172,7 @@ def _make_slice_intervals(idx, maxsize=10000):
     return np.concatenate(allstarts), np.concatenate(allstops)
 
 
-def _l2norm(adata: AnnData, rep: Iterable[str] | str | None = None, n_pcs: int | None = 0):
+def _l2norm(adata: AnnData, rep: Iterable[str] | str | None = None, n_pcs: int | None = None):
     X = _choose_representation(adata=adata, use_rep=rep, n_pcs=n_pcs)
     sparse_X = issparse(X)
     if sparse_X:
@@ -195,7 +195,7 @@ def l2norm(
     mdata: MuData | AnnData,
     mod: Iterable[str] | str | None = None,
     rep: Iterable[str] | str | None = None,
-    n_pcs: Iterable[int] | int | None = 0,
+    n_pcs: Iterable[int] | int | None = None,
     copy: bool = False,
 ) -> MuData | AnnData | None:
     """Normalize observations to unit L2 norm.
