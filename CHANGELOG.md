@@ -151,7 +151,7 @@ and this project adheres to [Semantic Versioning][].
 
 ### Changed
 
-- `MuData` is now provided [as a separate package](https://mudata.readthedocs.io/) and is a hard dependency of `muon`.
+- `MuData` is now provided [as a separate package](https://mudata.scverse.org/) and is a hard dependency of `muon`.
 
 ### Fixed
 

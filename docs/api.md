@@ -7,7 +7,7 @@ import muon as mu
 ```
 
 The {class}`~mudata.MuData` container and `.h5mu` reading/writing (`mu.read`, `mu.write`, `mu.read_h5mu`, …)
-are provided by [mudata](https://mudata.readthedocs.io/) and re-exported here; see its documentation for details.
+are provided by {doc}`mudata <mudata:index>` and re-exported here; see its documentation for details.
 
 ## Input/Output
 

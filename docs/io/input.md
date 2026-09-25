@@ -49,7 +49,7 @@ import anndata
 adata = anndata.AnnData(X=matrix, obs=metadata_df, var=features_df)
 ```
 
-Please see more details on how to operate on AnnData objects [in the anndata documentation](https://anndata.readthedocs.io/).
+Please see more details on how to operate on AnnData objects {doc}`in the anndata documentation <anndata:index>`.
 
 ## Snap files
 

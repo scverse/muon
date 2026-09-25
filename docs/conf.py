@@ -89,7 +89,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "anndata": ("https://anndata.scverse.org/en/stable/", None),
     "scanpy": ("https://scanpy.scverse.org/en/stable/", None),
-    "mudata": ("https://mudata.readthedocs.io/stable/", None),
+    "mudata": ("https://mudata.scverse.org/stable/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
