@@ -57,7 +57,7 @@ optional-dependencies.mofa = [
   "mofapy2",
 ]
 optional-dependencies.scopen = [ "scopen" ]
-urls.Documentation = "https://muon.readthedocs.io/"
+urls.Documentation = "https://muon.scverse.org/"
 urls.Homepage = "https://github.com/scverse/muon"
 urls.Source = "https://github.com/scverse/muon"
 
