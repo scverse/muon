@@ -376,13 +376,14 @@ def neighbors(
     ratios = np.full((len(observations), len(modalities)), -np.inf, dtype=np.float64)
     sigmas = {}
 
+    nndistances = {}
     for i1, mod1 in enumerate(modalities):
         observations1 = observations.intersection(mdata.mod[mod1].obs.index)
         ratioidx = np.where(observations.isin(observations1))[0]
         nparams1 = neighbors_params[mod1]
         X = reps[mod1]
         neighbordistances = mdata.mod[mod1].obsp[nparams1["distances_key"]]
-        nndistances = np.empty((neighbordistances.shape[0],), neighbordistances.dtype)
+        nndistances[mod1] = cnndistances = np.empty((neighbordistances.shape[0],), neighbordistances.dtype)
         # neighborsdistances is a sparse matrix, we can either convert to dense, or loop
         for i in range(neighbordistances.shape[0]):
             nndist = neighbordistances[i, :].data
@@ -392,7 +393,7 @@ def neighbors(
                     "This could be due to subsetting after nearest neighbors calculation. "
                     "Make sure to subset before calculating nearest neighbors."
                 )
-            nndistances[i] = nndist.min()
+            cnndistances[i] = nndist.min()
 
         # We want to get the k-nn with the largest Jaccard distance, but break ties using
         # Euclidean distance. Largest Jaccard distance corresponds to lowest Jaccard index,
@@ -474,8 +475,8 @@ def neighbors(
                 r[i, :] = np.asarray(np.mean(X[neighbordistances[cell, :].nonzero()[1], :], axis=0)).squeeze()
 
             theta = np.exp(
-                -np.maximum(np.linalg.norm(X[Xidx, :] - r, ord=2, axis=-1) - nndistances[Xidx], 0)
-                / (csigmas[Xidx] - nndistances[Xidx])
+                -np.maximum(np.linalg.norm(X[Xidx, :] - r, ord=2, axis=-1) - cnndistances[Xidx], 0)
+                / (csigmas[Xidx] - cnndistances[Xidx])
             )
             if i1 == i2:
                 currtheta = theta
@@ -561,21 +562,27 @@ def neighbors(
                 mdata.obs[":".join([m, weight_key])] = weights[fullidx, i]
 
         rep = reps[m]
+        cnndistances = nndistances[m]
         csigmas = sigmas[m]
         if issparse(rep):
 
             def neighdist(cell, nz):
-                return -cdist(rep[cell, :].toarray()[None, ...], rep[nz, :].toarray(), metric=metric)  # noqa: B023
+                return cdist(rep[cell, :].toarray()[None, ...], rep[nz, :].toarray(), metric=metric)  # noqa: B023
 
         else:
 
             def neighdist(cell, nz):
-                return -cdist(rep[None, cell, :], rep[nz, :], metric=metric)  # noqa: B023
+                return cdist(rep[None, cell, :], rep[nz, :], metric=metric)  # noqa: B023
 
         for cell in range(len(fullidx)):
             row = slice(neighbordistances.indptr[cell], neighbordistances.indptr[cell + 1])
             nz = neighbordistances.indices[row]
-            neighbordistances.data[row] += np.exp(neighdist(cell, nz) / csigmas[cell]).squeeze() * weights[cell, i]
+            neighbordistances.data[row] += (
+                np.exp(
+                    -np.maximum(0, neighdist(cell, nz) - cnndistances[cell]) / (csigmas[cell] - cnndistances[cell])
+                ).squeeze()
+                * weights[cell, i]
+            )
     neighbordistances.data = np.sqrt(0.5 * (1 - neighbordistances.data))
 
     neighbordistances = _sparse_csr_fast_knn(neighbordistances, n_neighbors + 1)
