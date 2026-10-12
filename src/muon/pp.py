@@ -486,7 +486,7 @@ def neighbors(
         ratios[ratioidx, i1] = currtheta / (np.max(thetas, axis=1) + eps)
         sigmas[mod1] = csigmas
 
-    weights = softmax(ratios, axis=1)
+    weights = softmax(np.clip(ratios, 0, 200), axis=1)
     neighbordistances = csr_array((mdata.n_obs, mdata.n_obs), dtype=np.float64)
     largeidx = mdata.n_obs**2 > np.iinfo(np.int32).max
     if largeidx:  # work around scipy bug https://github.com/scipy/scipy/issues/13155
