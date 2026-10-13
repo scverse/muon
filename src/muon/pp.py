@@ -341,9 +341,8 @@ def neighbors(
         modalities = neighbor_keys.keys()
     neighbors_params = {}
     reps = {}
-    observations = mdata.obs.index
 
-    if low_memory or low_memory is None and observations.size > 50000:
+    if low_memory or low_memory is None and mdata.n_obs > 50000:
         sparse_matrix_assign_splits = 10000
     else:
         sparse_matrix_assign_splits = 30000
@@ -360,6 +359,14 @@ def neighbors(
                 f'Did not find .uns["{nkey}"] for modality "{mod}". Run `sc.pp.neighbors` on all modalities first.'
             ) from None
 
+        if mdata.mod[mod].n_obs != mdata.n_obs:
+            warnings.warn(
+                f"Modality {mod} has missing observations. Multimodal nearest neighbor search will "
+                "still complete, but the results may be worse than expected.",
+                RuntimeWarning,
+                stacklevel=1,
+            )
+
         use_rep = nparams["params"].get("use_rep", None)
         n_pcs = nparams["params"].get("n_pcs", None)
         mod_neighbors[i] = nparams["params"].get("n_neighbors", 0)
@@ -373,13 +380,11 @@ def neighbors(
         mod_neighbors = mod_neighbors[mod_neighbors > 0]
         n_neighbors = int(round(np.mean(mod_neighbors), 0))
 
-    ratios = np.full((len(observations), len(modalities)), -np.inf, dtype=np.float64)
+    ratios = np.full((mdata.n_obs, len(modalities)), -np.inf, dtype=np.float64)
     sigmas = {}
 
     nndistances = {}
     for i1, mod1 in enumerate(modalities):
-        observations1 = observations.intersection(mdata.mod[mod1].obs.index)
-        ratioidx = np.where(observations.isin(observations1))[0]
         nparams1 = neighbors_params[mod1]
         X = reps[mod1]
         neighbordistances = mdata.mod[mod1].obsp[nparams1["distances_key"]]
@@ -457,33 +462,41 @@ def neighbors(
                 csigmas[i] = cdist(X[i : (i + 1), :], X[neighbors, :], metric="euclidean").mean()
 
         currtheta = 0
-        thetas = np.full((len(observations1), len(modalities) - 1), -np.inf, dtype=neighbordistances.dtype)
+        thetas = np.full((N, len(modalities) - 1), -np.inf, dtype=neighbordistances.dtype)
 
         lasti = 0
 
         logging.info(f"Calculating cell affinities for '{mod1} modality...")
+        mod1_map = mdata.obsmap[mod1]
+        mod1_map_mask = mod1_map > 0
         for i2, mod2 in enumerate(modalities):
             nparams2 = neighbors_params[mod2]
             neighbordistances = mdata.mod[mod2].obsp[nparams2["distances_key"]]
-            observations2 = observations1.intersection(mdata.mod[mod2].obs.index)
-            Xidx = np.where(observations1.isin(observations2))[0]
-            r = np.empty(shape=(len(observations2), X.shape[1]), dtype=neighbordistances.dtype)
+            mod2_map = mdata.obsmap[mod2]
+            mod2_map_mask = mod2_map > 0
+            mod2_revmap = np.argsort(mod2_map)[sum(~mod2_map_mask) :]
+            Xidx = np.where(mod1_map_mask & mod2_map_mask)[0]
+            r = np.empty(shape=(len(Xidx), X.shape[1]), dtype=neighbordistances.dtype)
             # alternative to the loop would be broadcasting, but this requires converting the sparse
             # connectivity matrix to a dense ndarray and producing a temporary 3d array of size
             # n_cells x n_cells x n_genes => requires a lot of memory
-            for i, cell in enumerate(Xidx):
-                r[i, :] = np.asarray(np.mean(X[neighbordistances[cell, :].nonzero()[1], :], axis=0)).squeeze()
+            for i, obs2 in enumerate(mod2_map[Xidx] - 1):
+                mod2_neighbors = neighbordistances[obs2, :].nonzero()[1]
+                mod1_neighbors = mod1_map[mod2_revmap[mod2_neighbors]]
+                mod1_neighbors = mod1_neighbors[mod1_neighbors > 0]
+                r[i, :] = np.asarray(np.mean(X[mod1_neighbors - 1, :], axis=0)).squeeze()
 
+            mod1_Xidx = mod1_map[Xidx] - 1
             theta = np.exp(
-                -np.maximum(np.linalg.norm(X[Xidx, :] - r, ord=2, axis=-1) - cnndistances[Xidx], 0)
-                / (csigmas[Xidx] - cnndistances[Xidx])
+                -np.maximum(np.linalg.norm(X[mod1_Xidx, :] - r, ord=2, axis=-1) - cnndistances[mod1_Xidx], 0)
+                / (csigmas[mod1_Xidx] - cnndistances[mod1_Xidx])
             )
             if i1 == i2:
                 currtheta = theta
             else:
-                thetas[:, lasti] = theta
+                thetas[mod2_map_mask[mod1_map_mask], lasti] = theta
                 lasti += 1
-        ratios[ratioidx, i1] = currtheta / (np.max(thetas, axis=1) + eps)
+        ratios[mod1_map_mask, i1] = currtheta / (np.max(thetas, axis=1) + eps)
         sigmas[mod1] = csigmas
 
     weights = softmax(np.clip(ratios, 0, 200), axis=1)
@@ -494,9 +507,10 @@ def neighbors(
         neighbordistances.indices = neighbordistances.indices.astype(np.int64)
     for m in modalities:
         cmetric = neighbors_params[m].get("metric", "euclidean")
-        observations1 = observations.intersection(mdata.mod[m].obs.index)
 
-        rep = reps[m]
+        modmap = mdata.obsmap[m]
+        modmapmask = modmap > 0
+        rep = reps[m][modmap[modmapmask] - 1]
         lmemory = low_memory if low_memory is not None else rep.shape[0] > 50000
         logging.info(f"Calculating nearest neighbor candidates for '{m}' modality...")
         logging.debug(f"Using low_memory={lmemory} for '{m}' modality")
@@ -520,23 +534,20 @@ def neighbors(
         with warnings.catch_warnings():
             # CSR is faster here than LIL, no matter what SciPy says
             warnings.simplefilter("ignore", category=SparseEfficiencyWarning)
-            if observations1.size == observations.size:
+            if mdata.n_obs == mdata.mod[m].n_obs:
                 if neighbordistances.size == 0:
                     neighbordistances = graph
                 else:
                     neighbordistances += graph
             # the naive version of neighbordistances[idx[:, np.newaxis], idx[np.newaxis, :]] += graph
+            # uses way too much memory
             else:
-                # uses way too much memory
                 if largeidx:
                     graph.indptr = graph.indptr.astype(np.int64)
                     graph.indices = graph.indices.astype(np.int64)
-                fullstarts, fullstops = _make_slice_intervals(
-                    np.where(observations.isin(observations1))[0], sparse_matrix_assign_splits
-                )
-                modstarts, modstops = _make_slice_intervals(
-                    np.where(mdata.mod[m].obs.index.isin(observations1))[0], sparse_matrix_assign_splits
-                )
+                fullstarts, fullstops = _make_slice_intervals(np.where(modmapmask)[0], sparse_matrix_assign_splits)
+                modstops = np.cumsum(fullstops - fullstarts)
+                modstarts = np.concat(((0,), modstops[:-1]))
 
                 for fullidxstart1, fullidxstop1, modidxstart1, modidxstop1 in zip(
                     fullstarts, fullstops, modstarts, modstops, strict=True
@@ -551,15 +562,12 @@ def neighbors(
     neighbordistances.data[:] = 0
     logging.info("Calculating multimodal nearest neighbors...")
     for i, m in enumerate(modalities):
-        observations1 = observations.intersection(mdata.mod[m].obs.index)
-        fullidx = np.where(observations.isin(observations1))[0]
-
         if weight_key:
             if add_weights_to_modalities:
-                mdata.mod[m].obs[weight_key] = weights[fullidx, i]
+                mdata.mod[m].obs[weight_key] = weights[:, i]
             else:
                 # mod_weight -> mod:mod_weight
-                mdata.obs[":".join([m, weight_key])] = weights[fullidx, i]
+                mdata.obs[":".join([m, weight_key])] = weights[:, i]
 
         rep = reps[m]
         cnndistances = nndistances[m]
@@ -574,7 +582,7 @@ def neighbors(
             def neighdist(cell, nz):
                 return cdist(rep[None, cell, :], rep[nz, :], metric=metric)  # noqa: B023
 
-        for cell in range(len(fullidx)):
+        for cell in range(mdata.n_obs):
             row = slice(neighbordistances.indptr[cell], neighbordistances.indptr[cell + 1])
             nz = neighbordistances.indices[row]
             neighbordistances.data[row] += (
