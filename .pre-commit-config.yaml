@@ -9,16 +9,16 @@ minimum_pre_commit_version: 2.16.0
 exclude: ^src/muon/atac/_ref/jaspar/
 repos:
   - repo: https://github.com/biomejs/pre-commit
-    rev: df12125767e3be2d945f0239811b308ff2a32c3f  # frozen: v2.5.14
+    rev: 5090c1e080cc8cec15feee68a9355c0f660d3712  # frozen: v2.5.15
     hooks:
       - id: biome-format
         exclude: ^\.cruft\.json$ # inconsistent indentation with cruft - file never to be modified manually.
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: 59e7b26529dc6f15c43063064b8b06ded60d0910  # frozen: v2.29.4
+    rev: a72ae8edd6eeddb9d942168912362945651212f8  # frozen: v2.30.1
     hooks:
       - id: pyproject-fmt
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: a56c0b927e6465d37cae3e97d35d4d18ab2b96cd  # frozen: v0.16.9
+    rev: f12be1ebaa5351c1fc76472de98db2c3446c8253  # frozen: v0.16.10
     hooks:
       - id: ruff-check
         types_or: [python, pyi, jupyter]
