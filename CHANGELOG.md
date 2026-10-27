@@ -174,6 +174,7 @@ and this project adheres to [Semantic Versioning][].
 - Initial `muon` release with `MuData`, `atac` and `prot` submodules, and multi-omics integration with
   MOFA (`muon.tl.mofa`) and WNN (`muon.pp.neighbors`).
 
+[0.2.1]: https://github.com/scverse/muon/releases/tag/v0.2.1
 [0.2.0]: https://github.com/scverse/muon/releases/tag/v0.2.0
 [0.1.9]: https://github.com/scverse/muon/releases/tag/v0.1.9
 [0.1.8]: https://github.com/scverse/muon/releases/tag/v0.1.8
