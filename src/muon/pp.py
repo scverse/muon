@@ -114,7 +114,7 @@ def _jaccard_sparse_euclidean_metric(
 def _sparse_csr_fast_knn_(N: int, indptr: np.ndarray, indices: np.ndarray, data: np.ndarray, n_neighbors: int):
     knn_indptr = np.arange(N * n_neighbors, step=n_neighbors, dtype=indptr.dtype)
     knn_indices = np.zeros((N * n_neighbors,), dtype=indices.dtype)
-    knn_data = np.zeros((N * n_neighbors,), dtype=data.dtype)
+    knn_data = np.full((N * n_neighbors,), np.nan, dtype=data.dtype)
 
     # mypy does not consider numba's prange iterable
     for i in prange(indptr.size - 1):  # type: ignore[attr-defined]
@@ -127,17 +127,29 @@ def _sparse_csr_fast_knn_(N: int, indptr: np.ndarray, indices: np.ndarray, data:
         idx = np.argsort(rowdata)
         startidx = i * n_neighbors
         endidx = (i + 1) * n_neighbors
-        # numba's parallel loops only support reductions, not assignment
-        knn_indices[startidx:endidx] += cols[idx[:n_neighbors]]
-        knn_data[startidx:endidx] += rowdata[idx[:n_neighbors]]
+
+        real_n_neighbors = end - start
+        if real_n_neighbors >= n_neighbors:
+            knn_indices[startidx:endidx] = cols[idx[:n_neighbors]]
+            knn_data[startidx:endidx] = rowdata[idx[:n_neighbors]]
+        else:
+            real_endidx = startidx + real_n_neighbors
+            knn_indices[startidx:real_endidx] = cols[idx[: real_n_neighbors + 1]]
+            knn_indices[real_endidx:endidx] = np.arange(real_n_neighbors, n_neighbors)
+            knn_data[startidx:real_endidx] = rowdata[idx[: real_n_neighbors + 1]]
+
     return knn_data, knn_indices, knn_indptr
 
 
 # numba doesn't know about SciPy
 def _sparse_csr_fast_knn(X: csr_matrix | csr_array, n_neighbors: int):
     data, indices, indptr = _sparse_csr_fast_knn_(X.shape[0], X.indptr, X.indices, X.data, n_neighbors)
+
     indptr = np.concatenate((indptr, (indices.size,)))
-    return csr_array((data, indices, indptr), X.shape)
+    arr = csr_array((data, indices, indptr), X.shape)
+    if np.any(np.diff(X.indptr) < n_neighbors):
+        arr.eliminate_zeros()
+    return arr
 
 
 @njit(parallel=True)
@@ -562,14 +574,17 @@ def neighbors(
     neighbordistances.data[:] = 0
     logging.info("Calculating multimodal nearest neighbors...")
     for i, m in enumerate(modalities):
+        modmap = mdata.obsmap[m]
+        modmap_mask = modmap > 0
+        modrevmap = np.argsort(modmap)[sum(~modmap_mask) :]
         if weight_key:
             if add_weights_to_modalities:
-                mdata.mod[m].obs[weight_key] = weights[:, i]
+                mdata.mod[m].obs[weight_key] = weights[modrevmap, i]
             else:
                 # mod_weight -> mod:mod_weight
                 mdata.obs[":".join([m, weight_key])] = weights[:, i]
 
-        rep = reps[m]
+        rep = reps[m][modmap[modmap_mask] - 1]
         cnndistances = nndistances[m]
         csigmas = sigmas[m]
         if issparse(rep):
@@ -582,15 +597,17 @@ def neighbors(
             def neighdist(cell, nz):
                 return cdist(rep[None, cell, :], rep[nz, :], metric=metric)  # noqa: B023
 
-        for cell in range(mdata.n_obs):
-            row = slice(neighbordistances.indptr[cell], neighbordistances.indptr[cell + 1])
+        for cell_local, cell_global in enumerate(np.where(modmap_mask)[0]):
+            row = slice(neighbordistances.indptr[cell_global], neighbordistances.indptr[cell_global + 1])
             nz = neighbordistances.indices[row]
-            neighbordistances.data[row] += (
-                np.exp(
-                    -np.maximum(0, neighdist(cell, nz) - cnndistances[cell]) / (csigmas[cell] - cnndistances[cell])
-                ).squeeze()
-                * weights[cell, i]
-            )
+            if len(nz) and np.any(cmask := modmap_mask[nz]):
+                neighbordistances.data[row][cmask] += (
+                    np.exp(
+                        -np.maximum(0, neighdist(cell_local, modmap[nz][cmask] - 1) - cnndistances[cell_local])
+                        / (csigmas[cell_local] - cnndistances[cell_local])
+                    ).squeeze()
+                    * weights[cell_global, i]
+                )
     neighbordistances.data = np.sqrt(0.5 * (1 - neighbordistances.data))
 
     neighbordistances = _sparse_csr_fast_knn(neighbordistances, n_neighbors + 1)
@@ -602,6 +619,11 @@ def neighbors(
         n_obs=neighbordistances.shape[0],
         n_neighbors=n_neighbors + 1,
     )
+
+    neighbordistances.data[np.isnan(neighbordistances.data)] = 0
+    connectivities.data[np.isnan(connectivities.data)] = 0
+    neighbordistances.eliminate_zeros()
+    connectivities.eliminate_zeros()
 
     if key_added is None:
         key_added = "neighbors"
