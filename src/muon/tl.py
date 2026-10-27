@@ -112,7 +112,9 @@ def _set_mofa_data_from_mudata(
     data = []
     metadata = []
     for m in mdata.mod.keys():
-        adata = mdata.mod[m]
+        obsmap, varmap = mdata.obsmap[m], mdata.varmap[m]
+        obsmask, varmask = obsmap > 0, varmap > 0
+        adata = mdata.mod[m][obsmap[obsmask] - 1, varmap[varmask] - 1]  # reorder so mofa results are in global order
         cdata = []
         if mdata.axis == 0:
             if features_subset is not None:
@@ -134,6 +136,8 @@ def _set_mofa_data_from_mudata(
 
         if issparse(x):
             x = x.toarray()
+        else:
+            x = x.copy()
         data.append(x)
 
     # Expand samples (cells) if union is required
@@ -144,10 +148,7 @@ def _set_mofa_data_from_mudata(
         n = len(obs_names)
         for i, x in enumerate(data):
             m = mods[i]
-
-            # empty matrix of right dimensions
-            x = np.empty(shape=(n, x.shape[1]))
-            x[:] = np.nan
+            x_new = np.full((n, x.shape[1]), np.nan)
 
             # use pandas data frames indices to expand obs
             orig = mdata[m].obs.loc[:, []].copy()
@@ -157,12 +158,8 @@ def _set_mofa_data_from_mudata(
             expanded["ix"] = range(n)
             ix = expanded.join(orig, how="right").ix.values
 
-            # set expanded data with part of the orig data
-            if issparse(mdata[m].X):
-                x[ix, :] = np.array(mdata[m].X.todense())
-            else:
-                x[ix, :] = mdata[m].X
-            data[i] = x
+            x_new[ix, :] = x
+            data[i] = x_new
     elif mdata.axis == 1:
         data = np.concat(data, axis=0)
         if groups_label is None:
@@ -389,6 +386,8 @@ def mofa(
                 raise ValueError(f"Expected `use_obs` argument to be 'union' or 'intersection', not '{use_obs}'")
         else:
             use_obs = None
+    else:
+        use_obs = None
 
     ent = entry_point()
 
@@ -534,21 +533,24 @@ def mofa(
         data = data.copy()
 
     # Factors
-    z = np.concatenate([v[()] for v in f["expectations"]["Z"].values()], axis=1).T
+    expectations_z = f["expectations"]["Z"]
+    if isinstance(data, MuData) and data.axis == 1:
+        zl = [expectations_z[m][()] for m in data.mod]
+    else:
+        zl = [v[()] for v in expectations_z.values()]
+    z = np.concatenate(zl, axis=1).T
 
-    # Samples are grouped per sample group
-    # so the rows of the Z matrix have to be re-ordered
-    if groups_label:
-        zs = np.concatenate([v[:] for v in f["samples"].values()], axis=0).astype(str)
+    if isinstance(data, AnnData) or data.axis == 0:
+        # Samples are grouped per sample group
+        # so the rows of the Z matrix have to be re-ordered
+        if groups_label:
+            zs = np.concatenate([v[()] for v in f["samples"].values()], axis=0).astype(str)
 
-    if mdata.axis == 0:
-        if use_obs and use_obs == "intersection":  # data is MuData and common_obs is available
+        if use_obs == "intersection":  # data is MuData and common_obs is available
             if groups_label:
                 z = pd.DataFrame(z, index=zs).loc[common_obs].to_numpy()
             # Set factor values outside of the obs intersection to nan
-            data.obsm["X_mofa"] = np.empty(shape=(data.n_obs, z.shape[1]))
-            data.obsm["X_mofa"][:] = np.nan
-            # Samples
+            data.obsm["X_mofa"] = np.full((data.n_obs, z.shape[1]), np.nan)
             data.obsm["X_mofa"][data.obs.index.isin(common_obs)] = z
         else:
             if groups_label:
@@ -556,11 +558,18 @@ def mofa(
     data.obsm["X_mofa"] = z
 
     # Weights
-    w = np.concatenate([v[()] for v in f["expectations"]["W"].values()], axis=1).T
-
-    if mdata.axis == 1 and groups_label:
-        ws = np.concatenate([v[:] for v in f["features"].values()], axis=0).astype(str)
-        w = pd.DataFrame(w, index=ws).loc[mdata.var.index.values].to_numpy()
+    expectations_w = f["expectations"]["W"]
+    if isinstance(data, MuData):
+        if data.axis == 0:
+            wl = [expectations_w[m][()] for m in data.mod]
+        else:
+            wl = [v[()] for v in expectations_w.values()]
+        w = np.concatenate(wl, axis=1).T
+        if data.axis == 1 and groups_label:
+            ws = np.concatenate([v[:] for v in f["features"].values()], axis=0).astype(str)
+            w = pd.DataFrame(w, index=ws).loc[mdata.var.index.values].to_numpy()
+    else:
+        w = expectations_w["data"][:, :].T
 
     if use_var:
         # Set the weights of features that were not used to zero

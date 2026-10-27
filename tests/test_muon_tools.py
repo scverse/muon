@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 import h5py
 import numpy as np
@@ -16,7 +17,7 @@ def filepath_hdf5(tmp_path: Path) -> str:
 
 
 @pytest.fixture
-def mdata(request: pytest.FixtureRequest, rng: np.random.Generator) -> MuData:
+def mdata(rng: np.random.Generator) -> MuData:
     z = rng.normal(size=(100, 5))
     w1 = rng.normal(size=(90, 5))
     w2 = rng.normal(size=(50, 5))
@@ -24,7 +25,7 @@ def mdata(request: pytest.FixtureRequest, rng: np.random.Generator) -> MuData:
     e2 = rng.normal(size=(100, 50))
     y1 = z @ w1.T + e1
     y2 = z @ w2.T + e2
-    mdata = MuData({"y1": AnnData(y1), "y2": AnnData(y2)})
+    mdata = MuData({"y2": AnnData(y2), "y1": AnnData(y1)})
     mdata.obs["group"] = rng.choice((0, 1), size=mdata.n_obs)
     mdata.obs["group_cat"] = mdata.obs["group"].astype("category")
     mdata["y1"].obs["group"] = rng.choice((0, 1), size=mdata["y1"].n_obs)
@@ -41,7 +42,7 @@ def mdata_views(request: pytest.FixtureRequest, rng: np.random.Generator) -> MuD
     e2 = rng.normal(size=(50, 100))
     y1 = z1 @ w.T + e1
     y2 = z2 @ w.T + e2
-    mdata = MuData({"y1": AnnData(y1), "y2": AnnData(y2)}, axis=1)
+    mdata = MuData({"y2": AnnData(y2), "y1": AnnData(y1)}, axis=1)
     mdata.var["view"] = rng.choice((0, 1), size=mdata.n_vars)
     mdata.var["view_cat"] = mdata.var["view"].astype("category")
     return mdata
@@ -65,11 +66,13 @@ def test_mofa_anndata(mdata: MuData, filepath_hdf5: str) -> None:
 
 @pytest.mark.parametrize("group_col", ("group", "group_cat"))
 @pytest.mark.parametrize("use_adata", (False, True))
+@pytest.mark.parametrize("use_obs", (None, "union", "intersection"))
 def test_mofa_groups(
-    mdata: MuData, group_col: str, use_adata: bool, rng: np.random.Generator, filepath_hdf5: str
+    mdata: MuData, group_col: str, use_adata: bool, use_obs: Literal["union", "intersection"] | None, filepath_hdf5: str
 ) -> None:
     if use_adata:
         mdata = mdata["y1"]
+
     mu.tl.mofa(
         mdata,
         groups_label=group_col,
@@ -77,6 +80,7 @@ def test_mofa_groups(
         scale_views=False,
         scale_groups=False,
         center_groups=False,
+        use_obs=use_obs,
         quiet=True,
         verbose=False,
         outfile=filepath_hdf5,
@@ -107,8 +111,25 @@ def test_mofa_groups(
                 )
 
 
+@pytest.mark.parametrize("group_col", ("group", "group_cat"))
+@pytest.mark.parametrize("use_adata", (False, True))
+def test_mofa_groups_no_inplace_modification(mdata: MuData, group_col: str, use_adata: bool, filepath_hdf5: str):
+    if use_adata:
+        mdata = mdata["y1"]
+        X = mdata.X.copy()
+    else:
+        Xs = {modname: mod.X.copy() for modname, mod in mdata.mod.items()}
+    mu.tl.mofa(mdata, groups_label=group_col, n_factors=10, quiet=True, verbose=False, outfile=filepath_hdf5)
+    if use_adata:
+        assert np.all(X == mdata.X)
+    else:
+        for modname, X in Xs.items():
+            assert np.all(X == mdata.mod[modname].X)
+
+
 @pytest.mark.parametrize("group_col", ("view", "view_cat"))
-def test_mofa_views(mdata_views: MuData, group_col: str, rng: np.random.Generator, filepath_hdf5: str) -> None:
+def test_mofa_views(mdata_views: MuData, group_col: str, filepath_hdf5: str) -> None:
+    Xs = {modname: mod.X.copy() for modname, mod in mdata_views.mod.items()}
     mu.tl.mofa(
         mdata_views,
         groups_label=group_col,
@@ -122,6 +143,9 @@ def test_mofa_views(mdata_views: MuData, group_col: str, rng: np.random.Generato
     )
     assert "X_mofa" in mdata_views.obsm
     assert "LFs" in mdata_views.varm
+
+    for modname, X in Xs.items():
+        assert np.all(X == mdata_views.mod[modname].X)
 
     views = np.sort(mdata_views.var[group_col].unique())
     views_str = views.astype(str)
@@ -140,6 +164,14 @@ def test_mofa_views(mdata_views: MuData, group_col: str, rng: np.random.Generato
             )
 
 
+@pytest.mark.parametrize("group_col", ("view", "view_cat"))
+def test_mofa_views_no_inplace_modification(mdata_views: MuData, group_col: str, filepath_hdf5: str) -> None:
+    Xs = {modname: mod.X.copy() for modname, mod in mdata_views.mod.items()}
+    mu.tl.mofa(mdata_views, groups_label=group_col, n_factors=10, quiet=True, verbose=False, outfile=filepath_hdf5)
+    for modname, X in Xs.items():
+        assert np.all(X == mdata_views.mod[modname].X)
+
+
 @pytest.mark.parametrize("sparsity", (0, 1, 2))
 def test_mofa_obs_union(mdata, sparsity: int, filepath_hdf5: str) -> None:
     y1 = mdata["y1"]
@@ -149,6 +181,13 @@ def test_mofa_obs_union(mdata, sparsity: int, filepath_hdf5: str) -> None:
     if sparsity in (1, 2):
         y2.X = sparse.csr_matrix(y2.X)
     mdata = MuData({"y1": y1[:-10], "y2": y2[10:]})
+
+    Xs = {modname: mod.X.copy() for modname, mod in mdata.mod.items()}
     mu.tl.mofa(mdata, n_factors=10, quiet=True, verbose=False, use_obs="union", outfile=filepath_hdf5)
     assert "X_mofa" in mdata.obsm
     assert "LFs" in mdata.varm
+
+    for modname, X in Xs.items():
+        if sparse.issparse(valid := X == mdata.mod[modname].X):
+            valid = valid.toarray()
+        assert np.all(valid)

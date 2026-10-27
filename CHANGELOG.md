@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning][].
 [keep a changelog]: https://keepachangelog.com/
 [semantic versioning]: https://semver.org/
 
+## [0.2.1]
+
+### Fixed
+
+- a regression in 0.2.0 where `tl.mofa` centered the input data in place, overwriting it
+- a regression in 0.2.0 where `tl.mofa` messed up the ordering of `.varm["LFs"]` if the modalities were not in alphabetical order
+- a regression in 0.2.0 where `tl.mofa` didn't handle non-`None` values for the `use_obs` parameter
+
 ## [0.2.0]
 
 ### Added
