@@ -1,8 +1,13 @@
+import sys
 from datetime import datetime
 from importlib.metadata import metadata
+from pathlib import Path
 
 from scverse_doc.config import DEFAULTS
 from scverse_doc.registry import intersphinx
+
+HERE = Path(__file__).parent
+sys.path.insert(0, str(HERE / "extensions"))
 
 info = metadata("muon")
 project = info["Name"]
@@ -22,6 +27,7 @@ extensions = [
     "sphinx_autodoc_typehints",
     "IPython.sphinxext.ipython_console_highlighting",
     "scverse_misc.sphinx_ext",
+    *[p.stem for p in (HERE / "extensions").glob("*.py")],
 ]
 
 napoleon_google_docstring = True
