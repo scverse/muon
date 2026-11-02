@@ -22,6 +22,7 @@ tutorials
 omics/uni
 omics/multi
 io/input
+io/mudata
 io/output
 ```
 
@@ -31,7 +32,6 @@ io/output
 :maxdepth: 1
 
 api
-io/mudata
 ```
 
 ```{toctree}
