@@ -77,6 +77,7 @@ intersphinx_mapping = intersphinx() | {
 html_static_path = ["_static"]
 html_logo = "_static/img/muon_logo.svg"
 html_css_files = ["css/custom.css"]
+ogp_social_cards = {"image": "_static/img/muon_logo.png"}  # social cards can’t use SVGs
 
 nitpick_ignore = [
     # If building the documentation fails because of a missing link that is outside your control,
