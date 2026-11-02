@@ -79,7 +79,7 @@ doc = [
   "ipython",
   "leidenalg",
   "pandas",
-  "scverse-doc[full]>=0.3",
+  "scverse-doc[full]>=0.4",
   "scverse-misc[sphinx]>=0.1.2",
   "sphinx>=8.1",
   "sphinx-autodoc-typehints",
