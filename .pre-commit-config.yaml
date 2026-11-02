@@ -9,16 +9,16 @@ minimum_pre_commit_version: 2.16.0
 exclude: ^src/muon/atac/_ref/jaspar/
 repos:
   - repo: https://github.com/biomejs/pre-commit
-    rev: f9fccc969fb42a59a17a1a430df9f38851f9b2da  # frozen: v2.6.3
+    rev: f9fccc969fb42a59a17a1a430df9f38851f9b2da # frozen: v2.6.3
     hooks:
       - id: biome-format
         exclude: ^\.cruft\.json$ # inconsistent indentation with cruft - file never to be modified manually.
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: 50e0f3aee9dc5747a5f173f79a7417403c18dda6  # frozen: v2.30.3
+    rev: 50e0f3aee9dc5747a5f173f79a7417403c18dda6 # frozen: v2.30.3
     hooks:
       - id: pyproject-fmt
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: f368fb366ff7f2f808dd324b83a6d32267799e19  # frozen: v0.17.2
+    rev: f368fb366ff7f2f808dd324b83a6d32267799e19 # frozen: v0.17.2
     hooks:
       - id: ruff-check
         types_or: [python, pyi, jupyter]
@@ -36,7 +36,7 @@ repos:
         require_serial: true
         pass_filenames: false
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # frozen: v6.0.0
     hooks:
       - id: detect-private-key
       - id: check-ast
@@ -50,7 +50,7 @@ repos:
         args: [--assume-in-merge]
 
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: c92afdf2c6ca336aaa8f39e2bd8d48f62dbd8e1f  # frozen: v1.31.1
+    rev: c92afdf2c6ca336aaa8f39e2bd8d48f62dbd8e1f # frozen: v1.31.1
     hooks:
       - id: zizmor
         args: [--no-progress, --fix]
