@@ -5,25 +5,44 @@
 ```
 
 ```{toctree}
+:caption: Getting started
 :hidden: true
 :maxdepth: 1
-:caption: Getting started
-tutorials.md
+
+install
 notebooks/quickstart_mudata
 ```
 
 ```{toctree}
+:caption: Guides
 :hidden: true
 :maxdepth: 1
-:caption: Documentation
-install.md
-io/input.md
-io/mudata.md
-omics/uni.md
-omics/multi.md
-io/output.md
-api.md
-changelog.md
-contributing.md
-references.md
+
+tutorials
+omics/uni
+omics/multi
+io/input
+io/output
+```
+
+```{toctree}
+:caption: Reference
+:hidden: true
+:maxdepth: 1
+
+api
+io/mudata
+```
+
+```{toctree}
+:caption: Project
+:hidden: true
+:maxdepth: 1
+
+changelog
+contributing
+citation
+references
+GitHub <https://github.com/scverse/muon>
+Discourse <https://discourse.scverse.org/c/help/muon/34>
 ```

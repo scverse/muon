@@ -1,4 +1,4 @@
-# muon tutorials
+# Tutorials
 
 `muon` tutorials [are available here](https://muon-tutorials.readthedocs.io/).
 

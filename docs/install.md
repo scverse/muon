@@ -1,4 +1,4 @@
-# Install muon
+# Installation
 
 ## Stable version
 
