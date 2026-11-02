@@ -1,6 +1,7 @@
 from datetime import datetime
 from importlib.metadata import metadata
 
+from scverse_doc.config import DEFAULTS
 from scverse_doc.registry import intersphinx
 
 info = metadata("muon")
@@ -28,6 +29,14 @@ napoleon_numpy_docstring = False
 myst_url_schemes = ("http", "https", "mailto")
 typehints_defaults = "braces"
 always_use_bars_union = True  # use `|` instead of `Union` in types even when building with Python ≤3.14
+
+exclude_patterns = [
+    *DEFAULTS.exclude_patterns,
+    "tutorials/index.rst",
+    "tutorials/*/index.rst",
+    "tutorials/**/README.md",
+    "tutorials/README.md",
+]
 
 intersphinx_mapping = intersphinx() | {
     "leidenalg": ("https://leidenalg.readthedocs.io/en/stable/", None),
