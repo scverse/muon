@@ -75,7 +75,7 @@ intersphinx_mapping = intersphinx() | {
 # -- Options for HTML output -------------------------------------------------
 
 html_static_path = ["_static"]
-html_logo = "_static/img/muon_logo.png"
+html_logo = "_static/img/muon_logo.svg"
 html_css_files = ["css/custom.css"]
 
 nitpick_ignore = [
