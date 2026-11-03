@@ -4,7 +4,6 @@ build:
   os: ubuntu-24.04
   tools:
     python: "3.14"
-    nodejs: latest
   jobs:
     create_environment:
       - asdf plugin add uv
@@ -14,3 +13,6 @@ build:
       html:
         - uvx hatch run docs:build
         - mv docs/_build $READTHEDOCS_OUTPUT
+submodules:
+  include: [docs/tutorials]
+  recursive: true
