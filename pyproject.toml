@@ -53,6 +53,11 @@ optional-dependencies.atac = [
   "pysam",
   "snaptools",
 ]
+optional-dependencies.holoviews = [
+  "bokeh",
+  "holoviews",
+  "hv-anndata",
+]
 optional-dependencies.mofa = [
   "mofapy2",
 ]
@@ -163,6 +168,8 @@ follow_untyped_imports = true
 # Dependencies that ship no type information (absent or `Incomplete` annotations).
 [[tool.mypy.overrides]]
 module = [
+  "holoviews.*",
+  "hv_anndata.*",
   "leidenalg.*",
   "louvain.*",
   "mofapy2.*",
