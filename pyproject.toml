@@ -75,8 +75,8 @@ dev = [
 test = [
   "anndata[lazy]",
   "coverage>=7.10",
-  "fast-array-utils>=1.2.3", # see https://github.com/scverse/muon/issues/174
-  "muon[atac,mofa]",
+  "fast-array-utils>=1.2.3",   # see https://github.com/scverse/muon/issues/174
+  "muon[atac,holoviews,mofa]",
   "pytest",
 ]
 doc = [
