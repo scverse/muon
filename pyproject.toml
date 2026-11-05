@@ -168,6 +168,7 @@ follow_untyped_imports = true
 # Dependencies that ship no type information (absent or `Incomplete` annotations).
 [[tool.mypy.overrides]]
 module = [
+  "bokeh.*",
   "holoviews.*",
   "hv_anndata.*",
   "leidenalg.*",

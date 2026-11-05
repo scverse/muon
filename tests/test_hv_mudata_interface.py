@@ -22,6 +22,7 @@ def mdata() -> MuData:
         mod = AnnData(X=rng.normal(size=(n, n_vars)).astype("float32"))
         mod.obs_names = obs_names
         mod.var_names = [f"{name}_g{j}" for j in range(n_vars)]
+        mod.obsm["umap"] = rng.normal(size=(n, 2))
         mods[name] = mod
     mdata = MuData(mods)
     mdata.obs["condition"] = pd.Categorical(rng.choice(["a", "b", "c"], size=n))
@@ -37,6 +38,8 @@ def hv():
     hv = pytest.importorskip("holoviews")
     hv_anndata = pytest.importorskip("hv_anndata")
     hv_anndata.register()  # what `sc.pl.hv_init()` does for AnnData
+    pytest.importorskip("bokeh")
+    hv.extension("bokeh")
     _hv.register_mudata_interface()
     return hv
 
@@ -167,3 +170,87 @@ def test_scanpy_umap(hv, scanpy_v2, mdata):
 
     plot = sc.pl.umap(mdata, color=A.obs["score"])
     assert len(plot) == mdata.n_obs
+
+
+# --- Muon's own plotting functions under the v2 preset ----------------------------------------------
+
+
+def test_pl_embedding_v2(hv, scanpy_v2, mdata):
+    import muon as mu
+
+    plot = mu.pl.embedding(mdata, basis="mod1:umap", color="condition")
+    assert isinstance(plot, hv.Scatter)
+    np.testing.assert_allclose(plot.dimension_values(0), mdata.mod["mod1"].obsm["umap"][:, 0])
+    assert list(plot.dimension_values(2)) == list(mdata.obs["condition"])
+
+
+def test_pl_embedding_v2_joint_basis_and_no_colour(hv, scanpy_v2, mdata):
+    import muon as mu
+
+    plot = mu.pl.embedding(mdata, basis="X_joint")
+    assert len(plot) == mdata.n_obs
+
+
+def test_pl_embedding_v2_feature_colour(hv, scanpy_v2, mdata):
+    import muon as mu
+
+    plot = mu.pl.embedding(mdata, basis="mod1:umap", color="mod1_g0")
+    np.testing.assert_allclose(plot.dimension_values(2), mdata.mod["mod1"][:, "mod1_g0"].X.ravel())
+
+
+def test_pl_embedding_v2_several_colours(hv, scanpy_v2, mdata):
+    import muon as mu
+
+    layout = mu.pl.embedding(mdata, basis="mod1:umap", color=["condition", "mod2_g0"])
+    assert isinstance(layout, hv.Layout)
+    assert len(layout) == 2
+
+
+def test_pl_umap_v2(hv, scanpy_v2, mdata):
+    import muon as mu
+
+    assert len(mu.pl.umap(mdata, color="score")) == mdata.n_obs
+
+
+def test_pl_scatter_v2(hv, scanpy_v2, mdata):
+    import muon as mu
+
+    plot = mu.pl.scatter(mdata, x="mod1_g0", y="mod2_g0", color="condition")
+    assert isinstance(plot, hv.Scatter)
+    np.testing.assert_allclose(plot.dimension_values(0), mdata.mod["mod1"][:, "mod1_g0"].X.ravel())
+    np.testing.assert_allclose(plot.dimension_values(1), mdata.mod["mod2"][:, "mod2_g0"].X.ravel())
+
+
+def test_pl_v2_options_are_holoviews_options(hv, scanpy_v2, mdata):
+    import muon as mu
+
+    plot = mu.pl.embedding(mdata, basis="mod1:umap", color="condition", size=7)
+    assert hv.Store.lookup_options("bokeh", plot, "style").kwargs["size"] == 7
+
+
+def test_pl_v2_anndata_rejects_features_and_raw(hv, scanpy_v2, mdata):
+    import muon as mu
+
+    mod = mdata.mod["mod1"]
+    with pytest.raises(NotImplementedError, match="only be coloured by .obs"):
+        mu.pl.embedding(mod, basis="umap", color="mod1_g0")
+    with pytest.raises(NotImplementedError, match="use_raw"):
+        mu.pl.embedding(mod, basis="umap", use_raw=True)
+
+
+def test_pl_v2_has_a_hover_tool_by_default(hv, scanpy_v2, mdata):
+    from bokeh.models import HoverTool
+
+    import muon as mu
+
+    plot = mu.pl.embedding(mdata, basis="mod1:umap", color="condition")
+    assert any(isinstance(t, HoverTool) for t in hv.render(plot, backend="bokeh").tools)
+
+
+def test_pl_v2_tools_can_be_overridden(hv, scanpy_v2, mdata):
+    from bokeh.models import HoverTool
+
+    import muon as mu
+
+    plot = mu.pl.embedding(mdata, basis="mod1:umap", color="condition", tools=["pan"])
+    assert not any(isinstance(t, HoverTool) for t in hv.render(plot, backend="bokeh").tools)
