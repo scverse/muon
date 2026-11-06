@@ -157,7 +157,7 @@ def v2_embedding(
 
     A = sc.pl.hv_init(None)
     if basis not in ad.obsm:
-        available = ", ".join(ad.obsm) or "none"
+        available = ", ".join(ad.obsm.keys()) or "none"
         msg = f"Basis {basis!r} is not present in .obsm (available: {available})."
         raise KeyError(msg)
     return _v2_options(sc.pl.scatter(ad, A.obsm[basis][:, [0, 1]], color=_v2_refs(ad, A, color)), kwargs)
