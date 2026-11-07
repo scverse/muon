@@ -69,8 +69,10 @@ dev = [
 ]
 test = [
   "anndata[lazy]",
+  "bokeh",                   # HoloViews backend used in the HoloViews tests
   "coverage>=7.10",
   "fast-array-utils>=1.2.3", # see https://github.com/scverse/muon/issues/174
+  "hv-anndata",
   "muon[atac,mofa]",
   "pytest",
 ]
@@ -163,6 +165,9 @@ follow_untyped_imports = true
 # Dependencies that ship no type information (absent or `Incomplete` annotations).
 [[tool.mypy.overrides]]
 module = [
+  "bokeh.*",
+  "holoviews.*",
+  "hv_anndata.*",
   "leidenalg.*",
   "louvain.*",
   "mofapy2.*",
