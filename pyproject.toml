@@ -53,11 +53,6 @@ optional-dependencies.atac = [
   "pysam",
   "snaptools",
 ]
-optional-dependencies.holoviews = [
-  "bokeh",
-  "holoviews",
-  "hv-anndata",
-]
 optional-dependencies.mofa = [
   "mofapy2",
 ]
@@ -74,9 +69,11 @@ dev = [
 ]
 test = [
   "anndata[lazy]",
+  "bokeh",                   # HoloViews backend used in the HoloViews tests
   "coverage>=7.10",
-  "fast-array-utils>=1.2.3",   # see https://github.com/scverse/muon/issues/174
-  "muon[atac,holoviews,mofa]",
+  "fast-array-utils>=1.2.3", # see https://github.com/scverse/muon/issues/174
+  "hv-anndata",
+  "muon[atac,mofa]",
   "pytest",
 ]
 doc = [
