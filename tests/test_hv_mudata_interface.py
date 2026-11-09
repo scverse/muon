@@ -254,3 +254,19 @@ def test_pl_v2_tools_can_be_overridden(hv, scanpy_v2, mdata):
 
     plot = mu.pl.embedding(mdata, basis="mod1:umap", color="condition", tools=["pan"])
     assert not any(isinstance(t, HoverTool) for t in hv.render(plot, backend="bokeh").tools)
+
+
+def test_pl_registers_the_interface_when_called(hv, scanpy_v2, mdata, monkeypatch):
+    from muon import pl
+
+    calls = []
+    original = pl.register_if_scanpy_v2
+
+    def spy():
+        calls.append(1)
+        return original()
+
+    monkeypatch.setattr(pl, "register_if_scanpy_v2", spy)
+    pl.umap(mdata, color="score")  # calls `embedding`
+    pl.scatter(mdata, x="mod1_g0", y="mod2_g0")
+    assert len(calls) == 2
