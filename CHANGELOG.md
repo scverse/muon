@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning][].
 - HoloViews can now create plots directly from a `MuData`. If scanpy's preset is `ScanpyV2Preview` when `muon` is
   imported, Muon registers a HoloViews interface for `MuData` (a small subclass of `hv_anndata.AnnDataInterface`),
   so that scanpy's HoloViews plotting functions such as `sc.pl.scatter` and `sc.pl.umap` accept a `MuData`.
-  Set `sc.settings.preset` before importing `muon`. Requires `hv-anndata` and `mudata>=0.4`.
+  Set `sc.settings.preset` before importing `muon`. Requires `hv-anndata` and `mudata>=0.3.10`.
 - With the `ScanpyV2Preview` preset, `pl.scatter`, `pl.embedding`, `pl.umap` and `pl.mofa` return HoloViews plots (a
   `hv.Layout` for several `color` keys) instead of calling scanpy's matplotlib functions, which no longer exist under
   that preset. The plots have a hover tool by default, and extra keyword arguments are HoloViews options. For `AnnData` input only `.obs` columns can be
