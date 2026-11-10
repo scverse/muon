@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import suppress
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -12,6 +15,9 @@ from mudata import MuData
 
 from ._hv import _scanpy_preset_is_v2, register_if_scanpy_v2, reject_v2_options, v2_embedding, v2_scatter
 from .utils import _get_values
+
+if TYPE_CHECKING:
+    import holoviews as hv
 
 #
 # Scatter
@@ -31,7 +37,7 @@ def scatter(
     | None = None,
     gene_symbols: str | Mapping[str, str | None] | None = None,
     **kwargs,
-) -> Axes | list[Axes] | None:
+) -> Axes | list[Axes] | hv.Scatter | hv.Layout | None:
     """Scatter plot along observations or variables axes.
 
     Variables in each modality can be referenced, e.g. ``"rna:X_pca"``.
@@ -118,7 +124,7 @@ def embedding(
     layer: str | Mapping[str, str | None] | None = None,
     gene_symbols: str | Mapping[str, str | None] | None = None,
     **kwargs,
-) -> Axes | list[Axes] | None:
+) -> Axes | list[Axes] | hv.Scatter | hv.Layout | None:
     """Scatter plot for .obs.
 
     Produce a scatter plot in the define basis, which can also be a basis inside any modality, e.g. ``"rna:X_pca"``.
@@ -256,7 +262,7 @@ def embedding(
     return retval
 
 
-def mofa(mdata: MuData, **kwargs) -> Axes | list[Axes] | None:
+def mofa(mdata: MuData, **kwargs) -> Axes | list[Axes] | hv.Scatter | hv.Layout | None:
     """Scatter plot in MOFA factors coordinates.
 
     See :func:`muon.pl.embedding` for details.
@@ -264,7 +270,7 @@ def mofa(mdata: MuData, **kwargs) -> Axes | list[Axes] | None:
     return embedding(mdata, basis="mofa", **kwargs)
 
 
-def umap(mdata: MuData, **kwargs) -> Axes | list[Axes] | None:
+def umap(mdata: MuData, **kwargs) -> Axes | list[Axes] | hv.Scatter | hv.Layout | None:
     """UMAP Scatter plot.
 
     See :func:`muon.pl.embedding` for details.

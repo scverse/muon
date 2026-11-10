@@ -84,5 +84,9 @@ nitpick_ignore = [
     # you can add an exception to this list.
     #     ("py:class", "igraph.Graph"),
     # Placeholder muon defines when louvain-igraph is unavailable, so it has no documentation to link to.
-    ("py:class", "louvain.VertexPartition.LouvainMutableVertexPartition")
+    ("py:class", "louvain.VertexPartition.LouvainMutableVertexPartition"),
+    # HoloViews is not installed in the docs environment, so the return types of the plotting functions
+    # (HoloViews plots under scanpy's ScanpyV2Preview preset) have no documentation to link to.
+    ("py:class", "holoviews.Scatter"),
+    ("py:class", "holoviews.Layout"),
 ]
