@@ -159,6 +159,7 @@ warn_redundant_casts = true
 [[tool.mypy.overrides]]
 module = [
   "h5py.*",
+  "hv_anndata.*",
   "sklearn.*",
 ]
 follow_untyped_imports = true
@@ -167,7 +168,6 @@ follow_untyped_imports = true
 [[tool.mypy.overrides]]
 module = [
   "holoviews.*",
-  "hv_anndata.*",
   "leidenalg.*",
   "louvain.*",
   "mofapy2.*",
