@@ -33,29 +33,6 @@ def _scanpy_preset_is_v2() -> bool:
     return v2 is not None and getattr(sc.settings, "preset", None) is v2
 
 
-def register_hv_anndata() -> None:
-    """Register the HoloViews interface of ``hv-anndata``, which reads MuData too (does nothing if already done)."""
-    global _registered
-    if _registered:
-        return
-
-    import hv_anndata
-
-    hv_anndata.register()
-    _registered = True
-
-
-def register_if_scanpy_v2() -> bool:
-    """Register the interface if scanpy's preset is ``ScanpyV2Preview``; return whether it is registered."""
-    if not _scanpy_preset_is_v2():
-        return False
-    try:
-        register_hv_anndata()
-    except ImportError as e:
-        msg = f"scanpy's preset is ScanpyV2Preview, but HoloViews support for MuData could not be enabled: {e}"
-        warnings.warn(msg, stacklevel=2)
-        return False
-    return True
 
 
 def _v2_refs(ad: AnnData, A: AdAcc, keys: str | Sequence[str] | None) -> AdRef | list[AdRef] | None:
