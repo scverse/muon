@@ -1,13 +1,8 @@
 """Let HoloViews read a :class:`~mudata.MuData`.
 
-``hv-anndata`` registers an interface that lets HoloViews elements be created from an
-:class:`~anndata.AnnData`. A :class:`~mudata.MuData` is not an ``AnnData``, so without an interface
-HoloViews falls back to treating it as a dictionary and never finishes.
-
-:class:`~muon._hv_interface.MuDataInterface` is a subclass of ``hv_anndata.AnnDataInterface`` that only changes what is specific
-to ``AnnData``: the ``types`` and ``datatype`` attributes, and the two ``isinstance`` checks. Everything else
-(reading values, selecting, grouping) is inherited, because ``MuData`` understands the same ``anndata.acc``
-references (``mdata[A.obs["x"]]``).
+Since ``hv-anndata`` 0.1.3, the HoloViews interface that ``hv-anndata`` registers accepts a
+:class:`~mudata.MuData` as well as an :class:`~anndata.AnnData` (``MuData`` understands the same ``anndata.acc``
+references, e.g. ``mdata[A.obs["x"]]``).
 
 The interface is registered when scanpy's preset is ``ScanpyV2Preview``, which is the preset in which scanpy's
 plotting functions return HoloViews elements. ``holoviews`` and ``hv-anndata`` are imported lazily, so nothing
@@ -38,19 +33,15 @@ def _scanpy_preset_is_v2() -> bool:
     return v2 is not None and getattr(sc.settings, "preset", None) is v2
 
 
-def register_mudata_interface() -> None:
-    """Register the HoloViews interface for :class:`~mudata.MuData` (does nothing if already registered)."""
+def register_hv_anndata() -> None:
+    """Register the HoloViews interface of ``hv-anndata``, which reads MuData too (does nothing if already done)."""
     global _registered
     if _registered:
         return
 
-    import holoviews as hv
+    import hv_anndata
 
-    from ._hv_interface import MuDataInterface
-
-    if MuDataInterface.datatype not in hv.core.data.datatypes:
-        hv.core.data.datatypes.append(MuDataInterface.datatype)
-    hv.core.Interface.register(MuDataInterface)
+    hv_anndata.register()
     _registered = True
 
 
@@ -59,7 +50,7 @@ def register_if_scanpy_v2() -> bool:
     if not _scanpy_preset_is_v2():
         return False
     try:
-        register_mudata_interface()
+        register_hv_anndata()
     except ImportError as e:
         msg = f"scanpy's preset is ScanpyV2Preview, but HoloViews support for MuData could not be enabled: {e}"
         warnings.warn(msg, stacklevel=2)

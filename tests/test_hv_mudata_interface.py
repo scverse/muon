@@ -36,13 +36,12 @@ def mdata() -> MuData:
 
 @pytest.fixture
 def hv() -> ModuleType:
-    """HoloViews, with the MuData interface registered."""
+    """HoloViews, with the hv-anndata interface registered."""
     hv = pytest.importorskip("holoviews")
     hv_anndata = pytest.importorskip("hv_anndata")
     hv_anndata.register()  # what `sc.pl.hv_init()` does for AnnData
     pytest.importorskip("bokeh")
     hv.extension("bokeh")
-    _hv.register_mudata_interface()
     return hv
 
 
@@ -82,7 +81,7 @@ def test_scanpy_without_presets(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_register_only_if_v2(monkeypatch: pytest.MonkeyPatch, is_v2: bool) -> None:
     calls: list[int] = []
     monkeypatch.setattr(_hv, "_scanpy_preset_is_v2", lambda: is_v2)
-    monkeypatch.setattr(_hv, "register_mudata_interface", lambda: calls.append(1))
+    monkeypatch.setattr(_hv, "register_hv_anndata", lambda: calls.append(1))
     assert _hv.register_if_scanpy_v2() is is_v2
     assert calls == ([1] if is_v2 else [])
 
@@ -92,19 +91,12 @@ def test_missing_holoviews_warns_instead_of_failing(monkeypatch: pytest.MonkeyPa
         raise ImportError("no holoviews")
 
     monkeypatch.setattr(_hv, "_scanpy_preset_is_v2", lambda: True)
-    monkeypatch.setattr(_hv, "register_mudata_interface", fail)
+    monkeypatch.setattr(_hv, "register_hv_anndata", fail)
     with pytest.warns(UserWarning, match="no holoviews"):
         assert _hv.register_if_scanpy_v2() is False
 
 
-# --- the interface itself ---------------------------------------------------------------------------
-
-
-def test_registration(hv: ModuleType) -> None:
-    assert "mudata" in hv.core.data.datatypes
-    assert "mudata" in hv.core.Interface.interfaces
-    _hv.register_mudata_interface()  # a second call does nothing
-    assert hv.core.data.datatypes.count("mudata") == 1
+# --- reading a MuData ---------------------------------------------------------------------------------
 
 
 def test_scatter(hv: ModuleType, mdata: MuData) -> None:
