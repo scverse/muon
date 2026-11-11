@@ -67,6 +67,7 @@ exclude_patterns = [
 ]
 
 intersphinx_mapping = intersphinx() | {
+    "holoviews": ("https://holoviews.org/", None),
     "leidenalg": ("https://leidenalg.readthedocs.io/en/stable/", None),
     "louvain": ("https://louvain-igraph.readthedocs.io/en/latest/", None),
 }
@@ -84,9 +85,5 @@ nitpick_ignore = [
     # you can add an exception to this list.
     #     ("py:class", "igraph.Graph"),
     # Placeholder muon defines when louvain-igraph is unavailable, so it has no documentation to link to.
-    ("py:class", "louvain.VertexPartition.LouvainMutableVertexPartition"),
-    # HoloViews is not installed in the docs environment, so the return types of the plotting functions
-    # (HoloViews plots under scanpy's ScanpyV2Preview preset) have no documentation to link to.
-    ("py:class", "holoviews.Scatter"),
-    ("py:class", "holoviews.Layout"),
+    ("py:class", "louvain.VertexPartition.LouvainMutableVertexPartition")
 ]

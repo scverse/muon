@@ -78,6 +78,7 @@ test = [
   "pytest",
 ]
 doc = [
+  "holoviews",
   "ipykernel",
   "ipython",
   "leidenalg",
