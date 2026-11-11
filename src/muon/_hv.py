@@ -1,17 +1,13 @@
-"""Let HoloViews read a :class:`~mudata.MuData`.
+"""Plotting under scanpy's ``ScanpyV2Preview`` preset, where scanpy's plotting functions return HoloViews elements.
 
-Since ``hv-anndata`` 0.1.3, the HoloViews interface that ``hv-anndata`` registers accepts a
-:class:`~mudata.MuData` as well as an :class:`~anndata.AnnData` (``MuData`` understands the same ``anndata.acc``
-references, e.g. ``mdata[A.obs["x"]]``).
-
-The interface is registered when scanpy's preset is ``ScanpyV2Preview``, which is the preset in which scanpy's
-plotting functions return HoloViews elements. ``holoviews`` and ``hv-anndata`` are imported lazily, so nothing
-here is imported unless that preset is active.
+Muon registers no HoloViews interface itself. ``sc.pl.hv_init`` registers the one from ``hv-anndata``, which reads a
+:class:`~mudata.MuData` as well as an :class:`~anndata.AnnData` since version 0.1.3 (``MuData`` understands the same
+``anndata.acc`` references, e.g. ``mdata[A.obs["x"]]``). ``scanpy`` and ``holoviews`` are imported lazily, so nothing
+here is imported unless the preset is active.
 """
 
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -21,8 +17,6 @@ if TYPE_CHECKING:
     from anndata import AnnData
     from anndata.acc import AdAcc, AdRef
 
-_registered = False
-
 
 def _scanpy_preset_is_v2() -> bool:
     """Whether the installed scanpy has presets and the active one is ``ScanpyV2Preview``."""
@@ -31,8 +25,6 @@ def _scanpy_preset_is_v2() -> bool:
     preset_enum = getattr(sc, "Preset", None)  # scanpy versions without presets have no `Preset`
     v2 = getattr(preset_enum, "ScanpyV2Preview", None)
     return v2 is not None and getattr(sc.settings, "preset", None) is v2
-
-
 
 
 def _v2_refs(ad: AnnData, A: AdAcc, keys: str | Sequence[str] | None) -> AdRef | list[AdRef] | None:

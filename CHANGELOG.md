@@ -12,15 +12,11 @@ and this project adheres to [Semantic Versioning][].
 
 ### Added
 
-- HoloViews can now create plots directly from a `MuData`. If scanpy's preset is `ScanpyV2Preview`, calling
-  `pl.scatter`, `pl.embedding`, `pl.umap` or `pl.mofa` registers the HoloViews interface of `hv-anndata`, which
-  reads a `MuData` natively, so that scanpy's HoloViews plotting functions such as `sc.pl.scatter` and `sc.pl.umap`
-  accept a `MuData`. The preset is read on every call, so changing it takes effect immediately.
-  Needs `hv-anndata>=0.1.3` and `mudata>=0.3.10`.
 - With the `ScanpyV2Preview` preset, `pl.scatter`, `pl.embedding`, `pl.umap` and `pl.mofa` return HoloViews plots (a
   `hv.Layout` for several `color` keys) instead of calling scanpy's matplotlib functions, which no longer exist under
   that preset. The plots have a hover tool by default, and extra keyword arguments are HoloViews options. For `AnnData`
-  input only `.obs` columns can be plotted; `use_raw`, `layer(s)` and `gene_symbols` are not supported there.
+  input only `.obs` columns can be plotted; `use_raw`, `layer(s)` and `gene_symbols` are not supported there. A `MuData`
+  can also be passed to scanpy's HoloViews plotting functions; this needs `hv-anndata>=0.1.3` and `mudata>=0.3.10`.
 
 ## [0.2.1]
 

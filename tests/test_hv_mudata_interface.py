@@ -2,7 +2,6 @@
 
 from collections.abc import Iterator
 from types import ModuleType, SimpleNamespace
-from typing import NoReturn
 
 import numpy as np
 import pandas as pd
@@ -59,7 +58,7 @@ def scanpy_v2() -> Iterator[None]:
     sc.settings.preset = old
 
 
-# --- when is the interface registered? ---------------------------------------------------------------
+# --- which preset is active? --------------------------------------------------------------------------
 
 
 def test_default_preset_is_not_v2() -> None:
@@ -75,25 +74,6 @@ def test_preset_is_v2(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_scanpy_without_presets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delattr(sc, "Preset", raising=False)
     assert not _hv._scanpy_preset_is_v2()
-
-
-@pytest.mark.parametrize("is_v2", [False, True])
-def test_register_only_if_v2(monkeypatch: pytest.MonkeyPatch, is_v2: bool) -> None:
-    calls: list[int] = []
-    monkeypatch.setattr(_hv, "_scanpy_preset_is_v2", lambda: is_v2)
-    monkeypatch.setattr(_hv, "register_hv_anndata", lambda: calls.append(1))
-    assert _hv.register_if_scanpy_v2() is is_v2
-    assert calls == ([1] if is_v2 else [])
-
-
-def test_missing_holoviews_warns_instead_of_failing(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fail() -> NoReturn:
-        raise ImportError("no holoviews")
-
-    monkeypatch.setattr(_hv, "_scanpy_preset_is_v2", lambda: True)
-    monkeypatch.setattr(_hv, "register_hv_anndata", fail)
-    with pytest.warns(UserWarning, match="no holoviews"):
-        assert _hv.register_if_scanpy_v2() is False
 
 
 # --- reading a MuData ---------------------------------------------------------------------------------
@@ -252,21 +232,3 @@ def test_pl_v2_tools_can_be_overridden(hv: ModuleType, scanpy_v2: None, mdata: M
 
     plot = mu.pl.embedding(mdata, basis="mod1:umap", color="condition", tools=["pan"])
     assert not any(isinstance(t, HoverTool) for t in hv.render(plot, backend="bokeh").tools)
-
-
-def test_pl_registers_the_interface_when_called(
-    hv: ModuleType, scanpy_v2: None, mdata: MuData, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from muon import pl
-
-    calls: list[int] = []
-    original = pl.register_if_scanpy_v2
-
-    def spy() -> bool:
-        calls.append(1)
-        return original()
-
-    monkeypatch.setattr(pl, "register_if_scanpy_v2", spy)
-    pl.umap(mdata, color="score")  # calls `embedding`
-    pl.scatter(mdata, x="mod1_g0", y="mod2_g0")
-    assert len(calls) == 2

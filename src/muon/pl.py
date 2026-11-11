@@ -13,7 +13,7 @@ from anndata import AnnData
 from matplotlib.axes import Axes
 from mudata import MuData
 
-from ._hv import _scanpy_preset_is_v2, register_if_scanpy_v2, reject_v2_options, v2_embedding, v2_scatter
+from ._hv import _scanpy_preset_is_v2, reject_v2_options, v2_embedding, v2_scatter
 from .utils import _get_values
 
 if TYPE_CHECKING:
@@ -59,7 +59,6 @@ def scatter(
             entry for each modality.
         **kwargs: Additional keyword arguments passed to :func:`scanpy.pl.scatter`.
     """
-    register_if_scanpy_v2()
     if isinstance(data, AnnData):
         localvars = locals()
         for arg in ("use_raw", "layers", "gene_symbols"):
@@ -147,7 +146,6 @@ def embedding(
             for each modality.
         **kwargs: Additional keyword arguments passed to :func:`scanpy.pl.embedding`.
     """
-    register_if_scanpy_v2()
     if isinstance(data, AnnData):
         localvars = locals()
         for arg in ("use_raw", "layer", "gene_symbols"):
