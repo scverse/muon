@@ -41,7 +41,7 @@ MuData object can be constructed from a dictionary of existing AnnData objects:
 mdata = mu.MuData({'rna': adata_rna, 'atac': adata_atac})
 ```
 
-AnnData objects themselves can be easily constructed from NumPy arrays and/or Pandas DataFrames annotating features (_variables_) and samples/cells (_observations_).
+AnnData objects themselves can be easily constructed from NumPy arrays and/or Pandas DataFrames annotating features (*variables*) and samples/cells (*observations*).
 This makes it a rather general data format to work with any type of high-dimensional data.
 
 ```python
