@@ -69,12 +69,16 @@ dev = [
 ]
 test = [
   "anndata[lazy]",
+  "bokeh",                   # HoloViews backend used in the HoloViews tests
   "coverage>=7.10",
   "fast-array-utils>=1.2.3", # see https://github.com/scverse/muon/issues/174
+  "hv-anndata>=0.1.3",
+  "mudata>=0.3.10",          # understands the accessors of anndata.acc
   "muon[atac,mofa]",
   "pytest",
 ]
 doc = [
+  "holoviews",
   "ipykernel",
   "ipython",
   "leidenalg",
@@ -156,6 +160,7 @@ warn_redundant_casts = true
 [[tool.mypy.overrides]]
 module = [
   "h5py.*",
+  "hv_anndata.*",
   "sklearn.*",
 ]
 follow_untyped_imports = true
@@ -163,6 +168,7 @@ follow_untyped_imports = true
 # Dependencies that ship no type information (absent or `Incomplete` annotations).
 [[tool.mypy.overrides]]
 module = [
+  "holoviews.*",
   "leidenalg.*",
   "louvain.*",
   "mofapy2.*",

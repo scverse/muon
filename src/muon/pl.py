@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import suppress
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -10,7 +13,11 @@ from anndata import AnnData
 from matplotlib.axes import Axes
 from mudata import MuData
 
+from ._hv import _scanpy_preset_is_v2, reject_v2_options, v2_embedding, v2_scatter
 from .utils import _get_values
+
+if TYPE_CHECKING:
+    import holoviews as hv
 
 #
 # Scatter
@@ -30,7 +37,7 @@ def scatter(
     | None = None,
     gene_symbols: str | Mapping[str, str | None] | None = None,
     **kwargs,
-) -> Axes | list[Axes] | None:
+) -> Axes | list[Axes] | hv.Scatter | hv.Layout | None:
     """Scatter plot along observations or variables axes.
 
     Variables in each modality can be referenced, e.g. ``"rna:X_pca"``.
@@ -57,6 +64,9 @@ def scatter(
         for arg in ("use_raw", "layers", "gene_symbols"):
             if isinstance(localvars[arg], Mapping):
                 raise ValueError(f"`{arg}` can only be a dictionary if `data` is a `MuData` object.")
+        if _scanpy_preset_is_v2():
+            reject_v2_options(use_raw=use_raw, layers=layers, gene_symbols=gene_symbols)
+            return v2_scatter(data, x, y, color, **kwargs)
         return sc.pl.scatter(data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs)
 
     if isinstance(layers, str | Mapping) or layers is None:
@@ -89,6 +99,8 @@ def scatter(
     # Note that use_raw and layers are not provided to the plotting function
     # as the corresponding values were fetched from individual modalities
     # and are now stored in .obs
+    if _scanpy_preset_is_v2():
+        return v2_scatter(ad, x, y, color, **kwargs)
     retval = sc.pl.scatter(ad, x=x, y=y, color=color, **kwargs)
     if color is not None:
         try:
@@ -111,7 +123,7 @@ def embedding(
     layer: str | Mapping[str, str | None] | None = None,
     gene_symbols: str | Mapping[str, str | None] | None = None,
     **kwargs,
-) -> Axes | list[Axes] | None:
+) -> Axes | list[Axes] | hv.Scatter | hv.Layout | None:
     """Scatter plot for .obs.
 
     Produce a scatter plot in the define basis, which can also be a basis inside any modality, e.g. ``"rna:X_pca"``.
@@ -139,6 +151,9 @@ def embedding(
         for arg in ("use_raw", "layer", "gene_symbols"):
             if isinstance(localvars[arg], Mapping):
                 raise ValueError(f"`{arg}` can only be a dictionary if `data` is a `MuData` object.")
+        if _scanpy_preset_is_v2():
+            reject_v2_options(use_raw=use_raw, layer=layer, gene_symbols=gene_symbols)
+            return v2_embedding(data, basis, color, **kwargs)
         return sc.pl.embedding(
             data, basis=basis, color=color, use_raw=use_raw, layer=layer, gene_symbols=gene_symbols, **kwargs
         )
@@ -187,6 +202,8 @@ def embedding(
 
     if color is None:
         ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp)
+        if _scanpy_preset_is_v2():
+            return v2_embedding(ad, basis_mod, **kwargs)
         return sc.pl.embedding(ad, basis=basis_mod, **kwargs)
 
     # Some `color` has been provided
@@ -234,6 +251,8 @@ def embedding(
         color = [mod_key_modifier[k] for k in keys]
 
     ad = AnnData(obs=obs, obsm=adata.obsm, obsp=adata.obsp, uns=adata.uns)
+    if _scanpy_preset_is_v2():
+        return v2_embedding(ad, basis_mod, color, **kwargs)
     retval = sc.pl.embedding(ad, basis=basis_mod, color=color, **kwargs)
     for key, col in zip(keys, color, strict=True):
         with suppress(KeyError):
@@ -241,7 +260,7 @@ def embedding(
     return retval
 
 
-def mofa(mdata: MuData, **kwargs) -> Axes | list[Axes] | None:
+def mofa(mdata: MuData, **kwargs) -> Axes | list[Axes] | hv.Scatter | hv.Layout | None:
     """Scatter plot in MOFA factors coordinates.
 
     See :func:`muon.pl.embedding` for details.
@@ -249,7 +268,7 @@ def mofa(mdata: MuData, **kwargs) -> Axes | list[Axes] | None:
     return embedding(mdata, basis="mofa", **kwargs)
 
 
-def umap(mdata: MuData, **kwargs) -> Axes | list[Axes] | None:
+def umap(mdata: MuData, **kwargs) -> Axes | list[Axes] | hv.Scatter | hv.Layout | None:
     """UMAP Scatter plot.
 
     See :func:`muon.pl.embedding` for details.
