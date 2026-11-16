@@ -25,8 +25,8 @@ def read_10x_h5(filename: str | Path, extended: bool = True, *args, **kwargs) ->
         filename: Path to 10X HDF5 file (.h5)
         extended: Perform extended functionality automatically such as
             locating peak annotation and fragments files.
-        *args: Positional arguments to be passed to :func:`scanpy.read_10x_h5`.
-        **kwargs: Keyword arguments to be passed to :func:`scanpy.read_10x_h5`.
+        *args: Positional arguments to be passed to :func:`scanpy.io.read_10x_h5`.
+        **kwargs: Keyword arguments to be passed to :func:`scanpy.io.read_10x_h5`.
     """
     adata = sc.read_10x_h5(filename, *args, gex_only=False, **kwargs)
 
@@ -75,8 +75,8 @@ def read_10x_mtx(path: str | Path, extended: bool = True, *args, **kwargs) -> Mu
             or to the matrix file inside it
         extended: Perform extended functionality automatically such as
             locating peak annotation and fragments files.
-        *args: Positional arguments to be passed to :func:`scanpy.read_10x_mtx`.
-        **kwargs: Keyword arguments to be passed to :func:`scanpy.read_10x_mtx`.
+        *args: Positional arguments to be passed to :func:`scanpy.io.read_10x_mtx`.
+        **kwargs: Keyword arguments to be passed to :func:`scanpy.io.read_10x_mtx`.
     """
     adata = sc.read_10x_mtx(path, *args, gex_only=False, **kwargs)
 
