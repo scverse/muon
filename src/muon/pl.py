@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import suppress
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
@@ -65,8 +65,16 @@ def scatter(
             if isinstance(localvars[arg], Mapping):
                 raise ValueError(f"`{arg}` can only be a dictionary if `data` is a `MuData` object.")
         if _scanpy_preset_is_v2():
-            reject_v2_options(use_raw=use_raw, layers=layers, gene_symbols=gene_symbols)
-            return v2_scatter(data, x, y, color, **kwargs)
+            reject_v2_options(use_raw=use_raw)
+            return v2_scatter(
+                data,
+                x,
+                y,
+                color,
+                layers=cast("str | tuple[str, str, str] | None", layers),
+                gene_symbols=cast("str | None", gene_symbols),
+                **kwargs,
+            )
         return sc.pl.scatter(data, x=x, y=y, color=color, use_raw=use_raw, layers=layers, **kwargs)
 
     if isinstance(layers, str | Mapping) or layers is None:
@@ -152,8 +160,15 @@ def embedding(
             if isinstance(localvars[arg], Mapping):
                 raise ValueError(f"`{arg}` can only be a dictionary if `data` is a `MuData` object.")
         if _scanpy_preset_is_v2():
-            reject_v2_options(use_raw=use_raw, layer=layer, gene_symbols=gene_symbols)
-            return v2_embedding(data, basis, color, **kwargs)
+            reject_v2_options(use_raw=use_raw)
+            return v2_embedding(
+                data,
+                basis,
+                color,
+                layer=cast("str | None", layer),
+                gene_symbols=cast("str | None", gene_symbols),
+                **kwargs,
+            )
         return sc.pl.embedding(
             data, basis=basis, color=color, use_raw=use_raw, layer=layer, gene_symbols=gene_symbols, **kwargs
         )

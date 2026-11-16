@@ -206,14 +206,82 @@ def test_pl_v2_options_are_holoviews_options(hv: ModuleType, scanpy_v2: None, md
     assert hv.Store.lookup_options("bokeh", plot, "style").kwargs["size"] == 7
 
 
-def test_pl_v2_anndata_rejects_features_and_raw(hv: ModuleType, scanpy_v2: None, mdata: MuData) -> None:
+@pytest.fixture
+def adata(mdata: MuData) -> AnnData:
+    """A plain AnnData with a categorical .obs column, a layer and a .var column of gene symbols."""
+    ad = mdata.mod["mod1"].copy()
+    ad.obs["condition"] = pd.Categorical(mdata.obs["condition"].to_numpy())
+    ad.layers["counts"] = np.asarray(ad.X) * 10
+    ad.var["symbol"] = [f"SYM{j}" for j in range(ad.n_vars)]
+    return ad
+
+
+def _column(ad: AnnData, j: int, layer: str | None = None) -> np.ndarray:
+    """Variable ``j`` of ``.X``, or of a layer, as a plain array."""
+    return np.asarray(ad.X if layer is None else ad.layers[layer])[:, j]
+
+
+def test_pl_scatter_v2_anndata_variables(hv: ModuleType, scanpy_v2: None, adata: AnnData) -> None:
     import muon as mu
 
-    mod = mdata.mod["mod1"]
-    with pytest.raises(NotImplementedError, match="only be coloured by .obs"):
-        mu.pl.embedding(mod, basis="umap", color="mod1_g0")
+    plot = mu.pl.scatter(adata, x="mod1_g0", y="mod1_g1", color="condition")
+    assert isinstance(plot, hv.Scatter)
+    np.testing.assert_allclose(plot.dimension_values(0), _column(adata, 0))
+    np.testing.assert_allclose(plot.dimension_values(1), _column(adata, 1))
+    assert list(plot.dimension_values(2)) == list(adata.obs["condition"])
+
+
+def test_pl_scatter_v2_anndata_layers(hv: ModuleType, scanpy_v2: None, adata: AnnData) -> None:
+    import muon as mu
+
+    plot = mu.pl.scatter(adata, x="mod1_g0", y="mod1_g1", color="mod1_g2", layers="counts")
+    assert isinstance(plot, hv.Scatter)
+    for dim, j in enumerate((0, 1, 2)):
+        np.testing.assert_allclose(plot.dimension_values(dim), _column(adata, j, "counts"))
+
+
+def test_pl_scatter_v2_anndata_gene_symbols(hv: ModuleType, scanpy_v2: None, adata: AnnData) -> None:
+    import muon as mu
+
+    plot = mu.pl.scatter(adata, x="SYM0", y="SYM1", gene_symbols="symbol")
+    assert isinstance(plot, hv.Scatter)
+    np.testing.assert_allclose(plot.dimension_values(0), _column(adata, 0))
+    np.testing.assert_allclose(plot.dimension_values(1), _column(adata, 1))
+
+
+def test_pl_embedding_v2_anndata_variable_colour(hv: ModuleType, scanpy_v2: None, adata: AnnData) -> None:
+    import muon as mu
+
+    plot = mu.pl.embedding(adata, basis="umap", color="mod1_g0")
+    assert isinstance(plot, hv.Scatter)
+    np.testing.assert_allclose(plot.dimension_values(2), _column(adata, 0))
+    plot = mu.pl.embedding(adata, basis="umap", color="SYM0", layer="counts", gene_symbols="symbol")
+    assert isinstance(plot, hv.Scatter)
+    np.testing.assert_allclose(plot.dimension_values(2), _column(adata, 0, "counts"))
+
+
+def test_pl_v2_anndata_ambiguous_name(hv: ModuleType, scanpy_v2: None, adata: AnnData) -> None:
+    import muon as mu
+
+    adata.obs["mod1_g0"] = 1.0
+    with pytest.raises(ValueError, match="both an .obs column and a variable"):
+        mu.pl.scatter(adata, x="mod1_g0", y="mod1_g1")
+
+
+def test_pl_v2_anndata_unknown_name_and_layer(hv: ModuleType, scanpy_v2: None, adata: AnnData) -> None:
+    import muon as mu
+
+    with pytest.raises(KeyError, match="neither an .obs column"):
+        mu.pl.embedding(adata, basis="umap", color="not_a_name")
+    with pytest.raises(KeyError, match="Layer 'nope'"):
+        mu.pl.embedding(adata, basis="umap", color="mod1_g0", layer="nope")
+
+
+def test_pl_v2_anndata_rejects_use_raw(hv: ModuleType, scanpy_v2: None, adata: AnnData) -> None:
+    import muon as mu
+
     with pytest.raises(NotImplementedError, match="use_raw"):
-        mu.pl.embedding(mod, basis="umap", use_raw=True)
+        mu.pl.embedding(adata, basis="umap", use_raw=True)
 
 
 def test_pl_v2_has_a_hover_tool_by_default(hv: ModuleType, scanpy_v2: None, mdata: MuData) -> None:
