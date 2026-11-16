@@ -67,6 +67,7 @@ exclude_patterns = [
 ]
 
 intersphinx_mapping = intersphinx() | {
+    "holoviews": ("https://holoviews.org/", None),
     "leidenalg": ("https://leidenalg.readthedocs.io/en/stable/", None),
     "louvain": ("https://louvain-igraph.readthedocs.io/en/latest/", None),
 }

@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning][].
 [keep a changelog]: https://keepachangelog.com/
 [semantic versioning]: https://semver.org/
 
+## [Unreleased]
+
+### Added
+
+- With the `ScanpyV2Preview` preset, `pl.scatter`, `pl.embedding`, `pl.umap` and `pl.mofa` return HoloViews plots (a
+  `hv.Layout` for several `color` keys) instead of calling scanpy's matplotlib functions, which no longer exist under
+  that preset. The plots have a hover tool by default, and extra keyword arguments are HoloViews options. For `AnnData`
+  input, `x`, `y` and `color` can be `.obs` columns or variable names (read from `.X` or from `layer(s)`, and looked up
+  in `gene_symbols`); a name that is both raises an error, and `use_raw` is not supported. A `MuData` can also be passed
+  to scanpy's HoloViews plotting functions; this needs `hv-anndata>=0.1.3` and `mudata>=0.3.10`.
+
 ## [0.2.1]
 
 ### Fixed
