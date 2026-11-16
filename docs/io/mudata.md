@@ -9,7 +9,7 @@ from muon import MuData
 `MuData` objects comprise a dictionary with `AnnData` objects, one per modality, in their `.mod` attribute.
 Just as `AnnData` objects themselves, they also contain attributes like `.obs` with annotation of observations (samples or cells), `.obsm` with their multidimensional annotations such as embeddings, etc.
 
-## Container's attributes
+## Container’s attributes
 
 Key attributes & method of `MuData` objects as well as important concepts are described below.
 A full list of attributes and methods of multimodal containers can be found in the {class}`~mudata.MuData` documentation.
@@ -61,9 +61,9 @@ mdata.obsm
 As another multidimensional embedding, this slot contains boolean vectors, one per modality, indicating if samples (cells) are available in the respective modality.
 For instance, if all samples (cells) are the same across modalities, all values in those vectors are `True`.
 
-## Container's shape
+## Container’s shape
 
-The `MuData` object's shape is represented by two numbers calculated as a sum of the shapes of individual modalities — one for the number of observations and one for the number of variables.
+The `MuData` object’s shape is represented by two numbers calculated as a sum of the shapes of individual modalities — one for the number of observations and one for the number of variables.
 
 ```python
 mdata.shape
@@ -109,7 +109,7 @@ mdata_b.file.filename
 # => 'filename_copy.h5mu'
 ```
 
-## Container's views
+## Container’s views
 
 Analogous to the behaviour of `AnnData` objects, slicing `MuData` objects returns views of the original data.
 

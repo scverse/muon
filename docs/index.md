@@ -1,7 +1,6 @@
 # muon
 
 ```{include} ../README.md
-
 ```
 
 ```{toctree}

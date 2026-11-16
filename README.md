@@ -98,7 +98,7 @@ sc.pl.umap(rna)
 
 ### Modules in `muon`
 
-`muon` comes with a set of modules that can be used hand in hand with scanpy's API. These modules are named after respective sequencing protocols and comprise special functions that might come in handy. It is also handy to import them as two letter abbreviations:
+`muon` comes with a set of modules that can be used hand in hand with scanpy’s API. These modules are named after respective sequencing protocols and comprise special functions that might come in handy. It is also handy to import them as two letter abbreviations:
 
 ```py
 # ATAC module:
@@ -108,7 +108,7 @@ from muon import atac as ac
 from muon import prot as pt
 ```
 
----
+--------------------------------------------------------------------------------
 
 Some implementation details are noted in [DESIGN.md](https://github.com/scverse/muon/blob/main/DESIGN.md).
 
@@ -122,7 +122,7 @@ If you use `muon` in your work, please cite the `muon` publication as follows:
 >
 > Danila Bredikhin, Ilia Kats, Oliver Stegle
 >
-> _Genome Biology_ 2022 Feb 01. doi: [10.1186/s13059-021-02577-8](https://doi.org/10.1186/s13059-021-02577-8).
+> *Genome Biology* 2022 Feb 01. doi: [10.1186/s13059-021-02577-8](https://doi.org/10.1186/s13059-021-02577-8).
 
 You can cite the scverse publication as follows:
 
@@ -130,8 +130,7 @@ You can cite the scverse publication as follows:
 >
 > Isaac Virshup, Danila Bredikhin, Lukas Heumos, Giovanni Palla, Gregor Sturm, Adam Gayoso, Ilia Kats, Mikaela Koutrouli, Scverse Community, Bonnie Berger, Dana Pe’er, Aviv Regev, Sarah A. Teichmann, Francesca Finotello, F. Alexander Wolf, Nir Yosef, Oliver Stegle & Fabian J. Theis
 >
-> _Nat Biotechnol._ 2023 Apr 10. doi: [10.1038/s41587-023-01733-8](https://doi.org/10.1038/s41587-023-01733-8).
-
+> *Nat Biotechnol.* 2023 Apr 10. doi: [10.1038/s41587-023-01733-8](https://doi.org/10.1038/s41587-023-01733-8).
 
 [//]: # "numfocus-fiscal-sponsor-attribution"
 
@@ -143,7 +142,7 @@ If you like scverse® and want to support our mission, please consider making a 
   <img
     src="https://raw.githubusercontent.com/numfocus/templates/master/images/numfocus-logo.png"
     width="200"
-  >
+>
 </a>
 </div>
 

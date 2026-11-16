@@ -7,7 +7,7 @@ from muon import prot as pt
 ```
 
 CITE-seq is a method for cellular indexing of transcriptomes and epitopes by sequencing.
-It's single-cell data comprising transcriptome-wide measurements for each cell (gene expression) as well as surface protein level information, typically for a few dozens of proteins.
+It’s single-cell data comprising transcriptome-wide measurements for each cell (gene expression) as well as surface protein level information, typically for a few dozens of proteins.
 The method is described in [Stoeckius et al., 2017](https://www.nature.com/articles/nmeth.4380) and also [on the cite-seq.com website](https://cite-seq.com/).
 
 ## Normalisation
@@ -15,7 +15,7 @@ The method is described in [Stoeckius et al., 2017](https://www.nature.com/artic
 ### dsb
 
 Various methods can be used to normalise protein counts in CITE-seq data.
-`muon` brings one of the methods developed specifically for CITE-seq — _denoised and scaled by background_ — to Python CITE-seq workflows.
+`muon` brings one of the methods developed specifically for CITE-seq — *denoised and scaled by background* — to Python CITE-seq workflows.
 This method uses background droplets defined by low RNA content in order to estimate background protein signal and remove it from the data.
 The method is described in [Korliarov, Sparks et al., 2020](https://www.nature.com/articles/s41591-020-0769-8) and its original implementation [is available on GitHub](https://github.com/niaid/dsb).
 

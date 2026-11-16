@@ -21,12 +21,12 @@ For example, the number of factors to learn can be adjusted with `n_factors`, an
 ### Feature selection
 
 By default, only highly variable features are used with `use_var='highly_variable'`.
-If there's no column `.var['highly_variable']`, all features are used.
-Any other feature selection can be provided with `use_var` as long as it's defined for all the assays as a boolean value.
+If there’s no column `.var['highly_variable']`, all features are used.
+Any other feature selection can be provided with `use_var` as long as it’s defined for all the assays as a boolean value.
 
 ### Grouping observations
 
-If the variability inside groups of observations (samples or cells) is of interest, and _not_ between them, `groups_label` can be provided to account for that during the training.
+If the variability inside groups of observations (samples or cells) is of interest, and *not* between them, `groups_label` can be provided to account for that during the training.
 For instance, the variability between batches can be accounted for in the MOFA framework.
 See more details about the multi-group fuctionality [in the MOFA+ FAQ](https://biofam.github.io/MOFA2/faq.html#faq-on-the-multi-group-functionality).
 

@@ -15,10 +15,10 @@ are provided by {doc}`mudata <mudata:index>` and re-exported here; see its docum
 .. currentmodule:: muon
 
 .. autosummary::
-    :toctree: generated
+   :toctree: generated
 
-    read_10x_h5
-    read_10x_mtx
+   read_10x_h5
+   read_10x_mtx
 ```
 
 ## Preprocessing
@@ -27,10 +27,10 @@ are provided by {doc}`mudata <mudata:index>` and re-exported here; see its docum
 .. currentmodule:: muon
 
 .. autosummary::
-    :toctree: generated
-    :recursive:
+   :toctree: generated
+   :recursive:
 
-    pp
+   pp
 ```
 
 ## Tools
@@ -39,10 +39,10 @@ are provided by {doc}`mudata <mudata:index>` and re-exported here; see its docum
 .. currentmodule:: muon
 
 .. autosummary::
-    :toctree: generated
-    :recursive:
+   :toctree: generated
+   :recursive:
 
-    tl
+   tl
 ```
 
 ## Plotting
@@ -51,30 +51,30 @@ are provided by {doc}`mudata <mudata:index>` and re-exported here; see its docum
 .. currentmodule:: muon
 
 .. autosummary::
-    :toctree: generated
-    :recursive:
+   :toctree: generated
+   :recursive:
 
-    pl
+   pl
 ```
 
 ## ATAC
 
 ```{eval-rst}
 .. autosummary::
-    :toctree: generated
-    :recursive:
+   :toctree: generated
+   :recursive:
 
-    atac.pp
-    atac.tl
-    atac.pl
+   atac.pp
+   atac.tl
+   atac.pl
 ```
 
 ## Protein (CITE-seq)
 
 ```{eval-rst}
 .. autosummary::
-    :toctree: generated
-    :recursive:
+   :toctree: generated
+   :recursive:
 
-    prot.pp
+   prot.pp
 ```
