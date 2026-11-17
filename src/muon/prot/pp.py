@@ -250,16 +250,19 @@ def clr(
             else:
                 nnz = np.diff(x.indptr)  # https://github.com/scipy/scipy/issues/19405
 
-            x.data /= np.repeat(np.exp(logmean), nnz)
+            if x.dtype.kind == "f":
+                x.data /= np.repeat(np.exp(logmean), nnz)
+            else:
+                x.data = x.data / np.repeat(np.exp(logmean), nnz)
             np.log1p(x.data, out=x.data)
         else:
-            np.log1p(x / np.exp(np.log1p(x).mean(axis=axis, keepdims=True)), out=x)
+            x = np.log1p(x / np.exp(np.log1p(x).mean(axis=axis, keepdims=True)), out=x if x.dtype.kind == "f" else None)
     elif flavor in ("stoeckius", "standard"):
         if isinstance(x, sparray | spmatrix):
             x = x.toarray()
         if flavor == "stoeckius":
             x += 1
-        np.log(x / gmean(x, axis=axis, keepdims=True), out=x)
+        x = np.log(x / gmean(x, axis=axis, keepdims=True), out=x if x.dtype.kind == "f" else None)
     else:
         raise ValueError(f"Unknown flavor `{flavor}`.")
 

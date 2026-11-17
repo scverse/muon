@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning][].
 [keep a changelog]: https://keepachangelog.com/
 [semantic versioning]: https://semver.org/
 
-## [Unreleased]
+## [0.2.2] (Unreleased)
 
 ### Added
 
@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning][].
   input, `x`, `y` and `color` can be `.obs` columns or variable names (read from `.X` or from `layer(s)`, and looked up
   in `gene_symbols`); a name that is both raises an error, and `use_raw` is not supported. A `MuData` can also be passed
   to scanpy's HoloViews plotting functions; this needs `hv-anndata>=0.1.3` and `mudata>=0.3.10`.
+
+### Fixed
+
+- `prot.pp.clr` now also works if the input has an integer dtype.
 
 ## [0.2.1]
 
@@ -185,6 +189,7 @@ and this project adheres to [Semantic Versioning][].
 - Initial `muon` release with `MuData`, `atac` and `prot` submodules, and multi-omics integration with
   MOFA (`muon.tl.mofa`) and WNN (`muon.pp.neighbors`).
 
+[0.2.2]: https://github.com/scverse/muon/releases/tag/v0.2.2
 [0.2.1]: https://github.com/scverse/muon/releases/tag/v0.2.1
 [0.2.0]: https://github.com/scverse/muon/releases/tag/v0.2.0
 [0.1.9]: https://github.com/scverse/muon/releases/tag/v0.1.9
