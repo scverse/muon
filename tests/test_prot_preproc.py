@@ -52,7 +52,7 @@ def expected_clr(data, axis, flavor) -> np.ndarray:
 @pytest.mark.filterwarnings("ignore:adata.X is sparse but not:UserWarning")
 def test_clr(adata, expected_clr, axis, flavor):
     orig_value = adata.X.copy()
-    res = pt.pp.clr(adata, axis=axis, flavor=flavor, inplace=False)
+    res = pt.pp.clr(adata, axis=axis, flavor=flavor, inplace=False)  # noqa: F841
     assert_equal(orig_value, adata.X, exact=False)
     # TODO: enable when anndata 0.14 is released
     # anndata 0.13 has too strict tolerances
